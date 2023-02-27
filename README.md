@@ -2,7 +2,9 @@
 
 ## 安装数据库软件
 
-这里提供 sqlite3 和 MySQL 的安装指南。你也可以选择安装 PostgreSQL 等数据库发行版，并在作业中注明使用的方言
+这里提供 sqlite3、MariaDB 和 MySQL 的安装指南。受限于助教的时间和设备，指南不太完整，如有补充欢迎提交PR。
+
+你也可以选择安装 PostgreSQL 等数据库发行版，并在作业中注明使用的方言。
 
 ### sqlite3
 
@@ -23,18 +25,55 @@ sudo apt install sqlite3
 
 在[官网](https://www.sqlite.org/download.html)下载 `sqlite-tools-win` 软件包，然后添加到系统变量
 
+### MariaDB
+
+MariaDB 是 MySQL 被 Oracle收购后，由 MySQL 核心开发者 fork 出来的数据库，与 MySQL高度兼容。Linux 发行版的源中，`mysql`通常其实是指向`mariadb`的。因此 Linux 上建议直接安装 MariaDB。
+
+#### 安装
+
+##### ArchLinux
+
+```shell
+sudo pacman -S --needed mariadb
+sudo mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql
+sudo systemctl start mariadb
+```
+
+参考：<https://wiki.archlinux.org/title/MariaDB>
+
+##### Debian
+
+```shell
+sudo apt install mariadb-server
+sudo systemctl start mariadb
+```
+
+#### 安全加固
+
+```shell
+sudo mariadb-secure-installation
+```
+
+#### 连入
+
+安装完成之后只有 root 账户，虽然无密码，但是 MariaDB 监听的端口（3306）默认只接受本机的连接，而且拒绝本机上 root 以外的用户连接，所以安全风险其实不大，可以考虑直接用 root 账户完成本实验：
+
+```shell
+sudo mariadb
+```
+
+然后在里面创建一个数据库（比如`wing`）并使用：
+
+```sql
+CREATE DATABASE wing;
+use wing;
+```
+
 ### MySQL
 
 #### 安装
 
-##### Linux
-
-使用包管理器安装，例如
-
-```shell
-sudo apt install mysql-server
-sudo systemctl start mysql
-```
+Linux 建议安装 MariaDB。
 
 ##### MacOS
 
