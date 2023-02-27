@@ -45,14 +45,14 @@ sudo systemctl start mariadb
 
 ```shell
 sudo apt install mariadb-server
-sudo systemctl start mariadb #auto-start MariaDB Server
+sudo systemctl start mariadb 
 ```
 
 ##### MacOS
 
 ```shell
 brew install mariadb
-brew services start mariadb
+brew services start mariadb #auto-start MariaDB Server
 ```
 
 #### 安全加固
