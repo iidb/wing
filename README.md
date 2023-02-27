@@ -4,7 +4,7 @@
 
 这里提供 sqlite3、MariaDB 和 MySQL 的安装指南。受限于助教的时间和设备，指南不太完整，如有补充欢迎提交PR。
 
-你也可以选择安装 PostgreSQL 等数据库发行版，并在作业中注明使用的方言。
+你也可以选择安装 PostgreSQL 等数据库发行版，并在作业中注明使用的SQL方言。
 
 ### sqlite3
 
@@ -45,7 +45,14 @@ sudo systemctl start mariadb
 
 ```shell
 sudo apt install mariadb-server
-sudo systemctl start mariadb
+sudo systemctl start mariadb #auto-start MariaDB Server
+```
+
+##### MacOS
+
+```shell
+brew install mariadb
+brew services start mariadb
 ```
 
 #### 安全加固
@@ -102,11 +109,11 @@ sudo mysql_secure_installation
 sudo mysql -uroot -p
 ```
 
-## 数据集 2pts
+## 数据集导入 2pts
 
-我们使用 TPC-H 数据集作为作业的数据来源
+我们使用 TPC-H 基准测试程序的数据集作为作业的数据来源。本项目中包含了TPC-H的[specification](tpc-h_v3.0.0.pdf)，你可以在里面 (Page 13)找到每张数据表的schema。
 
-具体来说，我们提供了一些 csv 文件，你们需要首先将其导入数据库中
+具体来说，我们提供了一些 csv 文件位于```data/```目录下，你们需要首先将其导入数据库中。
 
 ## 单表查询 5*1pts
 
