@@ -78,7 +78,6 @@ set(P1_FILES
         )
 
 add_custom_target(submit-p1
-        zip p1-submission.zip
-        ${P1_FILES}
+        zip ${CMAKE_CURRENT_BINARY_DIR}/p1-submission.zip ${P1_FILES}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         )
