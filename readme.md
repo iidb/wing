@@ -52,6 +52,8 @@ cmake .. -DBUILD_JIT=OFF -DCMAKE_BUILD_TYPE="release" -DCMAKE_CXX_COMPILER="clan
 cmake --build . -j
 ```
 
+编译后会产生wing的命令行版本和测试程序。wing的命令行用法见docs/pre.md。
+
 调试时，用debug版本编译，使用`-DCMAKE_BUILD_TYPE="debug"`。强烈建议release版本和debug版本存在不同文件夹，如`build-release`和`build-debug`，这样在切换模式时就不用全部重新编译。
 
 使用LLVM JIT时，使用`-DBUILD_JIT=ON`。LLVM最好是11及以上版本，以下也可以试试。[Linux安装LLVM-dev](https://apt.llvm.org/)，Windows很麻烦。
@@ -80,6 +82,10 @@ docker start -ai wing
 ```
 
 wing的目录位于/wing下。
+
+## Documentation
+
+有关命令行用法、wing实现的SQL语法的文档见docs/。
 
 ## LICENSE
 
