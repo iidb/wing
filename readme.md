@@ -16,6 +16,7 @@ cd wing
 ```shell
 git remote add public git@github.com:iidb/wing.git
 git pull public main
+git submodule update --init
 git push origin
 ```
 
