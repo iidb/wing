@@ -71,13 +71,14 @@ target_link_libraries(${PROJECT_NAME} PRIVATE wing_lib fmt)
 add_subdirectory(test)
 
 set(P1_FILES
-        "src/storage/bplus-tree.cpp"
-        "src/storage/bplus-tree.hpp"
-        "src/storage/page-manager.cpp"
-        "src/storage/page-manager.hpp"
-        )
+  "src/catalog/db.cpp"
+  "src/storage/bplus-tree.cpp"
+  "src/storage/bplus-tree.hpp"
+  "src/storage/page-manager.cpp"
+  "src/storage/page-manager.hpp"
+)
 
 add_custom_target(submit-p1
-        zip ${CMAKE_CURRENT_BINARY_DIR}/p1-submission.zip ${P1_FILES}
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        )
+  zip ${CMAKE_CURRENT_BINARY_DIR}/p1-submission.zip ${P1_FILES}
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
