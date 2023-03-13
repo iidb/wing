@@ -2,27 +2,24 @@
 
 ## Clone并创建自己的private repo
 
-1. 在 [这里](https://github.com/new) 创建一个新的repo并**确保权限为private**。
+1. 在 [这里](https://github.com/new) 创建一个新的空repo并**确保权限为private**。注意，Github自带的fork无法将visibility修改为`private`。假设新建的repo为`git@github.com:your-id/your-repo.git`。
 
-2. 在自己的机器或者我们提供的server上clone public repo，并将文件push到自己的repo中：
+2. 在自己的机器或者我们提供的server上clone自己的repo：
 
 ```shell
-git clone --bare git@github.com:iidb/wing.git wing
+git clone git@github.com:your-id/your-repo.git wing
 cd wing
-git push --mirror git@github.com:your-id/your-repo.git
-cd ..; rm -rf wing
 ```
 
-这一步实际上相当于private fork。Github自带的fork无法将visibility修改为`private`。
-
-3. clone自己的repo到本地，并将public repo加入远端，以方便未来更新代码：
+3. 从课程的public repo pull代码，并push到自己的repo中：
 
 ```shell
-git clone --recursive git@github.com:your-id/your-repo.git
-git remote add wing-public git@github.com:iidb/wing.git
+git remote add public git@github.com:iidb/wing.git
+git pull public main
+git push origin
 ```
 
-若后续有更新已发布的代码的需要，可以通过`git pull wing-public <branch>`更新代码。
+未来如果实验框架有更新，则可以用`git pull public main`将更新pull下来。
 
 ## Build
 
