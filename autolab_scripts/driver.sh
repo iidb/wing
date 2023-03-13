@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # driver.sh - The combined script compiling and running unit test.
 #   Usage: bash ./autolab_scripts/driver.sh
@@ -11,10 +12,9 @@ echo "Compiling Project"
 status=$?
 if [ ${status} -ne 0 ]; then
     echo "Failure: Unable to compile wing (return status = ${status})"
-    exit
+    exit $status
 fi
 
 # Run the test
 python3 autolab_scripts/test.py
 
-exit
