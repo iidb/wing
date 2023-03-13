@@ -167,8 +167,10 @@ class MemoryTableStorage {
     serde::bin_stream::Serializer s(out);
     serde::serialize(tables_, s);
   }
-  static auto Open(std::filesystem::path&& path, bool create_if_missing
+  static auto Open(
+    std::filesystem::path&& path, bool create_if_missing, size_t max_buf_pages
   ) -> Result<MemoryTableStorage, io::Error> {
+    (void)max_buf_pages;
     if (!std::filesystem::exists(path)) {
       if (create_if_missing)
         return Create(std::move(path));
