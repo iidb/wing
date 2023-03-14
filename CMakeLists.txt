@@ -8,6 +8,12 @@ IF (NOT CMAKE_BUILD_TYPE)
         "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
 ENDIF()
 
+option(SAKURA_ONLINE_JUDGE "The online judge will set this to ON" OFF)
+
+if (SAKURA_ONLINE_JUDGE)
+  add_compile_definitions(SAKURA_ONLINE_JUDGE)
+endif()
+
 # Submodules
 add_subdirectory(third_party/fmt)
 add_subdirectory(third_party/replxx)

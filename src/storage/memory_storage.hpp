@@ -1,6 +1,10 @@
 #ifndef SAKURA_MEMORY_STORAGE_H__
 #define SAKURA_MEMORY_STORAGE_H__
 
+// This file is not allowed to be used in submissions.
+// We disable this file when grading to prevent unintentional use of this file.
+#ifndef SAKURA_ONLINE_JUDGE
+
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -251,4 +255,6 @@ class MemoryTableStorage {
 
 }  // namespace wing
 
-#endif
+#endif // SAKURA_ONLINE_JUDGE
+
+#endif // SAKURA_MEMORY_STORAGE_H__
