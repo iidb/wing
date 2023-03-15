@@ -55,7 +55,8 @@ struct InnerSlot {
 };
 // Parse the content of on-disk inner slot
 InnerSlot InnerSlotParse(std::string_view slot);
-// The size of the inner slot in on-disk format.
+// The size of the inner slot in on-disk format. In other words, the size of
+// serialized inner slot using InnerSlotSerialize below.
 static inline size_t InnerSlotSize(InnerSlot slot) {
   return sizeof(pgid_t) + slot.strict_upper_bound.size();
 }
@@ -70,7 +71,8 @@ struct LeafSlot {
 };
 // Parse the content of on-disk leaf slot
 LeafSlot LeafSlotParse(std::string_view data);
-// The size of the leaf slot in on-disk format.
+// The size of the leaf slot in on-disk format. In other words, the size of
+// serialized leaf slot using LeafSlotSerialize below.
 static inline size_t LeafSlotSize(LeafSlot slot) {
   return sizeof(pgoff_t) + slot.key.size() + slot.value.size();
 }
