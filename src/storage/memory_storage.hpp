@@ -144,22 +144,19 @@ class MemoryTable {
     serde::serialize(table.schema_, s);
     serde::serialize(table.index_, s);
   }
-  friend class serde::Deserialize<MemoryTable>;
-};
-
-namespace serde {
-template <>
-struct Deserialize<MemoryTable> {
   template <typename D>
-  static Result<MemoryTable, typename D::Error> deserialize(D d) {
-    size_t ticks = EXTRACT_RESULT(serde::Deserialize<uint64_t>::deserialize(d));
-    auto schema =
-      EXTRACT_RESULT(serde::Deserialize<TableSchema>::deserialize(d));
-    auto index = EXTRACT_RESULT(serde::Deserialize<MemoryTable::map_t>::deserialize(d));
+  friend auto tag_invoke(
+    serde::tag_t<serde::deserialize>, serde::type_tag_t<MemoryTable>, D d
+  ) -> Result<MemoryTable, typename D::Error> {
+    size_t ticks =
+      EXTRACT_RESULT(serde::deserialize(serde::type_tag<size_t>, d));
+    TableSchema schema =
+      EXTRACT_RESULT(serde::deserialize(serde::type_tag<TableSchema>, d));
+    MemoryTable::map_t index = EXTRACT_RESULT(
+      serde::deserialize(serde::type_tag<MemoryTable::map_t>, d));
     return MemoryTable(std::move(index), std::move(schema), ticks);
   }
 };
-}
 
 class MemoryTableStorage {
  private:
@@ -183,7 +180,8 @@ class MemoryTableStorage {
     }
     std::ifstream in(path, std::ios::binary);
     serde::bin_stream::Deserializer d(in);
-    auto tables = EXTRACT_RESULT(serde::Deserialize<map_t>::deserialize(d));
+    map_t tables =
+      EXTRACT_RESULT(serde::deserialize(serde::type_tag<map_t>, d));
     DBSchema schema;
     for (auto& kv : tables)
       schema.AddTable(kv.second.GetTableSchema());

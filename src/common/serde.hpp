@@ -27,7 +27,7 @@ struct serialize_t {
 
 struct deserialize_t {
 	template <typename T, typename D>
-	T operator()(type_tag_t<T>, D d) {
+	Result<T, typename D::Error> operator()(type_tag_t<T>, D d) {
 		return tag_invoke(deserialize_t{}, type_tag<T>, d);
 	}
 };
