@@ -193,7 +193,9 @@ class BPlusTree {
   class InnerSlotKeyCompare {
   public:
     // slot: the content of the to-be-compared inner slot.
-    std::weak_ordering operator () (std::string_view slot, std::string_view key) {
+    std::weak_ordering operator()(
+      std::string_view slot, std::string_view key
+    ) const {
       return comp_(InnerSlotParse(slot).strict_upper_bound, key);
     }
   private:
@@ -204,7 +206,9 @@ class BPlusTree {
   class InnerSlotCompare {
   public:
     // a, b: the content of the two inner slots to be compared.
-    std::weak_ordering operator () (std::string_view a, std::string_view b) {
+    std::weak_ordering operator()(
+      std::string_view a, std::string_view b
+    ) const {
       std::string_view a_key = InnerSlotParse(a).strict_upper_bound;
       std::string_view b_key = InnerSlotParse(b).strict_upper_bound;
       return comp_(a_key, b_key);
@@ -219,8 +223,9 @@ class BPlusTree {
   class LeafSlotKeyCompare {
   public:
     // slot: the content of the to-be-compared leaf slot.
-    std::weak_ordering operator () (std::string_view slot, std::string_view key)
-        const {
+    std::weak_ordering operator()(
+      std::string_view slot, std::string_view key
+    ) const {
       return comp_(LeafSlotParse(slot).key, key);
     }
   private:
@@ -231,7 +236,9 @@ class BPlusTree {
   class LeafSlotCompare {
   public:
     // a, b: the content of two to-be-compared leaf slots.
-    std::weak_ordering operator () (std::string_view a, std::string_view b) {
+    std::weak_ordering operator()(
+      std::string_view a, std::string_view b
+    ) const {
       return comp_(LeafSlotParse(a).key, LeafSlotParse(b).key);
     }
   private:

@@ -291,7 +291,9 @@ private:
   class ComparePageOffKey {
   public:
     // start: the start point offset of the slot to be compared.
-    std::weak_ordering operator () (const pgoff_t *start, std::string_view key) {
+    std::weak_ordering operator()(
+      const pgoff_t *start, std::string_view key
+    ) const {
       size_t len = *(start - 1) - *start;
       std::string_view slot(page_ + *start, len);
       return slot_key_comp_(slot, key);
@@ -307,7 +309,9 @@ private:
   public:
     // start: the start point offset of the slot to be compared.
     // slot: the content of the slot.
-    std::weak_ordering operator () (const pgoff_t *start, std::string_view slot) {
+    std::weak_ordering operator()(
+      const pgoff_t *start, std::string_view slot
+    ) const {
       size_t len = *(start - 1) - *start;
       std::string_view cur_slot(page_ + *start, len);
       return slot_comp_(cur_slot, slot);
