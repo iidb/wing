@@ -118,12 +118,14 @@ class BPlusTree {
   ~BPlusTree() {
     DB_ERR("Not implemented!");
   }
-  static BPlusTree Create(std::reference_wrapper<PageManager> pgm) {
+  static Self Create(std::reference_wrapper<PageManager> pgm) {
+    Self ret(pgm, pgm.get().Allocate(), Compare());
+    // Initialize the tree here.
     DB_ERR("Not implemented!");
+    return ret;
   }
-  static BPlusTree Open(std::reference_wrapper<PageManager> pgm,
-      pgid_t meta_pgid) {
-    DB_ERR("Not implemented!");
+  static Self Open(std::reference_wrapper<PageManager> pgm, pgid_t meta_pgid) {
+    return Self(pgm, meta_pgid, Compare());
   }
   inline pgid_t MetaPageID() const { return meta_pgid_; }
   // Free on-disk resources.
