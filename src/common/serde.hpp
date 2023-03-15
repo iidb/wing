@@ -33,19 +33,6 @@ struct deserialize_t {
 };
 
 // Implementations for serialize_t
-template <typename T, typename S>
-inline void serialize_unsigned_integer(T x, S s) {
-  static_assert(sizeof(T) == 1 || sizeof(T) == 4 || sizeof(T) == 8,
-    "Unsupported type!");
-  if constexpr (sizeof(T) == 1) {
-    s.serialize_u8(x);
-  } else if constexpr (sizeof(T) == 4) {
-    s.serialize_u32(x);
-  } else if constexpr (sizeof(T) == 8) {
-    s.serialize_u64(x);
-  }
-}
-
 template <typename S>
 void tag_invoke(serialize_t, bool x, S s) {
   s.serialize_bool(x);
@@ -53,22 +40,22 @@ void tag_invoke(serialize_t, bool x, S s) {
 
 template <typename S>
 void tag_invoke(serialize_t, unsigned char x, S s) {
-  serialize_unsigned_integer(x, s);
+  s.serialize_uc(x);
 }
 
 template <typename S>
 void tag_invoke(serialize_t, unsigned int x, S s) {
-  serialize_unsigned_integer(x, s);
+  s.serialize_u(x);
 }
 
 template <typename S>
 void tag_invoke(serialize_t, unsigned long x, S s) {
-  serialize_unsigned_integer(x, s);
+  s.serialize_ul(x);
 }
 
 template <typename S>
 void tag_invoke(serialize_t, unsigned long long x, S s) {
-  serialize_unsigned_integer(x, s);
+  s.serialize_ull(x);
 }
 
 template <typename S>
@@ -98,19 +85,6 @@ void tag_invoke(serialize_t, const std::map<K, V, C, A>& m, S s) {
 }
 
 // Implementations for deserialize_t
-template <typename T, typename D>
-inline Result<T, typename D::Error> deserialize_unsigned_integer(D d) {
-  static_assert(sizeof(T) == 1 || sizeof(T) == 4 || sizeof(T) == 8,
-    "Unsupported type!");
-  if constexpr (sizeof(T) == 1) {
-    return d.deserialize_u8();
-  } else if constexpr (sizeof(T) == 4) {
-    return d.deserialize_u32();
-  } else if constexpr (sizeof(T) == 8) {
-    return d.deserialize_u64();
-  }
-}
-
 template <typename D>
 auto tag_invoke(
   deserialize_t, type_tag_t<bool>, D d
@@ -120,23 +94,30 @@ auto tag_invoke(
 
 template <typename D>
 auto tag_invoke(
+  deserialize_t, type_tag_t<unsigned char>, D d
+) -> Result<unsigned char, typename D::Error> {
+  return d.deserialize_uc();
+}
+
+template <typename D>
+auto tag_invoke(
   deserialize_t, type_tag_t<unsigned int>, D d
 ) -> Result<unsigned int, typename D::Error> {
-  return deserialize_unsigned_integer<unsigned int>(d);
+  return d.deserialize_u();
 }
 
 template <typename D>
 auto tag_invoke(
   deserialize_t, type_tag_t<unsigned long>, D d
 ) -> Result<unsigned long, typename D::Error> {
-  return deserialize_unsigned_integer<unsigned long>(d);
+  return d.deserialize_ul();
 }
 
 template <typename D>
 auto tag_invoke(
   deserialize_t, type_tag_t<unsigned long long>, D d
 ) -> Result<unsigned long long, typename D::Error> {
-  return deserialize_unsigned_integer<unsigned long long>(d);
+  return d.deserialize_ull();
 }
 
 template <typename D>
@@ -189,13 +170,16 @@ class Serializer {
   void serialize_bool(bool x) {
     serialize_fixed(x);
   }
-  void serialize_u8(uint8_t x) {
+  void serialize_uc(unsigned char x) {
     serialize_fixed(x);
   }
-  void serialize_u32(uint32_t x) {
+  void serialize_u(unsigned int x) {
     serialize_fixed(x);
   }
-  void serialize_u64(uint64_t x) {
+  void serialize_ul(unsigned long x) {
+    serialize_fixed(x);
+  }
+  void serialize_ull(unsigned long long x) {
     serialize_fixed(x);
   }
   void serialize_str(std::string_view x) {
@@ -217,17 +201,20 @@ class Deserializer {
   Result<bool, Error> deserialize_bool() {
     return deserialize_fixed<bool>();
   }
-  Result<uint8_t, Error> deserialize_u8() {
-    return deserialize_fixed<uint8_t>();
+  Result<unsigned char, Error> deserialize_uc() {
+    return deserialize_fixed<unsigned char>();
   }
-  Result<uint32_t, Error> deserialize_u32() {
-    return deserialize_fixed<uint32_t>();
+  Result<unsigned int, Error> deserialize_u() {
+    return deserialize_fixed<unsigned int>();
   }
-  Result<uint64_t, Error> deserialize_u64() {
-    return deserialize_fixed<uint64_t>();
+  Result<unsigned long, Error> deserialize_ul() {
+    return deserialize_fixed<unsigned long>();
+  }
+  Result<unsigned long long, Error> deserialize_ull() {
+    return deserialize_fixed<unsigned long long>();
   }
   Result<std::string, Error> deserialize_string() {
-    size_t size = EXTRACT_RESULT(deserialize_u64());
+    size_t size = EXTRACT_RESULT(deserialize(type_tag<size_t>, *this));
     // Any way to avoid the redundant clearing?
     std::string x(size, 0);
     in_.read(reinterpret_cast<char *>(x.data()), size);
@@ -237,7 +224,7 @@ class Deserializer {
     return x;
   }
   Result<std::vector<uint8_t>, Error> deserialize_bytes() {
-    size_t size = EXTRACT_RESULT(deserialize_u64());
+    size_t size = EXTRACT_RESULT(deserialize(type_tag<size_t>, *this));
     std::vector<uint8_t> x(size);
     in_.read(reinterpret_cast<char *>(x.data()), size);
     if (!in_.good())
