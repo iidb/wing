@@ -118,17 +118,25 @@ class BPlusTree {
   ~BPlusTree() {
     DB_ERR("Not implemented!");
   }
+  /* Allocate a meta page and initialize an empty B+tree.
+   * The caller may get the meta page ID by BPlusTree::MetaPageID() and
+   * optionally save it somewhere so that the B+tree can be reopened with it
+   * in the future.
+   */
   static Self Create(std::reference_wrapper<PageManager> pgm) {
     Self ret(pgm, pgm.get().Allocate(), Compare());
     // Initialize the tree here.
     DB_ERR("Not implemented!");
     return ret;
   }
+  // Open a B+tree with its meta page ID.
   static Self Open(std::reference_wrapper<PageManager> pgm, pgid_t meta_pgid) {
     return Self(pgm, meta_pgid, Compare());
   }
+  // Get the meta page ID so that the caller may optionally save it somewhere
+  // to reopen the B+tree with it in the future.
   inline pgid_t MetaPageID() const { return meta_pgid_; }
-  // Free on-disk resources.
+  // Free on-disk resources including the meta page.
   void Destroy() {
     DB_ERR("Not implemented!");
   }

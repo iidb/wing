@@ -50,6 +50,9 @@ typedef uint32_t pgid_t;
 typedef uint16_t pgoff_t;
 typedef int16_t signed_pgoff_t;
 typedef uint16_t slotid_t;
+// The handle of a page. This is not expected to be used directly by the user.
+// The user should use PlainPage or SortedPage instead, which are derived
+// classes of this class.
 class Page {
 public:
   static constexpr std::size_t SIZE = 4096;
@@ -88,6 +91,7 @@ protected:
   friend class PageManager;
 };
 
+// The handle of PlainPage
 class PlainPage : public Page {
 public:
   PlainPage(const PlainPage&) = delete;
@@ -118,7 +122,8 @@ struct SortedPageInsertResult {
   slotid_t pos;
 };
 
-/* Sorted Page: All tuples are sorted.
+/* The handle of SortedPage.
+ * All tuples are sorted in SortedPage. Layout:
  * +--------+-----------------------------------------------------+
  * | N (2B) | special (2B)   start_0 (2B)  start_1 (2B)     ...   |
  * +--------+---------+-------------------------+-----------------+
@@ -136,7 +141,6 @@ struct SortedPageInsertResult {
  * 
  * | 3 | 4092 | 4084 | 4076 | 4068 | (free space) | (114, 514) | (4, 5) | (2, 3) | special space |
  */
-// The key should be in total order
 template <typename SlotKeyCompare, typename SlotCompare>
 class SortedPage : public Page {
 public:
@@ -439,8 +443,18 @@ private:
   std::list<pgid_t> evictable_;
 };
 
-// Page 0: The meta page
-// Page 1: The pre-allocated super page for user.
+/* Page 0: The meta page of PageManager.
+ * Page 1: The pre-allocated super page for user. BPlusTreeStorage stores
+ *  metadata (e.g., the meta page of B+tree) here.
+ *
+ * Similar to pages in operating systems, the pages in wing are also allocated
+ * lazily. When the user calls PageManager::Allocate() to allocate a page ID,
+ * there is no page buffer allocated for it. When the user try to get a
+ * SortedPage or PlainPage handle for it, the page manager will check whether
+ * there is a page buffer for it. If no found, then a page buffer will be
+ * allocated and assigned to the page. The returned handle will reference the
+ * page buffer assigned to the page ID.
+ */
 class PageManager {
 public:
   PageManager(const PageManager&) = delete;
@@ -454,12 +468,22 @@ public:
   static auto Open(
     std::filesystem::path path, size_t max_buf_pages
   ) -> Result<std::unique_ptr<PageManager>, io::Error>;
+  /* Allocate a page ID. You may use GetSortedPage or GetPlainPage later on
+   * this page ID. Note that SortedPage should be initialized with
+   * SortedPage::Init before using it for the first time.
+   */
   pgid_t Allocate();
+  // Free the page ID. You have to make sure that there is no SortedPage or
+  // PlainPage that is still referencing this page.
   void Free(pgid_t pgid);
+  // Return the ID of the pre-allocated super page. This is intended to be used
+  // by BPlusTreeStorage to store metadata.
   pgid_t SuperPageID() { return 1; }
+  // Regard the page as PlainPage and return a handle for it.
   PlainPage GetPlainPage(pgid_t pgid) {
     return PlainPage(GetPage(pgid));
   }
+  // Regard the page as SortedPage and return a handle for it.
   template <typename SlotKeyCompare, typename SlotCompare>
   SortedPage<SlotKeyCompare, SlotCompare>
   GetSortedPage(pgid_t pgid, const SlotKeyCompare& slot_key_comp,
@@ -468,12 +492,17 @@ public:
       GetPage(pgid), slot_key_comp, slot_comp);
   }
 
+  // Allocate a page ID, allocate a page buffer for it, and return the
+  // PlainPage handle.
   PlainPage AllocPlainPage() { return GetPlainPage(Allocate()); }
   template <typename SlotKeyCompare, typename SlotCompare>
-  auto AllocSortedPage(const SlotKeyCompare& slot_key_comp,
-      const SlotCompare& slot_comp)
-    -> SortedPage<SlotKeyCompare, SlotCompare>
-  {
+  /* Allocate a page ID, allocate a page buffer for it, and return the
+   * SortedPage handle. The user should calling SortedPage::Init before using
+   * it for the first time.
+   */
+  auto AllocSortedPage(
+    const SlotKeyCompare& slot_key_comp, const SlotCompare& slot_comp
+  ) -> SortedPage<SlotKeyCompare, SlotCompare> {
     auto page = GetSortedPage(Allocate(), slot_key_comp, slot_comp);
     return page;
   }
@@ -520,7 +549,6 @@ private:
   void DropPage(pgid_t pgid, bool dirty);
   void FlushFreeListStandby(pgid_t pgid);
 
-  // TODO: Eviction policy
   std::filesystem::path path_;
   std::fstream file_;
   size_t max_buf_pages_;
