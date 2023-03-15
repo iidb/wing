@@ -192,64 +192,62 @@ void tag_invoke(serde::tag_t<serde::serialize>, const TableSchema& x, S s) {
   serde::serialize(x.GetFK(), s);
 }
 
-namespace serde {
+template <typename D>
+auto tag_invoke(
+  serde::tag_t<serde::deserialize> tag, serde::type_tag_t<wing::ColumnSchema>, D d
+) -> Result<wing::ColumnSchema, typename D::Error> {
+  std::string name =
+    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<std::string>, d));
+  wing::FieldType type =
+    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<wing::FieldType>, d));
+  uint32_t size = EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<uint32_t>, d));
+  return wing::ColumnSchema(std::move(name), type, size);
+}
 
-template <>
-struct Deserialize<wing::ColumnSchema> {
-  template <typename D>
-  static Result<wing::ColumnSchema, typename D::Error> deserialize(D d) {
-    std::string name =
-      EXTRACT_RESULT(serde::Deserialize<std::string>::deserialize(d));
-    wing::FieldType type =
-      EXTRACT_RESULT(serde::Deserialize<wing::FieldType>::deserialize(d));
-    uint32_t size =
-      EXTRACT_RESULT(serde::Deserialize<uint32_t>::deserialize(d));
-    return wing::ColumnSchema(std::move(name), type, size);
-  }
-};
+template <typename D>
+auto tag_invoke(
+  serde::tag_t<serde::deserialize> tag,
+  serde::type_tag_t<wing::ForeignKeySchema>, D d
+) -> Result<wing::ForeignKeySchema, typename D::Error> {
+  uint32_t index =
+    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<uint32_t>, d));
+  std::string table_name =
+    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<std::string>, d));
+  std::string column_name =
+    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<std::string>, d));
+  std::string name =
+    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<std::string>, d));
+  wing::FieldType type =
+    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<wing::FieldType>, d));
+  uint32_t size = EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<uint32_t>, d));
+  return wing::ForeignKeySchema(index, std::move(table_name),
+    std::move(column_name), std::move(name), type, size);
+}
 
-template <>
-struct Deserialize<wing::ForeignKeySchema> {
-  template <typename D>
-  static Result<wing::ForeignKeySchema, typename D::Error> deserialize(D d) {
-    uint32_t index = EXTRACT_RESULT(serde::Deserialize<uint32_t>::deserialize(d));
-    std::string table_name = EXTRACT_RESULT(serde::Deserialize<std::string>::deserialize(d));
-    std::string column_name = EXTRACT_RESULT(serde::Deserialize<std::string>::deserialize(d));
-    std::string name = EXTRACT_RESULT(serde::Deserialize<std::string>::deserialize(d));
-    wing::FieldType type = EXTRACT_RESULT(serde::Deserialize<wing::FieldType>::deserialize(d));
-    uint32_t size = EXTRACT_RESULT(serde::Deserialize<uint32_t>::deserialize(d));
-    return wing::ForeignKeySchema(index, std::move(table_name),
-      std::move(column_name), std::move(name), type, size);
-  }
-};
+template <typename D>
+auto tag_invoke(
+  serde::tag_t<serde::deserialize> tag, serde::type_tag_t<wing::TableSchema>,
+  D d
+) -> Result<wing::TableSchema, typename D::Error> {
+  std::string name =
+    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<std::string>, d));
+  std::vector<wing::ColumnSchema> column = EXTRACT_RESULT(
+    tag_invoke(tag, serde::type_tag<std::vector<wing::ColumnSchema>>, d));
+  std::vector<wing::ColumnSchema> storage_columns = EXTRACT_RESULT(
+    tag_invoke(tag, serde::type_tag<std::vector<wing::ColumnSchema>>, d));
+  uint32_t primary_key_index =
+    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<uint32_t>, d));
+  bool auto_gen_key =
+    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<bool>, d));
+  bool pk_hide =
+    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<bool>, d));
+  std::vector<wing::ForeignKeySchema> fk = EXTRACT_RESULT(
+    tag_invoke(tag, serde::type_tag<std::vector<wing::ForeignKeySchema>>, d));
+  return wing::TableSchema(std::move(name), std::move(column),
+    std::move(storage_columns), primary_key_index, auto_gen_key, pk_hide,
+    std::move(fk));
+}
 
-template <>
-struct Deserialize<wing::TableSchema> {
-  template <typename D>
-  static Result<wing::TableSchema, typename D::Error> deserialize(D d) {
-    std::string name =
-      EXTRACT_RESULT(serde::Deserialize<std::string>::deserialize(d));
-    std::vector<wing::ColumnSchema> column =
-      EXTRACT_RESULT(serde::Deserialize<
-        std::vector<wing::ColumnSchema>>::deserialize(d));
-    std::vector<wing::ColumnSchema> storage_columns =
-      EXTRACT_RESULT(serde::Deserialize<
-        std::vector<wing::ColumnSchema>>::deserialize(d));
-    uint32_t primary_key_index =
-      EXTRACT_RESULT(serde::Deserialize<uint32_t>::deserialize(d));
-    bool auto_gen_key =
-      EXTRACT_RESULT(serde::Deserialize<bool>::deserialize(d));
-    bool pk_hide = EXTRACT_RESULT(serde::Deserialize<bool>::deserialize(d));
-    std::vector<wing::ForeignKeySchema> fk =
-      EXTRACT_RESULT(serde::Deserialize<
-        std::vector<wing::ForeignKeySchema>>::deserialize(d));
-    return wing::TableSchema(std::move(name), std::move(column),
-      std::move(storage_columns), primary_key_index, auto_gen_key, pk_hide,
-      std::move(fk));
-  }
-};
-
-} // namespace serde
 } // namespace wing
 
 #endif

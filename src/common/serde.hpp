@@ -10,6 +10,12 @@
 
 namespace wing {
 namespace serde {
+
+template <typename T>
+struct type_tag_t {};
+template <typename T>
+inline constexpr type_tag_t<T> type_tag{};
+
 namespace detail {
 // Interfaces
 struct serialize_t {
@@ -18,23 +24,51 @@ struct serialize_t {
     tag_invoke(serialize_t{}, x, s);
   }
 };
-template <typename T, typename S>
-void tag_invoke(serialize_t, T x, S s);
+
+struct deserialize_t {
+	template <typename T, typename D>
+	T operator()(type_tag_t<T>, D d) {
+		return tag_invoke(deserialize_t{}, type_tag<T>, d);
+	}
+};
 
 // Implementations for serialize_t
+template <typename T, typename S>
+inline void serialize_unsigned_integer(T x, S s) {
+  static_assert(sizeof(T) == 1 || sizeof(T) == 4 || sizeof(T) == 8,
+    "Unsupported type!");
+  if constexpr (sizeof(T) == 1) {
+    s.serialize_u8(x);
+  } else if constexpr (sizeof(T) == 4) {
+    s.serialize_u32(x);
+  } else if constexpr (sizeof(T) == 8) {
+    s.serialize_u64(x);
+  }
+}
+
 template <typename S>
 void tag_invoke(serialize_t, bool x, S s) {
   s.serialize_bool(x);
 }
 
 template <typename S>
-void tag_invoke(serialize_t, uint32_t x, S s) {
-  s.serialize_u32(x);
+void tag_invoke(serialize_t, unsigned char x, S s) {
+  serialize_unsigned_integer(x, s);
 }
 
 template <typename S>
-void tag_invoke(serialize_t, uint64_t x, S s) {
-  s.serialize_u64(x);
+void tag_invoke(serialize_t, unsigned int x, S s) {
+  serialize_unsigned_integer(x, s);
+}
+
+template <typename S>
+void tag_invoke(serialize_t, unsigned long x, S s) {
+  serialize_unsigned_integer(x, s);
+}
+
+template <typename S>
+void tag_invoke(serialize_t, unsigned long long x, S s) {
+  serialize_unsigned_integer(x, s);
 }
 
 template <typename S>
@@ -49,92 +83,104 @@ void tag_invoke(serialize_t, const std::string& x, S s) {
 
 template <typename T, typename S>
 void tag_invoke(serialize_t, const std::vector<T>& v, S s) {
-  s.serialize_u64(v.size());
+  tag_invoke(serialize_t{}, v.size(), s);
   for (const T& x : v)
     tag_invoke(serialize_t{}, x, s);
 }
 
 template <typename K, typename V, typename C, typename A, typename S>
 void tag_invoke(serialize_t, const std::map<K, V, C, A>& m, S s) {
-  s.serialize_u64(m.size());
+  tag_invoke(serialize_t{}, m.size(), s);
   for (const auto& kv : m) {
     tag_invoke(serialize_t{}, kv.first, s);
     tag_invoke(serialize_t{}, kv.second, s);
   }
+}
+
+// Implementations for deserialize_t
+template <typename T, typename D>
+inline Result<T, typename D::Error> deserialize_unsigned_integer(D d) {
+  static_assert(sizeof(T) == 1 || sizeof(T) == 4 || sizeof(T) == 8,
+    "Unsupported type!");
+  if constexpr (sizeof(T) == 1) {
+    return d.deserialize_u8();
+  } else if constexpr (sizeof(T) == 4) {
+    return d.deserialize_u32();
+  } else if constexpr (sizeof(T) == 8) {
+    return d.deserialize_u64();
+  }
+}
+
+template <typename D>
+auto tag_invoke(
+  deserialize_t, type_tag_t<bool>, D d
+) -> Result<bool, typename D::Error> {
+  return d.deserialize_bool();
+}
+
+template <typename D>
+auto tag_invoke(
+  deserialize_t, type_tag_t<unsigned int>, D d
+) -> Result<unsigned int, typename D::Error> {
+  return deserialize_unsigned_integer<unsigned int>(d);
+}
+
+template <typename D>
+auto tag_invoke(
+  deserialize_t, type_tag_t<unsigned long>, D d
+) -> Result<unsigned long, typename D::Error> {
+  return deserialize_unsigned_integer<unsigned long>(d);
+}
+
+template <typename D>
+auto tag_invoke(
+  deserialize_t, type_tag_t<unsigned long long>, D d
+) -> Result<unsigned long long, typename D::Error> {
+  return deserialize_unsigned_integer<unsigned long long>(d);
+}
+
+template <typename D>
+auto tag_invoke(
+  deserialize_t, type_tag_t<std::string>, D d
+) -> Result<std::string, typename D::Error> {
+  return d.deserialize_string();
+}
+
+template <typename T, typename D>
+auto tag_invoke(
+  deserialize_t, type_tag_t<std::vector<T>>, D d
+) -> Result<std::vector<T>, typename D::Error> {
+  size_t size =
+    EXTRACT_RESULT(tag_invoke(deserialize_t{}, type_tag<size_t>, d));
+  std::vector<T> v;
+  v.reserve(size);
+  for (; size; size -= 1)
+    v.push_back(EXTRACT_RESULT(tag_invoke(deserialize_t{}, type_tag<T>, d)));
+  return v;
+}
+
+template <typename K, typename V, typename C, typename A, typename D>
+auto tag_invoke(
+  deserialize_t, type_tag_t<std::map<K, V, C, A>>, D d
+) -> Result<std::map<K, V, C, A>, typename D::Error> {
+  size_t size =
+    EXTRACT_RESULT(tag_invoke(deserialize_t{}, type_tag<size_t>, d));
+  std::map<K, V, C, A> m;
+  for (; size; size -= 1) {
+    K key = EXTRACT_RESULT(tag_invoke(deserialize_t{}, type_tag<K>, d));
+    V val = EXTRACT_RESULT(tag_invoke(deserialize_t{}, type_tag<V>, d));
+    auto ret = m.insert(std::make_pair(std::move(key), std::move(val)));
+    crash_if(ret.second == false,
+      "Deserialize std::map<K, V>: Repeated key on disk");
+  }
+  return m;
 }
 } // namespace detail
 template <auto& Tag>
 using tag_t = std::decay_t<decltype(Tag)>;
 
 inline detail::serialize_t serialize{};
-
-template <typename T>
-struct Deserialize {
-  template <typename D>
-  static Result<T, typename D::Error> deserialize(D d);
-};
-
-template <>
-struct Deserialize<bool> {
-  template <typename D>
-  static Result<bool, typename D::Error> deserialize(D d) {
-    return d.deserialize_bool();
-  }
-};
-
-template <>
-struct Deserialize<uint32_t> {
-  template <typename D>
-  static Result<uint32_t, typename D::Error> deserialize(D d) {
-    return d.deserialize_u32();
-  }
-};
-
-template <>
-struct Deserialize<uint64_t> {
-  template <typename D>
-  static Result<uint64_t, typename D::Error> deserialize(D d) {
-    return d.deserialize_u64();
-  }
-};
-
-template <>
-struct Deserialize<std::string> {
-  template <typename D>
-  static Result<std::string, typename D::Error> deserialize(D d) {
-    return d.deserialize_string();
-  }
-};
-
-template <typename T>
-struct Deserialize<std::vector<T>> {
-  template <typename D>
-  static Result<std::vector<T>, typename D::Error> deserialize(D d) {
-    size_t size = EXTRACT_RESULT(Deserialize<uint64_t>::deserialize(d));
-    std::vector<T> v;
-    v.reserve(size);
-    for (; size; size -= 1)
-      v.push_back(EXTRACT_RESULT(Deserialize<T>::deserialize(d)));
-    return v;
-  }
-};
-
-template <typename K, typename V, typename C, typename A>
-struct Deserialize<std::map<K, V, C, A>> {
-  template <typename D>
-  static Result<std::map<K, V, C, A>, typename D::Error> deserialize(D d) {
-    size_t size = EXTRACT_RESULT(Deserialize<uint64_t>::deserialize(d));
-    std::map<K, V, C, A> m;
-    for (; size; size -= 1) {
-      K key = EXTRACT_RESULT(Deserialize<K>::deserialize(d));
-      V val = EXTRACT_RESULT(Deserialize<V>::deserialize(d));
-      auto ret = m.insert(std::make_pair(std::move(key), std::move(val)));
-      crash_if(ret.second == false,
-        "Deserialize<std::map<K, V>>: Repeated key on disk");
-    }
-    return m;
-  }
-};
+inline detail::deserialize_t deserialize{};
 
 namespace bin_stream {
 class Serializer {
@@ -220,7 +266,7 @@ std::string to_string(T x) {
 template <typename T>
 Result<T, Deserializer::Error> from_string(std::string&& x) {
   std::istringstream in(std::move(x));
-  return Deserialize<T>::deserialize(Deserializer(in));
+  return tag_invoke(serde::tag_t<serde::deserialize>{}, type_tag<T>, Deserializer(in));
 }
 } // namespace bin_stream
 
