@@ -133,13 +133,18 @@ struct SortedPageInsertResult {
  * +----------------------+----------------+----------------------+
  *       ^ start_1        ^ start_0        ^ special
  * 
- * For example, if I want to store (2, 3), (4, 5), (114, 514) in this page,
- * each tuple is of size 8, 
- * and SlotKeyCompare is the default integer comparator. 
- * Suppose the page size is 4096. The special size is 4.
- * Then the page layout is:
+ * For example, suppose the page size is 4096, the special size is 4,
+ * the format of a tuple is (key, value), each tuple is of size 8,
+ * and keys are compared as integers.
+ * If I want to store (2, 3), (4, 5), (114, 514) in this page,
+ * then the page layout is:
  * 
  * | 3 | 4092 | 4084 | 4076 | 4068 | (free space) | (114, 514) | (4, 5) | (2, 3) | special space |
+ *
+ * The comparison between a slot and a key is performed by SlotKeyCompare,
+ * and the comparison between two slots is performed by SlotCompare.
+ * The parse of slots is performed in SlotKeyCompare and SlotCompare,
+ * so we don't have to care about the content of slots in this class.
  */
 template <typename SlotKeyCompare, typename SlotCompare>
 class SortedPage : public Page {
