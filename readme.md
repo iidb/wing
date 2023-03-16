@@ -81,6 +81,39 @@ docker start -ai wing
 
 wing的目录位于/wing下。
 
+## 测试
+
+wing使用GTest进行测试。用于测试的源代码在`test/`下面。编译完成后，用于测试的可执行文件会生成在`build/test/`下面。下面以`build/test/test_btree`为例介绍使用GTest的用于测试的可执行文件的用法。
+
+```shell
+cd build
+# 查看使用帮助
+./test/test_btree --help
+# 运行单个测试
+./test/test_btree --gtest_filter=BPlusTreeTest.Basic1
+# 运行名字符合模式的所有测试。下例将会运行 SeqInsertGetValue16B1e1 到 SeqInsertGetValue16B1e6 的所有测试
+./test/test_btree --gtest_filter="BPlusTreeTest.SeqInsertGetValue16B*"
+```
+
+使用gtest-parallel可以进行多线程测试：<https://github.com/google/gtest-parallel/>
+
+```shell
+# 运行文件中的所有测试
+/path/to/gtest-parallel ./test/test_btree
+# 运行多个文件中的所有测试
+/path/to/gtest-parallel ./test/test_btree ./test/test_basic
+# 运行一部分测试
+/path/to/gtest-parallel ./test/test_btree --gtest_filter=xxx
+# 默认线程数为核数。可以指定线程数
+/path/to/gtest-parallel --workers=8 ./test/test_btree
+```
+
+你可以在`~/.bashrc`里alias一下，方便使用：
+
+```shell
+alias gtp="/path/to/gtest-parallel/gtest-parallel --workers=8"
+```
+
 ## Documentation
 
 有关命令行用法、wing实现的SQL语法的文档见docs/。
