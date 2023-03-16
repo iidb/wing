@@ -116,12 +116,6 @@ private:
   friend class PageManager;
 };
 
-struct SortedPageInsertResult {
-  bool full;
-  bool key_exists;
-  slotid_t pos;
-};
-
 /* The handle of SortedPage.
  * All tuples are sorted in SortedPage. Layout:
  * +--------+-----------------------------------------------------+
