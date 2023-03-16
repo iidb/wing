@@ -41,8 +41,9 @@ namespace wing {
  * len(key_{n-1}) key_{n-1} value_{n-1} prev_leaf next_leaf
  * ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^^^^
  *            Slot_{n-1}                      Special
- * Note that the lengths of values are omitted in slots because they can be
- * deduced with the lengths of slots.
+ * The type of len(key) is pgoff_t. Note that the lengths of values are omitted
+ * in slots because they can be deduced with the lengths of slots:
+ *     len(value_i) = len(Slot_i) - sizeof(pgoff_t) - len(key_i)
  */
 
 // Parsed inner slot.
@@ -123,7 +124,8 @@ class BPlusTree {
   /* Allocate a meta page and initialize an empty B+tree.
    * The caller may get the meta page ID by BPlusTree::MetaPageID() and
    * optionally save it somewhere so that the B+tree can be reopened with it
-   * in the future.
+   * in the future. You don't need to care about the persistency of the meta
+   * page ID here.
    */
   static Self Create(std::reference_wrapper<PageManager> pgm) {
     Self ret(pgm, pgm.get().Allocate(), Compare());
