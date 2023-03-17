@@ -117,9 +117,10 @@ class BPlusTree {
     comp_ = rhs.comp_;
     return *this;
   }
-  // Free in-memory resources
+  // Free in-memory resources.
   ~BPlusTree() {
-    DB_ERR("Not implemented!");
+    // Do not call Destroy() here.
+    // Normally you don't need to do anything here.
   }
   /* Allocate a meta page and initialize an empty B+tree.
    * The caller may get the meta page ID by BPlusTree::MetaPageID() and
