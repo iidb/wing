@@ -50,9 +50,9 @@ typedef uint32_t pgid_t;
 typedef uint16_t pgoff_t;
 typedef int16_t signed_pgoff_t;
 typedef uint16_t slotid_t;
-// The handle of a page. This is not expected to be used directly by the user.
-// The user should use PlainPage or SortedPage instead, which are derived
-// classes of this class.
+// A page handle that references a page buffer. This is not expected to be used
+// directly by the user. The user should use PlainPage or SortedPage instead,
+// which are derived classes of this class.
 class Page {
 public:
   static constexpr std::size_t SIZE = 4096;
@@ -62,7 +62,7 @@ public:
     page.id_ = 0;
     page.page_ = nullptr;
   }
-  Page& operator = (Page&& page) {
+  Page& operator=(Page&& page) {
     __Drop();
     id_ = page.id_;
     page_ = page.page_;
@@ -71,10 +71,15 @@ public:
     page.id_ = 0;
     return *this;
   }
+  // When destructing, the reference to the underlying page buffer will be
+  // dropped.
   ~Page();
   inline pgid_t ID() const { return id_; }
   inline const char *as_ptr() const { return page_; }
+  // You should mark the page as dirty if you modify it, so that the page will
+  // be flushed to disk when evicted.
   inline void MarkDirty() { dirty_ = true; }
+  // Drop the reference to the underlying page buffer.
   inline void Drop();
 protected:
   Page(pgid_t id, char *page, std::reference_wrapper<PageManager> pgm,
@@ -91,7 +96,7 @@ protected:
   friend class PageManager;
 };
 
-// The handle of PlainPage
+// The handle that references a page buffer whose format is PlainPage.
 class PlainPage : public Page {
 public:
   PlainPage(const PlainPage&) = delete;
@@ -116,7 +121,7 @@ private:
   friend class PageManager;
 };
 
-/* The handle of SortedPage.
+/* The handle that references a page buffer whose format is SortedPage.
  * All tuples are sorted in SortedPage. Layout:
  * +--------+-----------------------------------------------------+
  * | N (2B) | special (2B)   start_0 (2B)  start_1 (2B)     ...   |
@@ -472,35 +477,37 @@ public:
     std::filesystem::path path, size_t max_buf_pages
   ) -> Result<std::unique_ptr<PageManager>, io::Error>;
   /* Allocate a page ID. You may use GetSortedPage or GetPlainPage later on
-   * this page ID. Note that SortedPage should be initialized with
-   * SortedPage::Init before using it for the first time.
+   * this page ID to get a handle for this page. Note that SortedPage should be
+   * initialized with SortedPage::Init before using it for the first time.
    */
   pgid_t Allocate();
   // Free the page ID. You have to make sure that there is no SortedPage or
-  // PlainPage that is still referencing this page.
+  // PlainPage handle that is still referencing this page.
   void Free(pgid_t pgid);
   // Return the ID of the pre-allocated super page. This is intended to be used
   // by BPlusTreeStorage to store metadata.
   pgid_t SuperPageID() { return 1; }
-  // Regard the page as PlainPage and return a handle for it.
+  // Regard the page as PlainPage and return a handle that references its
+  // buffer.
   PlainPage GetPlainPage(pgid_t pgid) {
     return PlainPage(GetPage(pgid));
   }
-  // Regard the page as SortedPage and return a handle for it.
+  // Regard the page as SortedPage and return a handle that references its
+  // buffer.
   template <typename SlotKeyCompare, typename SlotCompare>
-  SortedPage<SlotKeyCompare, SlotCompare>
-  GetSortedPage(pgid_t pgid, const SlotKeyCompare& slot_key_comp,
-      const SlotCompare& slot_comp) {
+  auto GetSortedPage(pgid_t pgid, const SlotKeyCompare& slot_key_comp,
+    const SlotCompare& slot_comp
+  ) -> SortedPage<SlotKeyCompare, SlotCompare> {
     return SortedPage<SlotKeyCompare, SlotCompare>(
       GetPage(pgid), slot_key_comp, slot_comp);
   }
 
-  // Allocate a page ID, allocate a page buffer for it, and return the
-  // PlainPage handle.
+  // Allocate a page ID, allocate a page buffer for it, and return a
+  // PlainPage handle that references the buffer.
   PlainPage AllocPlainPage() { return GetPlainPage(Allocate()); }
   template <typename SlotKeyCompare, typename SlotCompare>
   /* Allocate a page ID, allocate a page buffer for it, and return the
-   * SortedPage handle. The user should calling SortedPage::Init before using
+   * SortedPage handle. The user should call SortedPage::Init before using
    * it for the first time.
    */
   auto AllocSortedPage(

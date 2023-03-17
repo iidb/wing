@@ -256,21 +256,25 @@ class BPlusTree {
       const Compare& comp)
     : pgm_(pgm), meta_pgid_(meta_pgid), comp_(comp) {}
 
+  // Reference the inner page and return a handle for it.
   inline InnerPage GetInnerPage(pgid_t pgid) {
     return pgm_.get().GetSortedPage(pgid, InnerSlotKeyCompare(comp_),
         InnerSlotCompare(comp_));
   }
+  // Reference the leaf page and return a handle for it.
   inline LeafPage GetLeafPage(pgid_t pgid) {
     return pgm_.get().GetSortedPage(pgid, LeafSlotKeyCompare(comp_),
         LeafSlotCompare(comp_));
   }
+  // Reference the meta page and return a handle for it.
   inline PlainPage GetMetaPage() {
     return pgm_.get().GetPlainPage(meta_pgid_);
   }
 
   /* PageManager::Free requires that the page is not being referenced.
-   * So we have to first explicitly drop the page before calling
-   * PageManager::Free to free the page.
+   * So we have to first explicitly drop the page handle which should be the
+   * only reference to the page before calling PageManager::Free to free the
+   * page.
    */
   inline void FreePage(Page&& page) {
     pgid_t id = page.ID();
@@ -278,12 +282,14 @@ class BPlusTree {
     pgm_.get().Free(id);
   }
 
+  // Allocate an inner page and return a handle that references it.
   inline InnerPage AllocInnerPage() {
     auto inner = pgm_.get().AllocSortedPage(InnerSlotKeyCompare(comp_),
         InnerSlotCompare(comp_));
     inner.Init(sizeof(pgid_t));
     return inner;
   }
+  // Allocate a leaf page and return a handle that references it.
   inline LeafPage AllocLeafPage() {
     auto leaf = pgm_.get().AllocSortedPage(LeafSlotKeyCompare(comp_),
         LeafSlotCompare(comp_));
