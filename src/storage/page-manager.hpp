@@ -79,7 +79,8 @@ public:
   // You should mark the page as dirty if you modify it, so that the page will
   // be flushed to disk when evicted.
   inline void MarkDirty() { dirty_ = true; }
-  // Drop the reference to the underlying page buffer.
+  // Drop the reference to the underlying page buffer. Note that this does not
+  // free the page, which is the job of PageManager::Free
   inline void Drop();
 protected:
   Page(pgid_t id, char *page, std::reference_wrapper<PageManager> pgm,
