@@ -99,6 +99,8 @@ class BPlusTree {
     Iter& operator=(Iter&& iter) {
       DB_ERR("Not implemented!");
     }
+    // Returns an optional key-value pair. The first std::string_view is the key
+    // and the second std::string_view is the value.
     std::optional<std::pair<std::string_view, std::string_view>> Cur() {
       DB_ERR("Not implemented!");
     }
