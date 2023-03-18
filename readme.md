@@ -24,6 +24,39 @@ git push origin
 
 ## Build
 
+### 安装依赖
+
+除了基本的编译环境以外，wing主要依赖GTest。因此这里主要介绍GTest库在一些平台的安装方法。
+
+#### Debian
+
+```shell
+sudo apt install libgtest-dev
+```
+
+#### ArchLinux
+
+```shell
+sudo pacman -S gtest
+```
+
+#### Nix包管理器
+
+无需使用root权限。但是Nix包管理器安装的库只能在`nix-shell`中使用。
+
+```shell
+nix-shell -p gtest cmake
+```
+
+然后在nix-shell中生成的shell中进行操作：
+
+```shell
+mkdir build
+cd build
+cmake ..
+make -j8
+```
+
 ### 本地编译
 
 Wing使用C++20，你可能需要升级编译器。
