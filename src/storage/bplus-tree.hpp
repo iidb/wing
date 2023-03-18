@@ -182,12 +182,13 @@ class BPlusTree {
   Iter Begin() {
     DB_ERR("Not implemented!");
   }
-  // Return an iterator that points to the tuple with the maximum key
-  // s.t. key <= "key"
+  // Return an iterator that points to the tuple with the minimum key
+  // s.t. key >= "key" in argument
   Iter LowerBound(std::string_view key) {
     DB_ERR("Not implemented!");
   }
-  // Return an iterator that points to the tuple with the maximum key
+  // Return an iterator that points to the tuple with the minimum key
+  // s.t. key > "key" in argument
   Iter UpperBound(std::string_view key) {
     DB_ERR("Not implemented!");
   }

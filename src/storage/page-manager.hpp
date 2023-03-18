@@ -209,12 +209,12 @@ public:
   // You should add some interfaces here to facilitate BPlusTree.
   // Here are some example interfaces that you may adopt.
 
-  // Find the slot with the minimum key s.t. key >= "key"
+  // Find the slot with the minimum key s.t. key >= "key" in argument.
   // If this slot doesn't exist, return SlotNum().
   slotid_t LowerBound(std::string_view key) const {
     DB_ERR("Not implemented yet!");
   }
-  // Find the slot with the minimum key s.t. key > "key"
+  // Find the slot with the minimum key s.t. key > "key" in argument
   // If this slot doesn't exist, return SlotNum().
   slotid_t UpperBound(std::string_view key) const {
     DB_ERR("Not implemented yet!");
