@@ -278,6 +278,17 @@ class BPlusTree {
    * So we have to first explicitly drop the page handle which should be the
    * only reference to the page before calling PageManager::Free to free the
    * page.
+   *
+   * For example, if you have a page handle "inner1" that is the only reference
+   * to the underlying page, and you want to free this page on disk:
+   *
+   * InnerPage inner1 = GetInnerPage(pgid);
+   * // This is wrong! "inner1" is still referencing this page!
+   * pgm_.get().Free(inner1.ID());
+   * // This is correct, because "FreePage" will drop the page handle "inner1"
+   * // and thus drop the only reference to the underlying page, so that the
+   * // underlying page can be safely freed with PageManager::Free.
+   * FreePage(std::move(inner1));
    */
   inline void FreePage(Page&& page) {
     pgid_t id = page.ID();

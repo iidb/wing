@@ -456,13 +456,23 @@ private:
  * Page 1: The pre-allocated super page for user. BPlusTreeStorage stores
  *  metadata (e.g., the meta page of B+tree) here.
  *
- * Similar to pages in operating systems, the pages in wing are also allocated
- * lazily. When the user calls PageManager::Allocate() to allocate a page ID,
- * there is no page buffer allocated for it. When the user try to get a
+ * Similar to pages in operating systems, the buffer of pages in wing are also
+ * allocated lazily. When the user calls PageManager::Allocate() to allocate a
+ * page ID, there is no page buffer allocated for it. When the user try to get a
  * SortedPage or PlainPage handle for it, the page manager will check whether
  * there is a page buffer for it. If no found, then a page buffer will be
- * allocated and assigned to the page. The returned handle will reference the
- * page buffer assigned to the page ID.
+ * allocated and assigned to the page with its reference count set to 1.
+ * If found, then the reference count of the page buffer will be increased by 1. 
+ * The returned handle will reference the page buffer assigned to the page ID.
+ * When the returned handle destructs or being dropped, the reference count of
+ * the page buffer will be decreased by 1.
+ * 
+ * If the reference count of a page bufer > 0, then it will be pinned in the
+ * buffer pool. If the reference count the a page buffer is decreased to 0,
+ * then it is unpinned and becomes evictable. However, when it will acutally be
+ * evicted depends on the eviction policy. When a page is evicted from the
+ * buffer pool, if it is marked dirty with Page::MarkDirty(), it will be flushed
+ * to disk.
  */
 class PageManager {
 public:
