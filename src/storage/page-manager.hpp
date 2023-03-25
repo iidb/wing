@@ -165,6 +165,7 @@ public:
     return *this;
   }
   void Init(std::size_t special_size) {
+    MarkDirty();
     slotid_t *num = (slotid_t *)page_;
     *num = 0;
     pgoff_t *special = (pgoff_t *)(num + 1);
