@@ -34,7 +34,7 @@ Addable LowerBoundAddable(Addable start, Addable end, T d, ThreeWayCompare comp)
   return start;
 }
 // Return the minimum element in [start, end) which > "d".
-// Return "end" if all elements in [start, start) <= "d".
+// Return "end" if all elements in [start, end) <= "d".
 template <typename Addable, typename T, typename ThreeWayCompare>
 Addable UpperBoundAddable(Addable start, Addable end, T d, ThreeWayCompare comp) {
   while (start != end) {
