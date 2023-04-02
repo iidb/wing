@@ -535,13 +535,17 @@ public:
 
   // Made public for test
   inline pgid_t& PageNum() {
-    return *(pgid_t *)(buf_[0].addr + PAGE_NUM_OFF);
+    return *(pgid_t *)(buf_[0].addr_mut() + PAGE_NUM_OFF);
   }
   // For test
   void ShrinkToFit();
 private:
   struct PageBufInfo {
-    char *addr;
+    const char *addr() const {
+      return reinterpret_cast<const char *>(buf.get());
+    }
+    char *addr_mut() { return reinterpret_cast<char *>(buf.get()); }
+    std::unique_ptr<char[]> buf;
     size_t refcount;
     bool dirty;
   };
@@ -562,10 +566,10 @@ private:
   static constexpr pgoff_t FREE_PAGES_IN_HEAD = FREE_LIST_HEAD_OFF + sizeof(pgid_t);
   static constexpr pgoff_t PAGE_NUM_OFF = FREE_PAGES_IN_HEAD + sizeof(pgid_t);
   inline pgid_t& FreeListHead() {
-    return *(pgid_t *)(buf_[0].addr + FREE_LIST_HEAD_OFF);
+    return *(pgid_t *)(buf_[0].addr_mut() + FREE_LIST_HEAD_OFF);
   }
   inline pgid_t& FreePagesInHead() {
-    return *(pgid_t *)(buf_[0].addr + FREE_PAGES_IN_HEAD);
+    return *(pgid_t *)(buf_[0].addr_mut() + FREE_PAGES_IN_HEAD);
   }
 
   pgid_t __Allocate();

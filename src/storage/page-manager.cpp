@@ -1,5 +1,6 @@
 #include "page-manager.hpp"
 #include "common/logging.hpp"
+#include <memory>
 
 namespace wing {
 
@@ -45,9 +46,8 @@ PageManager::~PageManager() {
     assert(it->second.refcount == 0);
     if (it->second.dirty) {
       file_.seekp(i * Page::SIZE);
-      file_.write(it->second.addr, Page::SIZE);
+      file_.write(it->second.addr(), Page::SIZE);
     }
-    delete[] it->second.addr;
   }
 }
 
@@ -194,17 +194,17 @@ void PageManager::ShrinkToFit() {
 }
 
 void PageManager::AllocMeta() {
-  char *buf = new char[Page::SIZE];
+  auto buf = std::unique_ptr<char[]>(new char[Page::SIZE]);
   // Mark dirty to force the meta page to be flushed when closing,
   // so that we don't need to mark it dirty anymore when running.
-  auto ret = buf_.emplace(0, PageBufInfo{buf, 1, true});
+  auto ret = buf_.emplace(0, PageBufInfo{std::move(buf), 1, true});
   (void)ret;
   assert(ret.second);
   assert(buf_.size() < max_buf_pages_);
 }
 void PageManager::Init() {
   AllocMeta();
-  memset(buf_[0].addr, 0, Page::SIZE);
+  memset(buf_[0].addr_mut(), 0, Page::SIZE);
   FreeListHead() = 0;
   FreePagesInHead() = 0;
   PageNum() = 2;
@@ -214,7 +214,7 @@ void PageManager::Init() {
 
 std::optional<io::Error> PageManager::Load() {
   AllocMeta();
-  file_.read(buf_[0].addr, Page::SIZE);
+  file_.read(buf_[0].addr_mut(), Page::SIZE);
   if (!file_.good())
     return io::Error::New(io::ErrorKind::Other,
       "Error occurred when reading file " + path_.string());
@@ -260,35 +260,38 @@ Page PageManager::GetPage(pgid_t pgid) {
   }
   if (is_free_[pgid])
     DB_ERR("Internal error: Accessing free page {}", pgid);
-  char *buf;
+  char *addr;
   auto it = buf_.find(pgid);
   if (it != buf_.end()) {
-    buf = it->second.addr;
+    addr = it->second.addr_mut();
     if (it->second.refcount == 0)
       eviction_policy_.Pin(pgid);
     it->second.refcount += 1;
   } else {
     assert(buf_.size() <= max_buf_pages_);
+    std::unique_ptr<char[]> buf;
     if (buf_.size() == max_buf_pages_) {
       pgid_t pgid_to_evict = eviction_policy_.Evict();
       auto it = buf_.find(pgid_to_evict);
       assert(it->second.refcount == 0);
-      buf = it->second.addr;
       if (it->second.dirty) {
         file_.seekp(pgid_to_evict * Page::SIZE);
-        file_.write(buf, Page::SIZE);
+        file_.write(it->second.addr(), Page::SIZE);
       }
+      buf = std::move(it->second.buf);
       buf_.erase(it);
     } else {
-      buf = new char[Page::SIZE];
+      buf = std::unique_ptr<char[]>(new char[Page::SIZE]);
     }
+    PageBufInfo buf_info{std::move(buf), 1, false};
+    addr = buf_info.addr_mut();
     file_.seekg(pgid * Page::SIZE);
-    file_.read(buf, Page::SIZE);
-    auto ret = buf_.emplace(pgid, PageBufInfo{buf, 1, false});
+    file_.read(addr, Page::SIZE);
+    auto ret = buf_.emplace(pgid, std::move(buf_info));
     (void)ret;
     assert(ret.second);
   }
-  return Page(pgid, buf, *this, false);
+  return Page(pgid, addr, *this, false);
 }
 void PageManager::DropPage(pgid_t pgid, bool dirty) {
   assert(pgid != 0);
