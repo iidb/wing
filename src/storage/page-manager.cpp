@@ -77,7 +77,7 @@ auto PageManager::Open(
   return pgm;
 }
 
-pgid_t PageManager::Allocate() {
+pgid_t PageManager::__Allocate() {
   if (free_list_buf_used_ == 0) {
     if (free_list_buf_standby_full_) {
       std::swap(free_list_buf_, free_list_buf_standby_);
@@ -104,8 +104,22 @@ pgid_t PageManager::Allocate() {
     return free_list_buf_[--free_list_buf_used_];
   }
 }
+pgid_t PageManager::Allocate() {
+  pgid_t ret = __Allocate();
+  assert(ret <= is_free_.size());
+  if (ret == is_free_.size()) {
+    is_free_.push_back(false);
+  } else {
+    assert(is_free_[ret] == true);
+    is_free_[ret] = false;
+  }
+  return ret;
+}
 
 void PageManager::Free(pgid_t pgid) {
+  if (is_free_[pgid])
+    DB_ERR("Internal error: Double free of page {}\n", pgid);
+  is_free_[pgid] = true;
   eviction_policy_.Remove(pgid);
   auto it = buf_.find(pgid);
   if (it != buf_.end()) {
@@ -174,6 +188,9 @@ void PageManager::ShrinkToFit() {
   memcpy(free_list_buf_, free_pages.data() + i,
     free_list_buf_used_ * sizeof(pgid_t));
   free_list_buf_standby_full_ = false;
+
+  assert(is_free_.size() >= PageNum());
+  is_free_.resize(PageNum());
 }
 
 void PageManager::AllocMeta() {
@@ -187,45 +204,65 @@ void PageManager::AllocMeta() {
 }
 void PageManager::Init() {
   AllocMeta();
-	memset(buf_[0].addr, 0, Page::SIZE);
+  memset(buf_[0].addr, 0, Page::SIZE);
   FreeListHead() = 0;
-	FreePagesInHead() = 0;
-	PageNum() = 2;
-	std::filesystem::resize_file(path_, Page::SIZE);
+  FreePagesInHead() = 0;
+  PageNum() = 2;
+  std::filesystem::resize_file(path_, Page::SIZE);
+  is_free_.resize(PageNum(), false);
 }
 
 std::optional<io::Error> PageManager::Load() {
   AllocMeta();
-	file_.read(buf_[0].addr, Page::SIZE);
-	if (!file_.good())
-		return io::Error::New(io::ErrorKind::Other,
-			"Error occurred when reading file " + path_.string());
-	pgid_t pgid = FreeListHead();
-	if (pgid != 0) {
-		file_.seekg(pgid * Page::SIZE);
-		free_list_buf_used_ = FreePagesInHead();
-		file_.read(reinterpret_cast<char *>(free_list_buf_),
-			 free_list_buf_used_ * sizeof(pgid_t));
-		pgid_t head;
-		file_.seekg((pgid + 1) * Page::SIZE - sizeof(pgid_t));
-		file_.read(reinterpret_cast<char *>(&head), sizeof(head));
-    Free(pgid);
-		FreeListHead() = head;
-	}
-	if (!file_.good())
-		return io::Error::New(io::ErrorKind::Other,
-			"Error occurred when reading file " + path_.string());
-	return std::nullopt;
+  file_.read(buf_[0].addr, Page::SIZE);
+  if (!file_.good())
+    return io::Error::New(io::ErrorKind::Other,
+      "Error occurred when reading file " + path_.string());
+  is_free_.resize(PageNum(), false);
+  pgid_t head = FreeListHead();
+  if (head == 0)
+    return std::nullopt;
+  file_.seekg(head * Page::SIZE);
+  free_list_buf_used_ = FreePagesInHead();
+  file_.read(reinterpret_cast<char *>(free_list_buf_),
+     free_list_buf_used_ * sizeof(pgid_t));
+  pgid_t pgid;
+  file_.seekg((head + 1) * Page::SIZE - sizeof(pgid_t));
+  file_.read(reinterpret_cast<char *>(&pgid), sizeof(pgid));
+  FreeListHead() = pgid;
+
+  for (size_t i = 0; i < free_list_buf_used_; ++i)
+    is_free_[free_list_buf_[i]] = true;
+  while (pgid) {
+    file_.seekg(pgid * Page::SIZE);
+    assert(!free_list_buf_standby_full_);
+    // Borrow free_list_buf_standby_ here
+    file_.read(reinterpret_cast<char *>(free_list_buf_standby_),
+      PGID_PER_PAGE * sizeof(pgid_t));
+    for (size_t i = 0; i < PGID_PER_PAGE; ++i)
+      is_free_[free_list_buf_standby_[i]] = true;
+    file_.read(reinterpret_cast<char *>(&pgid), sizeof(pgid));
+  }
+
+  // Postpone the free here to make sure that free_list_buf_standby_ is empty.
+  Free(head);
+
+  if (!file_.good())
+    return io::Error::New(io::ErrorKind::Other,
+      "Error occurred when reading file " + path_.string());
+  return std::nullopt;
 }
 
 Page PageManager::GetPage(pgid_t pgid) {
-	if (pgid >= PageNum()) {
-		DB_ERR("Internal Error: " + std::to_string(pgid) + " >= " +
-				std::to_string(PageNum()));
-	}
-	char *buf;
-	auto it = buf_.find(pgid);
-	if (it != buf_.end()) {
+  if (pgid >= PageNum()) {
+    DB_ERR("Internal Error: " + std::to_string(pgid) + " >= " +
+        std::to_string(PageNum()));
+  }
+  if (is_free_[pgid])
+    DB_ERR("Internal error: Accessing free page {}", pgid);
+  char *buf;
+  auto it = buf_.find(pgid);
+  if (it != buf_.end()) {
     buf = it->second.addr;
     if (it->second.refcount == 0)
       eviction_policy_.Pin(pgid);
@@ -245,13 +282,13 @@ Page PageManager::GetPage(pgid_t pgid) {
     } else {
       buf = new char[Page::SIZE];
     }
-		file_.seekg(pgid * Page::SIZE);
-		file_.read(buf, Page::SIZE);
+    file_.seekg(pgid * Page::SIZE);
+    file_.read(buf, Page::SIZE);
     auto ret = buf_.emplace(pgid, PageBufInfo{buf, 1, false});
     (void)ret;
     assert(ret.second);
-	}
-	return Page(pgid, buf, *this, false);
+  }
+  return Page(pgid, buf, *this, false);
 }
 void PageManager::DropPage(pgid_t pgid, bool dirty) {
   assert(pgid != 0);
@@ -264,13 +301,13 @@ void PageManager::DropPage(pgid_t pgid, bool dirty) {
     eviction_policy_.Unpin(pgid);
 }
 void PageManager::FlushFreeListStandby(pgid_t pgid) {
-	file_.seekp(pgid * Page::SIZE);
-	file_.write(reinterpret_cast<const char *>(free_list_buf_standby_),
-		PGID_PER_PAGE * sizeof(pgid_t));
-	pgid_t head = FreeListHead();
-	file_.write(reinterpret_cast<const char *>(&head), sizeof(head));
-	FreeListHead() = pgid;
-	free_list_buf_standby_full_ = false;
+  file_.seekp(pgid * Page::SIZE);
+  file_.write(reinterpret_cast<const char *>(free_list_buf_standby_),
+    PGID_PER_PAGE * sizeof(pgid_t));
+  pgid_t head = FreeListHead();
+  file_.write(reinterpret_cast<const char *>(&head), sizeof(head));
+  FreeListHead() = pgid;
+  free_list_buf_standby_full_ = false;
 }
 
 }

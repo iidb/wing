@@ -568,6 +568,8 @@ private:
     return *(pgid_t *)(buf_[0].addr + FREE_PAGES_IN_HEAD);
   }
 
+  pgid_t __Allocate();
+
   void AllocMeta();
   void Init();
   std::optional<io::Error> Load();
@@ -586,6 +588,9 @@ private:
   std::unordered_map<pgid_t, PageBufInfo> buf_;
   EvictionPolicy eviction_policy_;
   pgid_t free_list_bufs_[2][PGID_PER_PAGE];
+
+  // For debugging
+  std::vector<bool> is_free_;
 
   friend class Page;
 };
