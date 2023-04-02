@@ -13,8 +13,8 @@ class BlockAllocator {
  public:
   uint8_t* Allocate(size_t size) {
     if (offset_ + size > BlockSize) {
-      auto new_block = new uint8_t[std::max(size, BlockSize)];
-      ptrs_.push_back(std::unique_ptr<uint8_t>(new_block));
+      ptrs_.push_back(
+        std::unique_ptr<uint8_t[]>(new uint8_t[std::max(size, BlockSize)]));
       offset_ = 0;
     }
     auto ret = ptrs_.back().get() + offset_;
@@ -27,7 +27,7 @@ class BlockAllocator {
   }
 
  private:
-  std::vector<std::unique_ptr<uint8_t>> ptrs_;
+  std::vector<std::unique_ptr<uint8_t[]>> ptrs_;
   size_t offset_{BlockSize + 1};
 };
 

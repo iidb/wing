@@ -21,7 +21,7 @@ class StaticFieldVector {
       }
       vec_.push_back(StaticFieldRef::CreateInt(a.data_.int_data));
     }
-    str_ = std::unique_ptr<uint8_t>(new uint8_t[str_sz]);
+    str_ = std::unique_ptr<uint8_t[]>(new uint8_t[str_sz]);
     size_t str_offset = 0;
     for (uint32_t i = 0; auto& a : fields) {
       if (a.type_ == FieldType::CHAR || a.type_ == FieldType::VARCHAR) {
@@ -43,7 +43,7 @@ class StaticFieldVector {
 
  private:
   std::vector<StaticFieldRef> vec_;
-  std::unique_ptr<uint8_t> str_;
+  std::unique_ptr<uint8_t[]> str_;
 };
 
 class TupleVector {

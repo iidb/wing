@@ -31,16 +31,16 @@ class BitVector {
     uint32_t bit_;
   };
   BitVector() : BitVector(1) {}
-  BitVector(uint32_t size) : size_(size), mem_(std::unique_ptr<uint64_t>(new uint64_t[_get_alloc_size(size_)])) {
+  BitVector(uint32_t size) : size_(size), mem_(std::unique_ptr<uint64_t[]>(new uint64_t[_get_alloc_size(size_)])) {
     std::memset(mem_.get(), 0, _get_alloc_size(size_) * kBitSize / 8);
   }
-  BitVector(const BitVector& v) : size_(v.size_), mem_(std::unique_ptr<uint64_t>(new uint64_t[_get_alloc_size(v.size_)])) {
+  BitVector(const BitVector& v) : size_(v.size_), mem_(std::unique_ptr<uint64_t[]>(new uint64_t[_get_alloc_size(v.size_)])) {
     std::memcpy(mem_.get(), v.mem_.get(), _get_alloc_size(size_) * kBitSize / 8);
   }
   BitVector(BitVector&& v) : size_(v.size_), mem_(std::move(v.mem_)) {}
   BitVector& operator=(const BitVector& v) {
     size_ = v.size_;
-    mem_ = std::unique_ptr<uint64_t>(new uint64_t[_get_alloc_size(size_)]);
+    mem_ = std::unique_ptr<uint64_t[]>(new uint64_t[_get_alloc_size(size_)]);
     std::memcpy(mem_.get(), v.mem_.get(), _get_alloc_size(size_) * kBitSize / 8);
     return *this;
   }
@@ -134,7 +134,7 @@ class BitVector {
  private:
   static uint32_t _get_alloc_size(uint32_t size) { return (size + kBitSize - 1) / kBitSize; }
   uint32_t size_{0};
-  std::unique_ptr<uint64_t> mem_;
+  std::unique_ptr<uint64_t[]> mem_;
 };
 
 }  // namespace wing
