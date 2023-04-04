@@ -54,22 +54,41 @@ struct Env {
   std::minstd_rand& e;
   tree_t& tree;
   map_t& m;
-  size_t key_len;
-  size_t val_len;
+  size_t max_key_len;
+  size_t max_val_len;
+  bool rand_len = false;
   size_t max_scan_len = 50;
 };
 
+static std::string gen_key(Env& env) {
+  size_t key_len;
+  if (env.rand_len)
+    key_len = std::uniform_int_distribution<size_t>(1, env.max_key_len)(env.e);
+  else
+    key_len = env.max_key_len;
+  return rand_digits(env.e, key_len);
+}
+static std::string gen_value(Env& env) {
+  size_t value_len;
+  if (env.rand_len)
+    value_len =
+      std::uniform_int_distribution<size_t>(1, env.max_val_len)(env.e);
+  else
+    value_len = env.max_val_len;
+  return rand_digits(env.e, value_len);
+}
+
 static void try_insert(Env& env) {
-  std::string key = rand_digits(env.e, env.key_len);
-  std::string value = rand_digits(env.e, env.val_len);
+  std::string key = gen_key(env);
+  std::string value = gen_value(env);
   bool succeed = env.tree.Insert(key, value);
   auto std_ret = env.m.insert({key, value});
   ASSERT_EQ(std_ret.second, succeed);
 }
 
 static void try_update(Env& env) {
-  std::string key = rand_digits(env.e, env.key_len);
-  std::string value = rand_digits(env.e, env.val_len);
+  std::string key = gen_key(env);
+  std::string value = gen_value(env);
   bool exists = env.tree.Update(key, value);
   auto std_ret = env.m.find(key);
   if (std_ret == env.m.end()) {
@@ -81,7 +100,7 @@ static void try_update(Env& env) {
 }
 
 static void get(Env& env) {
-  std::string key = rand_digits(env.e, env.key_len);
+  std::string key = gen_key(env);
   auto ret = env.tree.Get(key);
   auto it = env.m.find(key);
   if (it != env.m.end()) {
@@ -97,7 +116,7 @@ static void take(Env& env) {
     ASSERT_TRUE(env.tree.IsEmpty());
     return;
   }
-  std::string key = rand_digits(env.e, env.key_len);
+  std::string key = gen_key(env);
   auto std_it = env.m.lower_bound(key);
   if (std_it == env.m.end()) {
     --std_it;
@@ -107,7 +126,7 @@ static void take(Env& env) {
 }
 
 static void lower_bound(Env& env) {
-  std::string key = rand_digits(env.e, env.key_len);
+  std::string key = gen_key(env);
   auto std_it = env.m.lower_bound(key);
   auto it = env.tree.LowerBound(key);
   if (std_it == env.m.end()) {
@@ -120,7 +139,7 @@ static void lower_bound(Env& env) {
 }
 
 static void upper_bound(Env& env) {
-  std::string key = rand_digits(env.e, env.key_len);
+  std::string key = gen_key(env);
   auto std_it = env.m.upper_bound(key);
   auto it = env.tree.UpperBound(key);
   if (std_it == env.m.end()) {
@@ -134,7 +153,7 @@ static void upper_bound(Env& env) {
 
 static void scan(Env& env) {
   std::uniform_int_distribution<size_t> scan_len_dist(0, env.max_scan_len + 1);
-  std::string key = rand_digits(env.e, env.key_len);
+  std::string key = gen_key(env);
   size_t scan_len = scan_len_dist(env.e);
   auto std_it = env.m.lower_bound(key);
   auto it = env.tree.LowerBound(key);
@@ -155,7 +174,9 @@ static void scan(Env& env) {
 
 struct OPNum {
   size_t insert = 0;
+  size_t insert_rand_len = 0;
   size_t update = 0;
+  size_t update_rand_len = 0;
   size_t get = 0;
   size_t take = 0;
   size_t lower_bound = 0;
@@ -164,8 +185,8 @@ struct OPNum {
 };
 
 static void rand_op(Env& env, OPNum num) {
-  size_t tot = num.insert + num.update + num.get + num.lower_bound +
-    num.upper_bound + num.take + num.scan;
+  size_t tot = num.insert + num.insert_rand_len + num.update + num.get +
+    num.lower_bound + num.upper_bound + num.take + num.scan;
   for (; tot; tot -= 1) {
     std::uniform_int_distribution<size_t> dist(0, tot - 1);
     size_t rand_num = dist(env.e);
@@ -233,8 +254,8 @@ static void test_rand_op(const std::filesystem::path& path, const OPNum& num,
       .e = e,
       .tree = tree,
       .m = m,
-      .key_len = key_len,
-      .val_len = val_len,
+      .max_key_len = key_len,
+      .max_val_len = val_len,
     };
     ASSERT_NO_FATAL_FAILURE(rand_op(env, num));
   }
@@ -371,8 +392,8 @@ static auto create_rand_insert(
     .e = e,
     .tree = tree,
     .m = m,
-    .key_len = magnitude,
-    .val_len = magnitude,
+    .max_key_len = magnitude,
+    .max_val_len = magnitude,
   };
   rand_op(env, OPNum{
     .insert = n,
@@ -951,8 +972,8 @@ static void rand_all_operations(
       .e = e,
       .tree = tree,
       .m = m,
-      .key_len = magnitude,
-      .val_len = magnitude,
+      .max_key_len = magnitude,
+      .max_val_len = magnitude,
     };
     ASSERT_NO_FATAL_FAILURE(rand_op(env, num));
     tree.Destroy();
@@ -978,6 +999,57 @@ TEST(BPlusTreeTest, RandAllOperations1e5) {
 }
 TEST(BPlusTreeTest, RandAllOperations1e6) {
   rand_all_operations(test_name(), 6);
+}
+
+static void rand_all_operations_rand_len(
+    const std::filesystem::path& path, size_t magnitude) {
+  size_t n = pow<size_t>(10, magnitude);
+  OPNum num{
+    .insert = n,
+    .update = n,
+    .get = n,
+    .take = n,
+    .lower_bound = n,
+    .upper_bound = n,
+    .scan = n,
+  };
+  {
+    std::minstd_rand e(233);
+    map_t m;
+    auto pgm = wing::PageManager::Create(path, MAX_BUF_PAGES);
+    auto tree = tree_t::Create(*pgm);
+    Env env {
+      .e = e,
+      .tree = tree,
+      .m = m,
+      .max_key_len = magnitude,
+      .max_val_len = 1024,
+      .rand_len = true,
+    };
+    ASSERT_NO_FATAL_FAILURE(rand_op(env, num));
+    tree.Destroy();
+    pgm->ShrinkToFit();
+    ASSERT_EQ(pgm->PageNum(), pgm->SuperPageID() + 1);
+  }
+  ASSERT_TRUE(fs::remove(path));
+}
+TEST(BPlusTreeTest, RandAllOperationsRandLen1e1) {
+  rand_all_operations_rand_len(test_name(), 1);
+}
+TEST(BPlusTreeTest, RandAllOperationsRandLen1e2) {
+  rand_all_operations_rand_len(test_name(), 2);
+}
+TEST(BPlusTreeTest, RandAllOperationsRandLen1e3) {
+  rand_all_operations_rand_len(test_name(), 3);
+}
+TEST(BPlusTreeTest, RandAllOperationsRandLen1e4) {
+  rand_all_operations_rand_len(test_name(), 4);
+}
+TEST(BPlusTreeTest, RandAllOperationsRandLen1e5) {
+  rand_all_operations_rand_len(test_name(), 5);
+}
+TEST(BPlusTreeTest, RandAllOperationsRandLen1e6) {
+  rand_all_operations_rand_len(test_name(), 6);
 }
 
 static void rand_insert_close_open_scan(const std::filesystem::path& path,
