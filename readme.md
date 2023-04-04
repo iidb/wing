@@ -20,7 +20,7 @@ git submodule update --init
 git push origin
 ```
 
-未来如果实验框架有更新，则可以用`git pull public main`将更新pull下来。
+未来如果实验框架有更新，则可以用`git fetch public && git merge public/main`将更新合并到本地。
 
 ## Build
 
