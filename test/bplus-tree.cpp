@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <cstdlib>
+#include <optional>
 #include <random>
 
 #include "storage/bplus-tree.hpp"
@@ -117,10 +118,25 @@ static void take(Env& env) {
     return;
   }
   std::string key = gen_key(env);
+  auto std_it = env.m.find(key);
+  auto taken = env.tree.Take(key);
+  if (std_it == env.m.end()) {
+    ASSERT_EQ(taken, std::nullopt);
+  } else {
+    ASSERT_EQ(taken, std::make_optional(std_it->second));
+    env.m.erase(std_it);
+  }
+}
+static void take_nearby(Env& env) {
+  if (env.m.empty()) {
+    ASSERT_TRUE(env.tree.IsEmpty());
+    return;
+  }
+  std::string key = gen_key(env);
   auto std_it = env.m.lower_bound(key);
   if (std_it == env.m.end()) {
     --std_it;
-  };
+  }
   ASSERT_EQ(env.tree.Take(std_it->first), std_it->second);
   env.m.erase(std_it);
 }
@@ -177,14 +193,15 @@ struct OPNum {
   size_t update = 0;
   size_t get = 0;
   size_t take = 0;
+  size_t take_nearby = 0;
   size_t lower_bound = 0;
   size_t upper_bound = 0;
   size_t scan = 0;
 };
 
 static void rand_op(Env& env, OPNum num) {
-  size_t tot = num.insert + num.update + num.get +
-    num.lower_bound + num.upper_bound + num.take + num.scan;
+  size_t tot = num.insert + num.update + num.get + num.take +
+    num.take_nearby + num.lower_bound + num.upper_bound + num.scan;
   for (; tot; tot -= 1) {
     std::uniform_int_distribution<size_t> dist(0, tot - 1);
     size_t rand_num = dist(env.e);
@@ -212,6 +229,12 @@ static void rand_op(Env& env, OPNum num) {
       continue;
     }
     rand_num -= num.take;
+    if (rand_num < num.take_nearby) {
+      num.take_nearby -= 1;
+      ASSERT_NO_FATAL_FAILURE(take_nearby(env));
+      continue;
+    }
+    rand_num -= num.take_nearby;
     if (rand_num < num.lower_bound) {
       num.lower_bound -= 1;
       ASSERT_NO_FATAL_FAILURE(lower_bound(env));
@@ -235,7 +258,7 @@ static void rand_op(Env& env, OPNum num) {
   ASSERT_EQ(num.insert, 0);
   ASSERT_EQ(num.update, 0);
   ASSERT_EQ(num.get, 0);
-  ASSERT_EQ(num.take, 0);
+  ASSERT_EQ(num.take_nearby, 0);
   ASSERT_EQ(num.lower_bound, 0);
   ASSERT_EQ(num.upper_bound, 0);
   ASSERT_EQ(num.scan, 0);
@@ -589,7 +612,36 @@ TEST(BPlusTreeTest, Delete1) {
   ASSERT_TRUE(fs::remove(name));
 }
 
-static void rand_insert_get_delete(const std::filesystem::path& path,
+static void rand_insert_get_take_nearby(const std::filesystem::path& path,
+    size_t magnitude) {
+  size_t n = pow<size_t>(10, magnitude);
+  OPNum num{
+    .insert = n,
+    .get = n,
+    .take_nearby = n,
+  };
+  ASSERT_NO_FATAL_FAILURE(test_rand_op(path, num, magnitude, magnitude));
+}
+TEST(BPlusTreeTest, RandInsertGetDelete1e1) {
+  rand_insert_get_take_nearby(test_name(), 1);
+}
+TEST(BPlusTreeTest, RandInsertGetDelete1e2) {
+  rand_insert_get_take_nearby(test_name(), 2);
+}
+TEST(BPlusTreeTest, RandInsertGetDelete1e3) {
+  rand_insert_get_take_nearby(test_name(), 3);
+}
+TEST(BPlusTreeTest, RandInsertGetDelete1e4) {
+  rand_insert_get_take_nearby(test_name(), 4);
+}
+TEST(BPlusTreeTest, RandInsertGetDelete1e5) {
+  rand_insert_get_take_nearby(test_name(), 5);
+}
+TEST(BPlusTreeTest, RandInsertGetDelete1e6) {
+  rand_insert_get_take_nearby(test_name(), 6);
+}
+
+static void rand_insert_get_take(const std::filesystem::path& path,
     size_t magnitude) {
   size_t n = pow<size_t>(10, magnitude);
   OPNum num{
@@ -599,23 +651,23 @@ static void rand_insert_get_delete(const std::filesystem::path& path,
   };
   ASSERT_NO_FATAL_FAILURE(test_rand_op(path, num, magnitude, magnitude));
 }
-TEST(BPlusTreeTest, RandInsertGetDelete1e1) {
-  rand_insert_get_delete(test_name(), 1);
+TEST(BPlusTreeTest, RandInsertGetTake1e1) {
+  rand_insert_get_take(test_name(), 1);
 }
-TEST(BPlusTreeTest, RandInsertGetDelete1e2) {
-  rand_insert_get_delete(test_name(), 2);
+TEST(BPlusTreeTest, RandInsertGetTake1e2) {
+  rand_insert_get_take(test_name(), 2);
 }
-TEST(BPlusTreeTest, RandInsertGetDelete1e3) {
-  rand_insert_get_delete(test_name(), 3);
+TEST(BPlusTreeTest, RandInsertGetTake1e3) {
+  rand_insert_get_take(test_name(), 3);
 }
-TEST(BPlusTreeTest, RandInsertGetDelete1e4) {
-  rand_insert_get_delete(test_name(), 4);
+TEST(BPlusTreeTest, RandInsertGetTake1e4) {
+  rand_insert_get_take(test_name(), 4);
 }
-TEST(BPlusTreeTest, RandInsertGetDelete1e5) {
-  rand_insert_get_delete(test_name(), 5);
+TEST(BPlusTreeTest, RandInsertGetTake1e5) {
+  rand_insert_get_take(test_name(), 5);
 }
-TEST(BPlusTreeTest, RandInsertGetDelete1e6) {
-  rand_insert_get_delete(test_name(), 6);
+TEST(BPlusTreeTest, RandInsertGetTake1e6) {
+  rand_insert_get_take(test_name(), 6);
 }
 
 static void rand_insert_delete_all(const std::filesystem::path& path,
@@ -956,7 +1008,7 @@ static void rand_all_operations(
     .insert = n,
     .update = n,
     .get = n,
-    .take = n,
+    .take_nearby = n,
     .lower_bound = n,
     .upper_bound = n,
     .scan = n,
@@ -999,7 +1051,7 @@ TEST(BPlusTreeTest, RandAllOperations1e6) {
   rand_all_operations(test_name(), 6);
 }
 
-static void rand_all_operations_rand_len(
+static void rand_all_operations_fixed(
     const std::filesystem::path& path, size_t magnitude) {
   size_t n = pow<size_t>(10, magnitude);
   OPNum num{
@@ -1007,6 +1059,7 @@ static void rand_all_operations_rand_len(
     .update = n,
     .get = n,
     .take = n,
+    .take_nearby = n / 10,
     .lower_bound = n,
     .upper_bound = n,
     .scan = n,
@@ -1021,6 +1074,57 @@ static void rand_all_operations_rand_len(
       .tree = tree,
       .m = m,
       .max_key_len = magnitude,
+      .max_val_len = magnitude,
+    };
+    ASSERT_NO_FATAL_FAILURE(rand_op(env, num));
+    tree.Destroy();
+    pgm->ShrinkToFit();
+    ASSERT_EQ(pgm->PageNum(), pgm->SuperPageID() + 1);
+  }
+  ASSERT_TRUE(fs::remove(path));
+}
+TEST(BPlusTreeTest, RandAllOperationsFixed1e1) {
+  rand_all_operations_fixed(test_name(), 1);
+}
+TEST(BPlusTreeTest, RandAllOperationsFixed1e2) {
+  rand_all_operations_fixed(test_name(), 2);
+}
+TEST(BPlusTreeTest, RandAllOperationsFixed1e3) {
+  rand_all_operations_fixed(test_name(), 3);
+}
+TEST(BPlusTreeTest, RandAllOperationsFixed1e4) {
+  rand_all_operations_fixed(test_name(), 4);
+}
+TEST(BPlusTreeTest, RandAllOperationsFixed1e5) {
+  rand_all_operations_fixed(test_name(), 5);
+}
+TEST(BPlusTreeTest, RandAllOperationsFixed1e6) {
+  rand_all_operations_fixed(test_name(), 6);
+}
+
+static void rand_all_operations_rand_len(
+    const std::filesystem::path& path, size_t magnitude) {
+  size_t n = pow<size_t>(10, magnitude);
+  OPNum num{
+    .insert = n,
+    .update = n,
+    .get = n,
+    .take = n,
+    .take_nearby = n / 10,
+    .lower_bound = n,
+    .upper_bound = n,
+    .scan = n,
+  };
+  {
+    std::minstd_rand e(233);
+    map_t m;
+    auto pgm = wing::PageManager::Create(path, MAX_BUF_PAGES);
+    auto tree = tree_t::Create(*pgm);
+    Env env {
+      .e = e,
+      .tree = tree,
+      .m = m,
+      .max_key_len = magnitude * 2,
       .max_val_len = 1024,
       .rand_len = true,
     };
@@ -1045,9 +1149,6 @@ TEST(BPlusTreeTest, RandAllOperationsRandLen1e4) {
 }
 TEST(BPlusTreeTest, RandAllOperationsRandLen1e5) {
   rand_all_operations_rand_len(test_name(), 5);
-}
-TEST(BPlusTreeTest, RandAllOperationsRandLen1e6) {
-  rand_all_operations_rand_len(test_name(), 6);
 }
 
 static void rand_insert_close_open_scan(const std::filesystem::path& path,
