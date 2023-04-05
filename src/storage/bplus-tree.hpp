@@ -99,11 +99,15 @@ class BPlusTree {
     Iter& operator=(Iter&& iter) {
       DB_ERR("Not implemented!");
     }
-    // Returns an optional key-value pair. The first std::string_view is the key
-    // and the second std::string_view is the value.
+    // Returns the current key-value pair that this iterator currently points
+    // to. If this iterator does not point to any key-value pair, then return
+    // std::nullopt. The first std::string_view is the key and the second
+    // std::string_view is the value.
     std::optional<std::pair<std::string_view, std::string_view>> Cur() {
       DB_ERR("Not implemented!");
     }
+    // Make this iterator point to the next key-value pair, or make this
+    // iterator point to nothing if the current key-value pair is the last.
     void Next() {
       DB_ERR("Not implemented!");
     }
