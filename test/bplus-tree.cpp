@@ -174,9 +174,7 @@ static void scan(Env& env) {
 
 struct OPNum {
   size_t insert = 0;
-  size_t insert_rand_len = 0;
   size_t update = 0;
-  size_t update_rand_len = 0;
   size_t get = 0;
   size_t take = 0;
   size_t lower_bound = 0;
@@ -185,7 +183,7 @@ struct OPNum {
 };
 
 static void rand_op(Env& env, OPNum num) {
-  size_t tot = num.insert + num.insert_rand_len + num.update + num.get +
+  size_t tot = num.insert + num.update + num.get +
     num.lower_bound + num.upper_bound + num.take + num.scan;
   for (; tot; tot -= 1) {
     std::uniform_int_distribution<size_t> dist(0, tot - 1);
