@@ -454,7 +454,6 @@ class BPlusTree {
     InnerPage inner = GetInnerPage(pgid);
     size_t len = 0; // Suppress maybe unitialized warning
     slotid_t slot_num = inner.SlotNum();
-    assert(slot_num > 0);
     for (slotid_t i = 0; i < slot_num; ++i) {
       InnerSlot slot = InnerSlotParse(inner.Slot(i));
       if (i > 0)
