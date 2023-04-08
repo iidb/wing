@@ -57,6 +57,19 @@ endif()
 
 add_compile_options("-Wall" "-march=native")
 
+# Address Sanitizer can only be enabled in Debug mode
+option(ASAN "Use Address Sanitizer" OFF)
+if (ASAN)
+  string( TOLOWER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_LOWER )
+  if (CMAKE_BUILD_TYPE_LOWER STREQUAL "debug")
+    add_compile_options("-fsanitize=address" "-fno-omit-frame-pointer")
+    add_link_options("-fsanitize=address")
+    message(STATUS "asan is enabled.")
+  else()
+    message(STATUS "asan will not be enabled in modes other than Debug.")
+  endif()
+endif()
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND MINGW)
   # https://stackoverflow.com/questions/31617034/stdfuture-and-clang-with-stdlib-libstdc
   # If you are using Clang but library was compiled by GCC
