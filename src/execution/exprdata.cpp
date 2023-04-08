@@ -314,7 +314,7 @@ std::function<StaticFieldRef(T...)> GenerateStringExprFunction(const Expr* expr,
                                                                const OutputSchema* right_input_schema, std::vector<const Expr*>*,
                                                                std::vector<std::function<void(AggregateIntermediateData&, StaticFieldRef)>>*) {
   if (expr->type_ == ExprType::LITERAL_STRING) {
-    auto str = std::shared_ptr<StaticStringField>(StaticStringField::Generate(static_cast<const LiteralStringExpr*>(expr)->literal_value_));
+    auto str = std::shared_ptr<StaticStringField>(StaticStringField::Generate(static_cast<const LiteralStringExpr*>(expr)->literal_value_), StaticStringField::FreeFromGenerate);
     return [str = std::move(str)](T...) { return StaticFieldRef::CreateStringRef(str.get()); };
   } else if (expr->type_ == ExprType::COLUMN) {
     auto this_expr = static_cast<const ColumnExpr*>(expr);

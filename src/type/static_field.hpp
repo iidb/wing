@@ -23,6 +23,11 @@ class StaticStringField {
     return mem;
   }
 
+  /* Free the StaticStringField that is create by Generate */
+  static void FreeFromGenerate(StaticStringField* field) {
+    delete[] reinterpret_cast<uint8_t*>(field);
+  }
+
   static StaticStringField* Generate(std::string_view str) { return Generate(reinterpret_cast<const uint8_t*>(str.data()), str.size()); }
 
   static StaticStringField* Generate(const StaticStringField* field) { return Generate(field->str_, field->Length()); }
