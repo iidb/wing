@@ -447,7 +447,7 @@ class BPlusTree {
         key_printer(out, LeafSmallestKey(leaf));
         out << ",largest:";
         key_printer(out, LeafLargestKey(leaf));
-        out << "}\n";
+        out << "}" << std::endl;
       }
       return;
     }
