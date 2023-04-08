@@ -6,6 +6,7 @@
 
 namespace wing {
 
+/* Get string size and string pointer from a pointer. (String is stored as [size, ptr]) */
 std::pair<llvm::Value*, llvm::Value*> JitGetStringFromPointer(llvm::Value* input, llvm::IRBuilder<>& builder) {
   using namespace llvm;
   auto& C = builder.getContext();
@@ -60,7 +61,8 @@ llvm::Value* JitGenerateExpr(const Expr* expr, const OutputSchema& input_schema,
     return ConstantFP::get(C, APFloat(this_expr->literal_value_));
   } else if (expr->type_ == ExprType::LITERAL_STRING) {
     auto this_expr = static_cast<const LiteralStringExpr*>(expr);
-    auto x = std::unique_ptr<StaticStringField>(StaticStringField::Generate(this_expr->literal_value_));
+    auto x = std::unique_ptr<StaticStringField, void(*)(StaticStringField*)>(
+      StaticStringField::Generate(this_expr->literal_value_), StaticStringField::FreeFromGenerate);
     return builder.CreateGlobalStringPtr(std::string_view(reinterpret_cast<const char*>(x.get()), x->size_));
   } else if (expr->type_ == ExprType::BINOP) {
     auto this_expr = static_cast<const BinaryExpr*>(expr);

@@ -42,6 +42,7 @@ std::unique_ptr<PlanNode> CostBasedOptimizer::Optimize(std::unique_ptr<PlanNode>
     R.push_back(std::make_unique<ConvertToHashJoinRule>());
     plan = Apply(std::move(plan), R, db);  
     // TODO...
+    // You have to implement your own cost based optimizer.
   } else {
     std::vector<std::unique_ptr<OptRule>> R;
     R.push_back(std::make_unique<ConvertToHashJoinRule>());

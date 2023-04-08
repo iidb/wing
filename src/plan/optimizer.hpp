@@ -12,7 +12,7 @@ class LogicalOptimizer {
   // Apply some logical rules to plan.
   static std::unique_ptr<PlanNode> Apply(std::unique_ptr<PlanNode> plan, const std::vector<std::unique_ptr<OptRule>>& rules);
   // Optimize the plan using logical rules.
-  static std::unique_ptr<PlanNode> Optimize(std::unique_ptr<PlanNode> plan);
+  static std::unique_ptr<PlanNode> Optimize(std::unique_ptr<PlanNode> plan, const DB& db);
 };
 
 class CostBasedOptimizer {

@@ -125,17 +125,18 @@ TEST(StatsTest, CountMinSketchTest) {
   CountMinSketch sk(2000, 8);
   std::vector<int> seq(100000);
   std::vector<int> st(100000);
-  for (int i = 0 ; i < 100000; i++)seq[i]=i;
+  for (int i = 0; i < 100000; i++) seq[i] = i;
   std::shuffle(seq.begin(), seq.end(), gen);
   for (int i = 0; i < N; i++) {
     int j = seq[zipf(gen) - 1];
     st[j]++;
     sk.AddCount({reinterpret_cast<char*>(&j), 4});
   }
-  for (int i = 0; i < 100000; i++) if(st[i] > 1000) {
-    double freq_c = sk.GetFreqCount({reinterpret_cast<char*>(&i), 4});
-    EXPECT_TRUE(fabs(freq_c - st[i]) / (double) N < 0.002);
-  }
+  for (int i = 0; i < 100000; i++)
+    if (st[i] > 1000) {
+      double freq_c = sk.GetFreqCount({reinterpret_cast<char*>(&i), 4});
+      EXPECT_TRUE(fabs(freq_c - st[i]) / (double)N < 0.002);
+    }
 }
 
 TEST(OptimizerTest, JoinCommuteTest) {
@@ -150,7 +151,9 @@ TEST(OptimizerTest, JoinCommuteTest) {
     RandomTuple<int64_t, int64_t, double> tuple_gen(202303051627ull, 1, NUMB, 0, 10000, 0.0, 1.0);
     DB_INFO("Generating data...");
     auto stmt_a = tuple_gen.GenerateValuesClauseStmt(NUMA);
+    StopWatch _sw;
     EXPECT_TRUE(db->Execute("insert into A " + stmt_a + ";").Valid());
+    DB_INFO("{}", _sw.GetTimeInSeconds());
     stmt_a.clear();
     RandomTuple<int64_t, std::string> tuple_gen2(20230305162702ull, 0, 0, 15, 20);
     auto stmt_b = tuple_gen2.GenerateValuesClauseStmt(NUMB);
@@ -167,7 +170,7 @@ TEST(OptimizerTest, JoinCommuteTest) {
           db->Execute("select * from A, B where A.a = B.a;");
           // clang-format on
         },
-        2000));
+        3000));
     DB_INFO("Use: {} s", sw.GetTimeInSeconds());
     sw.Reset();
     // You should swap dupA and A. because b is uniformly distributed in [0, 100]. So dupA's size is 1e7 / 10000.
@@ -228,9 +231,7 @@ TEST(OptimizerTest, JoinAssociate4Test) {
   }
   db = nullptr;
   std::filesystem::remove("__tmp0204");
-  
 }
-
 
 TEST(OptimizerTest, JoinAssociate5Test) {
   using namespace wing;
@@ -280,6 +281,128 @@ TEST(OptimizerTest, JoinAssociate5Test) {
   }
   db = nullptr;
   std::filesystem::remove("__tmp0205");
-  
 }
 
+TEST(OptimizerTest, SimpleRangeScanTest) {
+  using namespace wing;
+  using namespace wing::wing_testing;
+  std::filesystem::remove("__tmp0205");
+  auto db = std::make_unique<wing::Instance>("__tmp0205", 0);
+  // Insert key-value data
+  // Read the corresponding value of a random key while inserting.
+  {
+    EXPECT_TRUE(db->Execute("create table A(a int64 primary key, b float64);").Valid());
+    int NUM = 1e6, round = 2e5, short_range_round = 5e4, short_range_len = 100;
+    int long_range_round = 10;
+    RandomTuple<int64_t, double> tuple_gen(0x202304041203ll, INT64_MIN, INT64_MAX, 0.0, 1.0);
+    std::vector<std::pair<std::string, ValueVector>> stmt_data;
+    for (int i = 0; i < round; i++) stmt_data.push_back(tuple_gen.GenerateValuesClause(NUM / round));
+
+    std::map<int64_t, double> mp;
+    std::mt19937_64 rgen(0x202304041223);
+
+    StopWatch sw;
+    EXPECT_TRUE(test_timeout(
+        [&]() {
+          for (int i = 0; i < round; i++) {
+            EXPECT_TRUE(db->Execute("insert into A " + stmt_data[i].first + ";").Valid());
+            for (int j = 0; j < NUM / round; j++) {
+              auto key = stmt_data[i].second.Get(j, 0)->ReadInt();
+              auto value = stmt_data[i].second.Get(j, 1)->ReadFloat();
+              if(!mp.count(key)) mp[key] = value;
+            }
+            int64_t random_key = rgen();
+            if (rgen() % 2) {
+              auto it = mp.lower_bound(random_key);
+              if (it != mp.end()) {
+                random_key = it->first;
+              }
+            }
+            auto result = db->Execute(fmt::format("select * from A where a = {};", random_key));
+            EXPECT_TRUE(result.Valid());
+            auto tuple = result.Next();
+            if (mp.count(random_key)) {
+              EXPECT_TRUE(tuple);
+              EXPECT_EQ(tuple.ReadFloat(1), mp[random_key]);
+              EXPECT_FALSE(result.Next());
+            } else {
+              EXPECT_FALSE(tuple);
+            }
+          }
+        },
+        10000));
+    DB_INFO("Use: {} s", sw.GetTimeInSeconds());
+    sw.Reset();
+    EXPECT_TRUE(test_timeout(
+        [&]() {
+          for (int i = 0; i < short_range_round; i++) {
+            int64_t L = rgen();
+            int64_t R = L;
+            auto it = mp.lower_bound(L);
+            for (int j = 0; j < short_range_len && it != mp.end(); j++) {
+              it++;
+            }
+            if (it != mp.end()) R = it->first;
+            auto result = db->Execute(fmt::format("select * from A where a >= {} and a < {};", L, R));
+            it = mp.lower_bound(L);
+            while(it->first < R) {
+              auto tuple = result.Next();
+              EXPECT_TRUE(tuple);
+              EXPECT_EQ(tuple.ReadFloat(1), it->second);
+              it++;
+            }
+            EXPECT_FALSE(result.Next());
+          }
+          std::string ops[] = {">", "<", ">=", "<="};
+          for (int j = 0; j < 4; ++j ){
+            for (int i = 0; i < long_range_round; i++) {
+              int64_t L = rgen();
+              auto result = db->Execute(fmt::format("select * from A where a {} {};", ops[j], L));
+              std::map<int64_t, double>::iterator it;
+              if (ops[j] == ">") {
+                it = mp.upper_bound(L);
+                while(it != mp.end()) {
+                  auto tuple = result.Next();
+                  EXPECT_TRUE(tuple);
+                  EXPECT_EQ(tuple.ReadFloat(1), it->second);
+                  it++;
+                }
+                EXPECT_FALSE(result.Next());
+              } else if (ops[j] == ">=") {
+                it = mp.lower_bound(L);
+                while(it != mp.end()) {
+                  auto tuple = result.Next();
+                  EXPECT_TRUE(tuple);
+                  EXPECT_EQ(tuple.ReadFloat(1), it->second);
+                  it++;
+                }
+                EXPECT_FALSE(result.Next());
+              } else if (ops[j] == "<") {
+                it = mp.begin();
+                while(it->first < L) {
+                  auto tuple = result.Next();
+                  EXPECT_TRUE(tuple);
+                  EXPECT_EQ(tuple.ReadFloat(1), it->second);
+                  it++;
+                }
+                EXPECT_FALSE(result.Next());
+              } else {
+                it = mp.begin();
+                while(it->first <= L) {
+                  auto tuple = result.Next();
+                  EXPECT_TRUE(tuple);
+                  EXPECT_EQ(tuple.ReadFloat(1), it->second);
+                  it++;
+                }
+                EXPECT_FALSE(result.Next());
+              }
+            }  
+          }
+          
+        },
+        10000));
+    DB_INFO("Use: {} s", sw.GetTimeInSeconds());
+  }
+  db = nullptr;
+  std::filesystem::remove("__tmp0205");
+}

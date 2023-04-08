@@ -193,11 +193,11 @@ class MemoryTableStorage {
     return std::make_unique<MemoryTable::Iterator>(table.GetIndexBegin(), table.GetIndexEnd());
   }
 
-  std::unique_ptr<Iterator<const uint8_t*>> GetRangeIterator(std::string_view table_name, std::pair<std::string_view, bool> L,
-                                                             std::pair<std::string_view, bool> R) {
+  std::unique_ptr<Iterator<const uint8_t*>> GetRangeIterator(std::string_view table_name, std::tuple<std::string_view, bool, bool> L,
+                                                             std::tuple<std::string_view, bool, bool> R) {
     auto& table = GetMemoryTable(table_name);
-    auto iter_l = L.second ? table.GetIndexLower(L.first) : table.GetIndexUpper(L.first);
-    auto iter_r = R.second ? table.GetIndexLower(R.first) : table.GetIndexUpper(R.first);
+    auto iter_l = std::get<1>(L) ? table.GetIndexBegin() : std::get<2>(L) ? table.GetIndexLower(std::get<0>(L)) : table.GetIndexUpper(std::get<0>(L));
+    auto iter_r = std::get<1>(R) ? table.GetIndexEnd() : std::get<2>(R) ? table.GetIndexUpper(std::get<0>(R)) : table.GetIndexLower(std::get<0>(R));
     return std::make_unique<MemoryTable::Iterator>(iter_l, iter_r);
   }
 

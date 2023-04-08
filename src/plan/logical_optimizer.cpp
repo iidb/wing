@@ -24,11 +24,11 @@ std::unique_ptr<PlanNode> LogicalOptimizer::Apply(std::unique_ptr<PlanNode> plan
   return plan;
 }
 
-std::unique_ptr<PlanNode> LogicalOptimizer::Optimize(std::unique_ptr<PlanNode> plan) {
-  std::vector<std::unique_ptr<OptRule>> R;
-  R.push_back(std::make_unique<PushDownFilterRule>());
-  plan = Apply(std::move(plan), R);
-
+std::unique_ptr<PlanNode> LogicalOptimizer::Optimize(std::unique_ptr<PlanNode> plan, const DB& db) {
+    std::vector<std::unique_ptr<OptRule>> R;
+    R.push_back(std::make_unique<PushDownFilterRule>());
+    plan = Apply(std::move(plan), R);
+    
   return plan;
 }
 

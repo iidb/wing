@@ -278,7 +278,7 @@ TEST(ExecutorJoinTest, JoinTestTable3) {
     EXPECT_TRUE(db->Execute("insert into dupB values(100000);").Valid());
     ResultSet result;
     StopWatch sw;
-    EXPECT_TRUE(test_timeout([&]() { result = db->Execute("select * from dupA as A, dupB as B where A.a = B.a + 10;"); }, 5000));
+    EXPECT_TRUE(test_timeout([&]() { result = db->Execute("select * from dupA as A join dupB as B on A.a = B.a + 10;"); }, 5000));
     DB_INFO("Use: {} s", sw.GetTimeInSeconds());
   }
 
@@ -989,7 +989,6 @@ TEST(ExecuteAllTest, OJContestTest) {
     CHECK_ALL_SORTED_ANS(answer, result, 3);
   }
   
-
   db = nullptr;
   std::filesystem::remove("__tmp0110");
 }

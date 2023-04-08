@@ -14,7 +14,6 @@ namespace wing {
 /**
  * Init(): Only allocate memory and set some flags, don't evaluate expressions or read/write tuples.
  * Next(): Do operations for each tuple. Return invalid result if it has completed.
- * Clear(): Release the unused memory. E.g. JoinExecutor after returning results.
  *
  * The first Next() returns the first tuple. The i-th Next() returns the i-th tuple.
  * It is illegal to invoke Next() after Next() returns invalid result.

@@ -860,6 +860,17 @@ std::string PrintPlanNode::ToString() const {
 
 std::string DistinctPlanNode::ToString() const { return fmt::format("Distinct \n  -> {}", AddSpacesAfterNewLine(ch_->ToString(), 4)); }
 
+std::string RangeScanPlanNode::ToString() const {
+  return fmt::format("Range Scan [Table: {}] [Range: {}{}, {}{} ] [Predicate: {}]", 
+    table_name_,
+    range_l_.second ? "[" : "(",
+    range_l_.first.ToString(),
+    range_r_.first.ToString(),
+    range_r_.second ? "]" : ")",
+    predicate_.ToString()
+  );
+}
+
 std::unique_ptr<PlanNode> ProjectPlanNode::clone() const {
   auto ret = std::make_unique<ProjectPlanNode>();
   ret->output_schema_ = output_schema_;
@@ -991,6 +1002,18 @@ std::unique_ptr<PlanNode> HashJoinPlanNode::clone() const {
   for (auto& a : left_hash_exprs_) ret->left_hash_exprs_.push_back(a->clone());
   for (auto& a : right_hash_exprs_) ret->right_hash_exprs_.push_back(a->clone());
   ret->table_bitset_ = table_bitset_;
+  return ret;
+}
+
+
+std::unique_ptr<PlanNode> RangeScanPlanNode::clone() const {
+  auto ret = std::make_unique<RangeScanPlanNode>();
+  ret->output_schema_ = output_schema_;
+  ret->table_name_ = table_name_;
+  ret->table_bitset_ = table_bitset_;
+  ret->predicate_ = predicate_.clone();
+  ret->range_l_ = range_l_;
+  ret->range_r_ = range_r_;
   return ret;
 }
 

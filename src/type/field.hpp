@@ -273,8 +273,11 @@ class Field {
       return FieldRef::CreateInt(type_, size_, data_.int_data);
     else if (type_ == FieldType::FLOAT64)
       return FieldRef::CreateFloat(type_, size_, data_.double_data);
-    else
+    else if (type_ == FieldType::CHAR || type_ == FieldType::VARCHAR)
       return FieldRef::CreateStringRef(type_, size_, data_.str_data);
+    else if (type_ == FieldType::EMPTY)
+      return FieldRef();
+    else DB_ERR("Unrecognized FieldType!");
   }
 
   static Field Read(FieldType type, size_t size, const uint8_t* a) {
@@ -349,6 +352,21 @@ class Field {
       return std::string(reinterpret_cast<char*>(data_.str_data), size_);
     } else
       DB_ERR("Internal Error: Unrecognized FieldType.");
+  }
+
+  std::partial_ordering operator<=>(const Field& f) const {
+    if (type_ == FieldType::INT32 || type_ == FieldType::INT64) {
+      return data_.int_data <=> f.data_.int_data;
+    } else if (type_ == FieldType::FLOAT64) {
+      return data_.double_data <=> f.data_.double_data;
+    } else if (type_ == FieldType::CHAR || type_ == FieldType::VARCHAR) {
+      return ReadStringView() <=> f.ReadStringView();
+    } else
+      DB_ERR("Internal Error: Invalid FieldType.");
+  }
+
+  bool Empty() const {
+    return type_ == FieldType::EMPTY;
   }
 };
 

@@ -117,8 +117,11 @@ class AggregateExprFunction {
   operator bool() const;
 
  private:
+  /* Function for last evaluate. */
   std::function<StaticFieldRef(InputTuplePtr, const AggregateIntermediateData*)> func_;
+  /* Function for evaluate the expression inside aggreagte functions. i.e. sum(x + 2), the x + 2.*/
   std::vector<ExprFunction> aggregate_exprfunction_;
+  /* Aggregate functions. i.e. sum(x), max(x), min(x) and so on. */
   std::vector<std::function<void(AggregateIntermediateData&, StaticFieldRef)>> aggregate_func_;
 };
 

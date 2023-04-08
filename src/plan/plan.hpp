@@ -218,7 +218,8 @@ class RangeScanPlanNode : public PlanNode {
   std::string ToString() const override;
   std::unique_ptr<PlanNode> clone() const override;
   std::string table_name_;
-  std::pair<std::string, std::string> ranges_;
+  std::pair<Field, bool> range_l_;
+  std::pair<Field, bool> range_r_;
   PredicateVec predicate_;
 };
 

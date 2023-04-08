@@ -48,10 +48,15 @@ class TableStatistics {
   size_t GetTupleNum() const { return tuple_num_; }
 
  private:
+  /* Tuple number. */
   size_t tuple_num_;
+  /* Maximum value for each column. */
   std::vector<Field> max_;
+  /* Minimum value for each column. */
   std::vector<Field> min_;
+  /* Distinct rate for each column. */
   std::vector<double> distinct_rate_;
+  /* Countminsketch for each column. */
   std::vector<CountMinSketch> freq_;
 };
 

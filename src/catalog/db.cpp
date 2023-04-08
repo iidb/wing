@@ -40,8 +40,8 @@ class DB::Impl {
     return table_storage_.GetIterator(table_name);
   }
 
-  std::unique_ptr<Iterator<const uint8_t*>> GetRangeIterator(size_t txn_id, std::string_view table_name, std::pair<std::string_view, bool> L,
-                                                             std::pair<std::string_view, bool> R) {
+  std::unique_ptr<Iterator<const uint8_t*>> GetRangeIterator(size_t txn_id, std::string_view table_name, std::tuple<std::string_view, bool, bool> L,
+                                                             std::tuple<std::string_view, bool, bool> R) {
     (void)txn_id;
     return table_storage_.GetRangeIterator(table_name, L, R);
   }
@@ -159,8 +159,8 @@ std::unique_ptr<Iterator<const uint8_t*>> DB::GetIterator(size_t txn_id, std::st
   return ptr_->GetIterator(txn_id, table_name);
 }
 
-std::unique_ptr<Iterator<const uint8_t*>> DB::GetRangeIterator(size_t txn_id, std::string_view table_name, std::pair<std::string_view, bool> L,
-                                                               std::pair<std::string_view, bool> R) {
+std::unique_ptr<Iterator<const uint8_t*>> DB::GetRangeIterator(size_t txn_id, std::string_view table_name, std::tuple<std::string_view, bool, bool> L,
+                                                               std::tuple<std::string_view, bool, bool> R) {
   return ptr_->GetRangeIterator(txn_id, table_name, L, R);
 }
 

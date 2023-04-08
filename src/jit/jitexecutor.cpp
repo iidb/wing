@@ -12,7 +12,7 @@ class JitExecutor : public Executor {
  public:
   using GenerateAllFuncType = uint8_t* (*)(uint8_t* memory);
   using InitFuncType = void (*)(uint8_t* memory);
-  JitExecutor(std::unique_ptr<llvm::orc::LLJIT>&& lljit, GenerateAllFuncType generate_all_func, std::unique_ptr<uint8_t>&& memory,
+  JitExecutor(std::unique_ptr<llvm::orc::LLJIT>&& lljit, GenerateAllFuncType generate_all_func, std::unique_ptr<uint8_t[]>&& memory,
               std::unique_ptr<TupleStore>&& tuple_store, std::vector<std::unique_ptr<Iterator<const uint8_t*>>>&& iters)
       : lljit_(std::move(lljit)),
         generate_all_func_(generate_all_func),
@@ -27,7 +27,7 @@ class JitExecutor : public Executor {
  private:
   std::unique_ptr<llvm::orc::LLJIT> lljit_;
   GenerateAllFuncType generate_all_func_;
-  std::unique_ptr<uint8_t> memory_;
+  std::unique_ptr<uint8_t[]> memory_;
   std::unique_ptr<TupleStore> tuple_store_;
   std::vector<std::unique_ptr<Iterator<const uint8_t*>>> iters_;
 };
@@ -191,6 +191,7 @@ std::unique_ptr<Executor> JitExecutorGenerator::Generate(const PlanNode* plan, D
   auto lljit = std::move(J.get());
   // Store global variables in memory.
   JitMemory memory;
+  // Create module
   auto M = CreateMyModule(memory, plan, db, txn_id);
   auto err = lljit->addIRModule(std::move(M));
   if (err) {
@@ -211,11 +212,12 @@ std::unique_ptr<Executor> JitExecutorGenerator::Generate(const PlanNode* plan, D
         throw DBException("Add export function \'{}\' failed.", func_name);
       }
     };
+    // You can add your functions here
     def_func("_wing_insert_into_tuple_store", &_wing_insert_into_tuple_store);
     def_func("_wing_iter_next", &_wing_iter_next);
     def_func("memcmp", &memcmp);
   }
-
+  // Find JIT function "next" for JitExecutor::Next.
   auto handle = lljit->lookup("next");
   if (!handle) throw DBException("Cannot find JIT function.");
   auto next_func = reinterpret_cast<JitExecutor::GenerateAllFuncType>(handle.get().getAddress());

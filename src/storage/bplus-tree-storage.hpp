@@ -11,9 +11,46 @@
 
 namespace wing {
 
-class BPlusTreeTable {
+/* The Base class of all B+trees containing only deconstructor.*/
+class AbstractBPlusTreeTable { 
+ public: 
+  virtual ~AbstractBPlusTreeTable() = default;
+
+};
+
+/* Compare function for string (CHAR or VARCHAR). */
+using StringKeyCompare = std::compare_three_way;
+
+/* Compare function for integer key (INT32 or INT64). */
+struct IntegerKeyCompare {
+  std::weak_ordering operator()(std::string_view L, std::string_view R) const {
+    // Compare integers.
+    // Integers in storage may be 4 bytes, but queried with 8 bytes.
+    int64_t l = L.size() == 4 ? *reinterpret_cast<const int32_t*>(L.data()) 
+                              : *reinterpret_cast<const int64_t*>(L.data());
+    int64_t r = R.size() == 4 ? *reinterpret_cast<const int32_t*>(R.data()) 
+                              : *reinterpret_cast<const int64_t*>(R.data());
+    return l <=> r;
+  }
+};
+
+/* Compare function for integer key (FLOAT64). */
+struct FloatKeyCompare {
+  std::weak_ordering operator()(std::string_view L, std::string_view R) const {
+    double l = *reinterpret_cast<const double*>(L.data());
+    double r = *reinterpret_cast<const double*>(R.data());
+    // Float comparation is std::partial_ordering.
+    // But we don't need to consider invalid cases.
+    if (l < r) return std::weak_ordering::less;
+    else if (l > r) return std::weak_ordering::greater;
+    else return std::weak_ordering::equivalent;
+  }
+};
+
+template<typename KeyCompare>
+class BPlusTreeTable : public AbstractBPlusTreeTable {
  private:
-  typedef BPlusTree<std::compare_three_way> tree_t;
+  using tree_t = BPlusTree<KeyCompare>;
  public:
   class Iterator : public wing::Iterator<const uint8_t *> {
    public:
@@ -26,6 +63,7 @@ class BPlusTreeTable {
       iter_ = std::move(iter.iter_);
       return *this;
     }
+    Iterator(typename tree_t::Iter&& iter) : first_flag_(true), iter_(std::move(iter)) {}
     void Init() override { first_flag_ = true; }
     const uint8_t *Next() override {
       if (!first_flag_) {
@@ -39,18 +77,19 @@ class BPlusTreeTable {
       std::string_view tuple = ret.value().second;
       return reinterpret_cast<const uint8_t *>(tuple.data());
     }
+
    private:
-    Iterator(tree_t::Iter&& iter) : first_flag_(true), iter_(std::move(iter)) {}
     bool first_flag_;
-    tree_t::Iter iter_;
-    friend class BPlusTreeTable;
+    typename tree_t::Iter iter_;
+    friend class BPlusTreeTable<KeyCompare>;
   };
-  template <bool RIGHT_CLOSED>
+  template <bool RIGHT_CLOSED, bool RIGHT_NOLIMIT>
   class RangeIterator : public wing::Iterator<const uint8_t *> {
    public:
-    RangeIterator(tree_t::Iter&& iter, std::string&& end)
+    RangeIterator(typename tree_t::Iter&& iter, std::string&& end)
       : first_flag_(true), iter_(std::move(iter)), end_(std::move(end)) {}
-    void Init() override { DB_ERR("Not supported yet!"); }
+    /* TODO: implement the real Init(). */
+    void Init() override { first_flag_ = true; }
     const uint8_t *Next() override {
       if (!first_flag_) {
         iter_.Next();
@@ -61,22 +100,26 @@ class BPlusTreeTable {
       if (!ret.has_value())
         return nullptr;
       auto [key, tuple] = ret.value();
-      if (RIGHT_CLOSED) {
-        if (key > end_)
-          return nullptr;
-      } else {
-        if (key >= end_)
-          return nullptr;
+      if (!RIGHT_NOLIMIT) {
+        if (RIGHT_CLOSED) {
+          if (KeyCompare()(key, end_) > 0)
+            return nullptr;
+        } else {
+          if (KeyCompare()(key, end_) >= 0)
+            return nullptr;
+        }  
       }
       return reinterpret_cast<const uint8_t *>(tuple.data());
     }
+
    private:
     bool first_flag_;
-    tree_t::Iter iter_;
+    typename tree_t::Iter iter_;
     std::string end_;
   };
   class ModifyHandle : public wing::ModifyHandle {
    public:
+    ModifyHandle(BPlusTreeTable& table) : table_(table) {}
     void Init() override {}
     bool Delete(std::string_view key) override {
       return table_.Delete(key);
@@ -87,13 +130,14 @@ class BPlusTreeTable {
     bool Update(std::string_view key, std::string_view value) override {
       return table_.Update(key, value);
     }
+
    private:
-    ModifyHandle(BPlusTreeTable& table) : table_(table) {}
     BPlusTreeTable& table_;
-    friend class BPlusTreeTable;
+    friend class BPlusTreeTable<KeyCompare>;
   };
   class SearchHandle : public wing::SearchHandle {
    public:
+    SearchHandle(tree_t& tree) : tree_(tree) {}
     void Init() override {}
     const uint8_t *Search(std::string_view key) override {
       auto ret = tree_.Get(key);
@@ -102,11 +146,11 @@ class BPlusTreeTable {
       last_ = std::move(ret.value());
       return reinterpret_cast<const uint8_t *>(last_.data());
     }
+
    private:
-    SearchHandle(tree_t& tree) : tree_(tree) {}
     tree_t& tree_;
     std::string last_;
-    friend class BPlusTreeTable;
+    friend class BPlusTreeTable<KeyCompare>;
   };
 
   BPlusTreeTable(const BPlusTreeTable&) = delete;
@@ -124,18 +168,26 @@ class BPlusTreeTable {
   Iterator Begin() {
     return Iterator(tree_.Begin());
   }
-  auto GetRangeIterator(std::pair<std::string_view, bool> L,
-    std::pair<std::string_view, bool> R
+  std::unique_ptr<wing::Iterator<const uint8_t*>> GetIterator() {
+    return std::make_unique<Iterator>(tree_.Begin());
+  }
+  auto GetRangeIterator(
+    std::tuple<std::string_view, bool, bool> L, std::tuple<std::string_view, bool, bool> R
   ) -> std::unique_ptr<wing::Iterator<const uint8_t *>> {
-    tree_t::Iter iter = L.second
-      ? tree_.LowerBound(L.first)
-      : tree_.UpperBound(L.first);
-    if (R.second) {
-      return std::make_unique<RangeIterator<false>>(
-        RangeIterator<false>(std::move(iter), std::string(R.first)));
+    auto iter = std::get<1>(L)
+      ? tree_.Begin()
+      : std::get<2>(L) 
+      ? tree_.LowerBound(std::get<0>(L))
+      : tree_.UpperBound(std::get<0>(L));
+    if (std::get<1>(R)) {
+      // right is empty. i.e. not limited.
+      return std::make_unique<RangeIterator<false, true>>(std::move(iter), std::string(std::get<0>(R)));
+    } else if (std::get<2>(R)) {
+      // right closed.
+      return std::make_unique<RangeIterator<true, false>>(std::move(iter), std::string(std::get<0>(R)));
     } else {
-      return std::make_unique<RangeIterator<true>>(
-        RangeIterator<true>(std::move(iter), std::string(R.first)));
+      // right open.
+      return std::make_unique<RangeIterator<false, false>>(std::move(iter), std::string(std::get<0>(R)));
     }
   }
 
@@ -152,13 +204,12 @@ class BPlusTreeTable {
     auto exists = tree_.Update(key, value);
     return exists;
   }
-  ModifyHandle GetModifyHandle() {
-    return ModifyHandle(*this);
+  std::unique_ptr<wing::ModifyHandle> GetModifyHandle() {
+    return std::make_unique<ModifyHandle>(*this);
   }
-  SearchHandle GetSearchHandle() {
-    return SearchHandle(tree_);
+  std::unique_ptr<wing::SearchHandle> GetSearchHandle() {
+    return std::make_unique<SearchHandle>(tree_);
   }
-  
   size_t TupleNum() {
     return tree_.TupleNum();
   }
@@ -167,9 +218,9 @@ class BPlusTreeTable {
   }
   size_t GetTicks() { return ticks_; }
   const TableSchema& GetTableSchema() { return schema_; }
- private:
   BPlusTreeTable(TableSchema&& schema, tree_t&& tree)
     : schema_(std::move(schema)), tree_(std::move(tree)) {}
+ private:
   TableSchema schema_;
   tree_t tree_;
   size_t ticks_;
@@ -199,7 +250,8 @@ class BPlusTreeStorage {
     auto pgm = EXTRACT_RESULT(PageManager::Open(path, max_buf_pages));
     pgid_t meta;
     pgm->GetPlainPage(pgm->SuperPageID()).Read(&meta, 0, sizeof(meta));
-    auto map = tree_t::Open(*pgm, meta);
+    // Table B+Tree use StringKeyCompare by default.
+    auto map = BPlusTree<StringKeyCompare>::Open(*pgm, meta);
     DBSchema db_schema;
     auto it = map.Begin();
     for (;;) {
@@ -219,49 +271,69 @@ class BPlusTreeStorage {
     return BPlusTreeStorage(std::move(pgm), std::move(map),
       std::move(db_schema));
   }
-  auto GetIterator(std::string_view table_name
+  auto GetIterator(
+    std::string_view table_name
   ) -> std::unique_ptr<Iterator<const uint8_t*>> {
-    return std::make_unique<BPlusTreeTable::Iterator>(
-      GetTable(table_name).Begin());
-  }
-  auto GetRangeIterator(std::string_view table_name,
-    std::pair<std::string_view, bool> L, std::pair<std::string_view, bool> R
-  ) -> std::unique_ptr<Iterator<const uint8_t*>> {
-    return GetTable(table_name).GetRangeIterator(L, R);
+    return ApplyFuncOnTable<std::unique_ptr<Iterator<const uint8_t*>>>
+      (GetPKType(table_name), GetTable(table_name), [](auto a) { return a->GetIterator(); });
   }
 
-  std::unique_ptr<ModifyHandle> GetModifyHandle(std::string_view table_name) {
-    return std::make_unique<BPlusTreeTable::ModifyHandle>(
-      GetTable(table_name).GetModifyHandle());
+  auto GetRangeIterator(
+    std::string_view table_name,
+    std::tuple<std::string_view, bool, bool> L,
+    std::tuple<std::string_view, bool, bool> R
+  ) -> std::unique_ptr<Iterator<const uint8_t*>> {
+    return ApplyFuncOnTable<std::unique_ptr<Iterator<const uint8_t*>>>
+      (GetPKType(table_name), GetTable(table_name), [&L, &R](auto a) { return a->GetRangeIterator(L, R); });
   }
-  std::unique_ptr<SearchHandle> GetSearchHandle(std::string_view table_name) {
-    return std::make_unique<BPlusTreeTable::SearchHandle>(
-      GetTable(table_name).GetSearchHandle());
+
+  std::unique_ptr<wing::ModifyHandle> GetModifyHandle(std::string_view table_name) {
+    return ApplyFuncOnTable<std::unique_ptr<wing::ModifyHandle>>
+      (GetPKType(table_name), GetTable(table_name), [](auto a) { return a->GetModifyHandle(); });
+  }
+  std::unique_ptr<wing::SearchHandle> GetSearchHandle(std::string_view table_name) {
+    return ApplyFuncOnTable<std::unique_ptr<wing::SearchHandle>>
+      (GetPKType(table_name), GetTable(table_name), [](auto a) { return a->GetSearchHandle(); });
   }
   std::optional<io::Error> Create(const TableSchema& schema) {
     auto table_name = schema.GetName();
-    tree_t tree = tree_t::Create(*pgm_);
     auto blob = Blob::Create(*pgm_);
+    schema_.AddTable(schema);
     blob.Rewrite(serde::bin_stream::to_string(schema));
 
-    TableMetaPages meta{
-      .data = tree.MetaPageID(),
-      .schema = blob.MetaPageID(),
+    auto create_func = [&](auto&& tree) -> std::optional<io::Error> {
+      TableMetaPages meta{
+        .data = tree.MetaPageID(),
+        .schema = blob.MetaPageID(),
+      };
+      bool succeed = map_table_name_to_meta_pages_.Insert(table_name,
+        std::string_view(reinterpret_cast<const char *>(&meta), sizeof(meta)));
+      if (!succeed) {
+        tree.Destroy();
+        blob.Destroy();
+        return io::Error::from(io::ErrorKind::AlreadyExists);
+      }
+      auto ret = cached_tables_.emplace(
+        std::string(table_name),
+        CreateBPlusTreeTable(TableSchema(schema), std::move(tree)));
+      if (!ret.second)
+        DB_ERR("{}", table_name);
+      return std::nullopt;
     };
-    bool succeed = map_table_name_to_meta_pages_.Insert(table_name,
-      std::string_view(reinterpret_cast<const char *>(&meta), sizeof(meta)));
-    if (!succeed) {
-      tree.Destroy();
-      blob.Destroy();
-      return io::Error::from(io::ErrorKind::AlreadyExists);
+    // Primary key type
+    auto pk_type = schema.GetPrimaryKeySchema().type_;
+    if (pk_type == FieldType::INT32 || pk_type == FieldType::INT64) {
+      auto tree = BPlusTree<IntegerKeyCompare>::Create(*pgm_);
+      return create_func(std::move(tree));
+    } else if (pk_type == FieldType::CHAR || pk_type == FieldType::VARCHAR) {
+      auto tree = BPlusTree<StringKeyCompare>::Create(*pgm_);
+      return create_func(std::move(tree));
+    } else if (pk_type == FieldType::FLOAT64) {
+      auto tree = BPlusTree<FloatKeyCompare>::Create(*pgm_);
+      return create_func(std::move(tree));
+    } else {
+      DB_ERR("Invalid primary key type.");
     }
-    auto ret = cached_tables_.emplace(
-      std::string(table_name),
-      BPlusTreeTable(TableSchema(schema), std::move(tree)));
-    if (!ret.second)
-      DB_ERR("{}", table_name);
-    schema_.AddTable(schema);
-    return std::nullopt;
   }
   std::optional<io::Error> Drop(std::string_view table_name) {
     auto ret = map_table_name_to_meta_pages_.Take(table_name);
@@ -270,29 +342,32 @@ class BPlusTreeStorage {
     auto meta = TableMetaPages::from_bytes(ret.value());
     auto it = cached_tables_.find(std::string(table_name));
     if (it != cached_tables_.end()) {
-      assert(it->second.tree_.MetaPageID() == meta.data);
-      it->second.Drop();
+      ApplyFuncOnTable<void>(GetPKType(table_name), it->second.get(), [&meta](auto a) {
+        assert(a->tree_.MetaPageID() == meta.data);
+        a->Drop(); 
+      });
       cached_tables_.erase(it);
     } else {
-      tree_t::Open(*pgm_, meta.data).Destroy();
+      // Table B+Tree
+      BPlusTree<StringKeyCompare>::Open(*pgm_, meta.data).Destroy();
     }
     Blob::Open(*pgm_, meta.schema).Destroy();
     schema_.RemoveTable(table_name);
     return std::nullopt;
   }
   size_t TupleNum(std::string_view table_name) {
-    return GetTable(table_name).TupleNum();
+    return ApplyFuncOnTable<size_t>(GetPKType(table_name), GetTable(table_name), [](auto a) { return a->TupleNum(); });
   }
   std::optional<std::string_view> GetMaxKey(std::string_view table_name) {
-    return GetTable(table_name).GetMaxKey();
+    return ApplyFuncOnTable<std::optional<std::string_view>>
+      (GetPKType(table_name), GetTable(table_name), [](auto a) { return a->GetMaxKey(); });
   }
   size_t GetTicks(std::string_view table_name) {
-    return GetTable(table_name).GetTicks();
+    return ApplyFuncOnTable<size_t>(GetPKType(table_name), GetTable(table_name), [](auto a) { return a->GetTicks(); });
   }
   const DBSchema& GetDBSchema() const { return schema_; }
  private:
-  typedef BPlusTree<std::compare_three_way> tree_t;
-  BPlusTreeStorage(std::unique_ptr<PageManager> pgm, tree_t&& map,
+  BPlusTreeStorage(std::unique_ptr<PageManager> pgm, BPlusTree<StringKeyCompare>&& map,
       DBSchema&& db_schema)
     : pgm_(std::move(pgm)),
       map_table_name_to_meta_pages_(std::move(map)),
@@ -302,37 +377,94 @@ class BPlusTreeStorage {
     size_t max_buf_pages
   ) -> BPlusTreeStorage {
     auto pgm = PageManager::Create(path, max_buf_pages);
-    auto map = tree_t::Create(*pgm);
+    auto map = BPlusTree<StringKeyCompare>::Create(*pgm);
     pgid_t meta = map.MetaPageID();
     pgm->GetPlainPage(pgm->SuperPageID())
       .Write(0,
         std::string_view(reinterpret_cast<const char *>(&meta), sizeof(meta)));
     return BPlusTreeStorage(std::move(pgm), std::move(map), DBSchema{});
   }
-  BPlusTreeTable& GetTable(std::string_view table_name) {
+  AbstractBPlusTreeTable* GetTable(std::string_view table_name) {
     auto it_find = cached_tables_.find(std::string(table_name));
     if (it_find != cached_tables_.end())
-      return it_find->second;
+      return it_find->second.get();
     auto ret = map_table_name_to_meta_pages_.Get(table_name);
-    if (!ret.has_value())
+    if (!ret)
       DB_ERR("no such table");
+
     auto meta = TableMetaPages::from_bytes(ret.value());
     auto schema_err = serde::bin_stream::from_string<TableSchema>(
       Blob::Open(*pgm_, meta.schema).Read());
     if (schema_err.index() == 1)
       DB_ERR("Corrupted schema of table {}", table_name);
+
     TableSchema schema = std::move(std::get<0>(schema_err));
-    BPlusTreeTable table(std::move(schema), tree_t::Open(*pgm_, meta.data));
-    auto [it, succeed] =
-      cached_tables_.emplace(std::string(table_name), std::move(table));
-    if (!succeed)
-      DB_ERR("Concurrency issue?");
-    return it->second;
+    // Primary key type
+    auto pk_type = schema.GetPrimaryKeySchema().type_;
+    // For each primary key type, use the corresponding Open() function.
+    if (pk_type == FieldType::INT32 || pk_type == FieldType::INT64) {
+      auto [it, succeed] =
+        cached_tables_.emplace(std::string(table_name), std::make_unique<BPlusTreeTable<IntegerKeyCompare>>(
+                            std::move(schema), BPlusTree<IntegerKeyCompare>::Open(*pgm_, meta.data)));
+      if (!succeed)
+        DB_ERR("Concurrency issue?");
+      return it->second.get();
+    } else if (pk_type == FieldType::CHAR || pk_type == FieldType::VARCHAR) {
+      auto [it, succeed] =
+        cached_tables_.emplace(std::string(table_name), std::make_unique<BPlusTreeTable<StringKeyCompare>>(
+                            std::move(schema), BPlusTree<StringKeyCompare>::Open(*pgm_, meta.data)));
+      if (!succeed)
+        DB_ERR("Concurrency issue?");
+      return it->second.get();
+    } else if (pk_type == FieldType::FLOAT64) {
+      auto [it, succeed] =
+        cached_tables_.emplace(std::string(table_name), std::make_unique<BPlusTreeTable<FloatKeyCompare>>(
+                            std::move(schema), BPlusTree<FloatKeyCompare>::Open(*pgm_, meta.data)));
+      if (!succeed)
+        DB_ERR("Concurrency issue?");
+      return it->second.get();
+    } else {
+      DB_ERR("Invalid primary key type.");
+    }
   }
+  /**
+   *  Choose correct primary key field type for each B+tree. 
+   *  type is the pk type.
+   *  tree is the pointer.
+   *  func is the function applied to the B+tree.
+   * */
+  template<typename RetType, typename F>
+  RetType ApplyFuncOnTable(FieldType type, AbstractBPlusTreeTable* tree, F&& func) {
+    if (type == FieldType::INT32 || type == FieldType::INT64) {
+      auto t_tree = static_cast<BPlusTreeTable<IntegerKeyCompare>*>(tree);
+      return func(t_tree);
+    } else if (type == FieldType::CHAR || type == FieldType::VARCHAR) {
+      auto t_tree = static_cast<BPlusTreeTable<StringKeyCompare>*>(tree);
+      return func(t_tree);
+    } else if (type == FieldType::FLOAT64) {
+      auto t_tree = static_cast<BPlusTreeTable<FloatKeyCompare>*>(tree);
+      return func(t_tree);
+    } else {
+      DB_ERR("Invalid btree primary key type.");
+    }
+  }
+  /* Get primary key type by table name. */
+  FieldType GetPKType(std::string_view table_name) const {
+    auto index = schema_.Find(table_name);
+    if (!index) {
+      DB_ERR("Invalid table name.");
+    }
+    return schema_.GetTables()[index.value()].GetPrimaryKeySchema().type_;
+  }
+  template<typename T>
+  std::unique_ptr<AbstractBPlusTreeTable> CreateBPlusTreeTable(TableSchema&& schema, BPlusTree<T>&& tree) const {
+    return std::make_unique<BPlusTreeTable<T>>(std::move(schema), std::move(tree));
+  }
+
   std::unique_ptr<PageManager> pgm_;
   // Table name -> TableMetaPages
-  tree_t map_table_name_to_meta_pages_;
-  std::unordered_map<std::string, BPlusTreeTable> cached_tables_;
+  BPlusTree<StringKeyCompare> map_table_name_to_meta_pages_;
+  std::unordered_map<std::string, std::unique_ptr<AbstractBPlusTreeTable>> cached_tables_;
   DBSchema schema_;
 };
 

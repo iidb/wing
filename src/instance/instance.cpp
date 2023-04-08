@@ -36,7 +36,7 @@ class Instance::Impl {
         out << ret.GetAST()->ToString() << std::endl;
         out << "=======================" << std::endl;
         auto plan = ret.GetPlan()->clone();
-        plan = LogicalOptimizer::Optimize(std::move(plan));
+        plan = LogicalOptimizer::Optimize(std::move(plan), db_);
         plan = CostBasedOptimizer::Optimize(std::move(plan), db_);
         out << plan->ToString() << std::endl;
       } else {
@@ -197,7 +197,7 @@ class Instance::Impl {
     } else {
       if (ret.GetPlan() == nullptr) return nullptr;
       auto plan = ret.GetPlan()->clone();
-      plan = LogicalOptimizer::Optimize(std::move(plan));
+      plan = LogicalOptimizer::Optimize(std::move(plan), db_);
       plan = CostBasedOptimizer::Optimize(std::move(plan), db_);
       return plan;
     }
@@ -344,7 +344,7 @@ class Instance::Impl {
   std::pair<std::unique_ptr<Executor>, bool> GenerateExecutor(std::unique_ptr<PlanNode> plan, size_t txn_id, bool use_jit) {
     std::unique_ptr<Executor> exe;
     if (!use_jit_flag_) use_jit = false;
-    plan = LogicalOptimizer::Optimize(std::move(plan));
+    plan = LogicalOptimizer::Optimize(std::move(plan), db_);
     plan = CostBasedOptimizer::Optimize(std::move(plan), db_);
     if (use_jit) {
       exe = JitExecutorGenerator::Generate(plan.get(), db_, txn_id);
