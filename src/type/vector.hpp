@@ -46,14 +46,21 @@ class StaticFieldVector {
   std::unique_ptr<uint8_t[]> str_;
 };
 
+/**
+ * Store tuples of a output schema.
+*/
 class TupleVector {
  public:
+  /* This is invalid. */
   TupleVector() = default;
-  TupleVector(const OutputSchema& input_schema) {
+
+  /* Construct with an input_schema.*/
+  explicit TupleVector(const OutputSchema& input_schema) {
     is_raw_data_flag_ = input_schema.IsRaw();
     field_num_ = input_schema.Size();
     static_field_size_ = 0;
     has_str_field_ = false;
+    /* Calulate the total size of fields of invariant size. */
     for (uint32_t index = 0; auto& a : input_schema.GetCols()) {
       if (a.type_ != FieldType::CHAR && a.type_ != FieldType::VARCHAR) {
         static_field_size_ += a.size_;
@@ -66,7 +73,7 @@ class TupleVector {
     }
   }
 
-  TupleVector(TupleVector&& t) {
+  TupleVector(TupleVector&& t) noexcept {
     is_raw_data_flag_ = t.is_raw_data_flag_;
     columns_schema_ = t.columns_schema_;
     has_str_field_ = t.has_str_field_;
@@ -77,7 +84,7 @@ class TupleVector {
     allocator_ = std::move(t.allocator_);
   }
 
-  TupleVector& operator=(TupleVector&& t) {
+  TupleVector& operator=(TupleVector&& t) noexcept {
     is_raw_data_flag_ = t.is_raw_data_flag_;
     columns_schema_ = t.columns_schema_;
     has_str_field_ = t.has_str_field_;
@@ -89,56 +96,80 @@ class TupleVector {
     return *this;
   }
 
+  /* It cannot be copied.*/
   TupleVector(const TupleVector&) = delete;
 
+  /* Append a tuple. Return a pointer pointing to it. You should store it. */
   uint8_t* Append(const uint8_t* input) {
     auto size = field_num_ * sizeof(StaticFieldRef);
     if (is_raw_data_flag_) {
+      /* If it is raw data, then we get the size of strings by reading the offset table. */
       size += has_str_field_ ? Tuple::GetSizeOfAllStrings(input, static_field_size_) : 0;
     } else {
+      /* If it is not raw data, then we get the size by reading size of each string fields. */
       for (auto index : str_indexes_) {
-        size += reinterpret_cast<const StaticFieldRef*>(input)[index].Size(FieldType::VARCHAR);
+        size += reinterpret_cast<const StaticFieldRef*>(input)[index].Size(FieldType::VARCHAR, 0);
       }
     }
+    /* Allocate memory for StaticFieldRefs and string data. */
     auto ret = allocator_.Allocate(size);
     if (is_raw_data_flag_) {
+      /* If it is raw data, we must deserialize it first. */
       Tuple::DeSerialize(ret, input, columns_schema_);
     } else {
+      /* If it is not raw data, copy the fields directly. String fields are set after. */
       std::memcpy(ret, input, field_num_ * sizeof(StaticFieldRef));
     }
+    /* Copy string to the allocated memory region. */
     auto data_ptr = ret + field_num_ * sizeof(StaticFieldRef);
     auto vec = reinterpret_cast<const StaticFieldRef*>(ret);
     for (auto index : str_indexes_) {
       StaticStringField::Copy(data_ptr, vec[index].ReadStringFieldPointer());
+      /* Set the pointers of string fields to copied strings. */
       reinterpret_cast<StaticFieldRef*>(ret)[index].data_.str_data = reinterpret_cast<const StaticStringField*>(data_ptr);
-      data_ptr += vec[index].Size(FieldType::VARCHAR);
+      data_ptr += vec[index].Size(FieldType::VARCHAR, 0);
     }
     return ret;
   }
 
-  void Clear() {
-    allocator_.Clear();
-  }
+  void Clear() { allocator_.Clear(); }
 
  private:
+  /* Check if it is raw data. i.e. the serialized tuple stored in B+tree. */
   bool is_raw_data_flag_{false};
+  /* Check if it has string (VARCHAR) field. */
   bool has_str_field_{false};
+  /* The number of fields. */
   uint32_t field_num_{0};
+  /* The total size of fields of invariant size. */
   uint32_t static_field_size_{0};
+  /* The column schema. */
   std::vector<ColumnSchema> columns_schema_;
+  /* The index of string (VARCHAR) fields in columns_schema_. */
   std::vector<uint32_t> str_indexes_;
+  /* The allocator for tuple data allocating. */
   BlockAllocator<8192> allocator_;
 };
 
+/**
+ * A good encapsulation for TupleVector.
+ * Used for storing input of a certain schema.
+ */
 class TupleStore {
  public:
   TupleStore() = default;
   TupleStore(const OutputSchema& input_schema) : tuple_vec_(input_schema) {}
+
+  /* Append tuple. */
   void Append(const uint8_t* input) { pointer_vec_.push_back(tuple_vec_.Append(input)); }
+
+  /* Get all tuples. */
   const std::vector<uint8_t*>& GetPointerVec() const { return pointer_vec_; }
 
  private:
+  /* The TupleVector. */
   TupleVector tuple_vec_;
+  /* The vector storing pointers pointing to tuples. */
   std::vector<uint8_t*> pointer_vec_;
 };
 

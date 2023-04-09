@@ -46,7 +46,7 @@ class Tuple {
     uint32_t size = 0;
     auto vec = reinterpret_cast<const StaticFieldRef*>(vec_data);
     for (uint32_t index = 0; auto& a : columns_schema) {
-      size += vec[index].Size(a.type_);
+      size += vec[index].Size(a.type_, a.size_);
       if (a.type_ == FieldType::CHAR || a.type_ == FieldType::VARCHAR) {
         size += sizeof(uint32_t);
       }
@@ -67,7 +67,7 @@ class Tuple {
         for (auto _temp_index = _index; _temp_index < storage_cols.size(); _temp_index += 1) {
           auto temp_index = shuffle[_temp_index];
           *reinterpret_cast<uint32_t*>(in) = offset;
-          offset += vec[temp_index].Size(FieldType::VARCHAR);
+          offset += vec[temp_index].Size(FieldType::VARCHAR, 0);
           in += sizeof(uint32_t);
         }
         // Write the strings
@@ -84,7 +84,7 @@ class Tuple {
         }
         break;
       }
-      offset += vec[index].Size(a.type_);
+      offset += vec[index].Size(a.type_, a.size_);
       in = vec[index].Write(a.type_, a.size_, in);
       _index += 1;
     }
