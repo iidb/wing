@@ -31,36 +31,48 @@ class OutputColumnData {
   /* If the column is sorted, is it asc? */
   bool is_sort_asc{false};
   std::string ToString() const {
-    return fmt::format("{{ id:{}, table name: {}, column name: {}, type: {}, size: {} }}", id_, table_name_, column_name_, (uint32_t)type_, size_);
+    return fmt::format(
+        "{{ id:{}, table name: {}, column name: {}, type: {}, size: {} }}", id_,
+        table_name_, column_name_, (uint32_t)type_, size_);
   }
 };
 
 /**
  * It represents the output of a PlanNode.
-*/
+ */
 class OutputSchema {
  public:
   OutputSchema() = default;
-  OutputSchema(const std::vector<OutputColumnData>& cols, bool is_raw = false) : cols_(cols), is_raw_(is_raw) {}
-  OutputSchema(std::vector<OutputColumnData>&& cols, bool is_raw = false) : cols_(std::move(cols)), is_raw_(is_raw) {}
+  OutputSchema(const std::vector<OutputColumnData>& cols, bool is_raw = false)
+    : cols_(cols), is_raw_(is_raw) {}
+  OutputSchema(std::vector<OutputColumnData>&& cols, bool is_raw = false)
+    : cols_(std::move(cols)), is_raw_(is_raw) {}
 
   bool IsRaw() const { return is_raw_; }
   void SetRaw(bool is_raw) { is_raw_ = is_raw; }
   OutputColumnData& operator[](size_t index) { return cols_[index]; }
-  const OutputColumnData& operator[](size_t index) const { return cols_[index]; }
+  const OutputColumnData& operator[](size_t index) const {
+    return cols_[index];
+  }
   std::vector<OutputColumnData>& GetCols() { return cols_; }
   const std::vector<OutputColumnData>& GetCols() const { return cols_; }
   /* Find the index of output column schema by id.*/
   std::optional<size_t> FindById(size_t id) const {
     for (size_t i = 0; i < cols_.size(); i++)
-      if (cols_[i].id_ == id) return i;
+      if (cols_[i].id_ == id)
+        return i;
     return {};
   }
   /* Append a column. */
   void Append(const OutputColumnData& column) { cols_.push_back(column); }
   void Append(OutputColumnData&& column) { cols_.push_back(std::move(column)); }
-  void Append(const OutputSchema& R) { cols_.insert(cols_.end(), R.cols_.begin(), R.cols_.end()); }
-  void Append(OutputSchema&& R) { cols_.insert(cols_.end(), std::make_move_iterator(R.cols_.begin()), std::make_move_iterator(R.cols_.end())); }
+  void Append(const OutputSchema& R) {
+    cols_.insert(cols_.end(), R.cols_.begin(), R.cols_.end());
+  }
+  void Append(OutputSchema&& R) {
+    cols_.insert(cols_.end(), std::make_move_iterator(R.cols_.begin()),
+        std::make_move_iterator(R.cols_.end()));
+  }
   size_t Size() const { return cols_.size(); }
 
   /* Concatenate two OutputColumnSchema. */

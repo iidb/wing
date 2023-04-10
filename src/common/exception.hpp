@@ -16,7 +16,9 @@ class DBException : public std::exception {
 
  public:
   template <typename... T>
-  DBException(fmt::string_view format, T&&... errmsg) : errmsg_(fmt::vformat(format, fmt::make_format_args(std::forward<T>(errmsg)...))) {}
+  DBException(fmt::string_view format, T&&... errmsg)
+    : errmsg_(fmt::vformat(
+          format, fmt::make_format_args(std::forward<T>(errmsg)...))) {}
   const char* what() const noexcept { return errmsg_.c_str(); }
 };
 

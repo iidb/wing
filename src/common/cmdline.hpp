@@ -16,7 +16,8 @@ class SQLCmdLine {
   // If the beginning is cmd, then func_ will be invoked.
   // It can only be one line.
   void SetCommand(std::string_view cmd, CallBackFuncType&& func_);
-  // Set executor for SQL. This will continue reading until the last character is ';'.
+  // Set executor for SQL. This will continue reading until the last character
+  // is ';'.
   void SetSQLExecutor(CallBackFuncType&& func_);
   void StartLoop();
 

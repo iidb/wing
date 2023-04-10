@@ -9,7 +9,8 @@ namespace wing {
 class SQLCmdLine::Impl {
  public:
   Impl() {
-    // Copy from https://github.com/AmokHuginnsson/replxx/blob/master/examples/cxx-api.cxx
+    // Copy from
+    // https://github.com/AmokHuginnsson/replxx/blob/master/examples/cxx-api.cxx
     rx_.install_window_change_handler();
     // set the max history size
     rx_.set_max_history_size(128);
@@ -19,8 +20,13 @@ class SQLCmdLine::Impl {
     rx_.set_word_break_characters(" \n\t.,-%!;:=*~^'\"/?<>|[](){}");
   }
   ~Impl() {}
-  void SetCommand(std::string_view cmd, std::function<bool(std::string_view)>&& func_) { funcs_.push_back({std::string(cmd), std::move(func_)}); }
-  void SetSQLExecutor(std::function<bool(std::string_view)>&& func_) { sql_func_ = std::move(func_); }
+  void SetCommand(
+      std::string_view cmd, std::function<bool(std::string_view)>&& func_) {
+    funcs_.push_back({std::string(cmd), std::move(func_)});
+  }
+  void SetSQLExecutor(std::function<bool(std::string_view)>&& func_) {
+    sql_func_ = std::move(func_);
+  }
   void StartLoop() {
     std::string prompt = "wing> ";
     std::string wait = "...   ";
@@ -39,14 +45,16 @@ class SQLCmdLine::Impl {
       }
       rx_.history_add(cinput);
       size_t pos = 0;
-      while (pos < input.size() && isspace(input[pos])) pos++;
+      while (pos < input.size() && isspace(input[pos]))
+        pos++;
       if (pos == input.size()) {
         continue;
       }
       bool flag = false;
       for (auto& [cmd, func] : funcs_)
         if (input.substr(pos, cmd.length()) == cmd) {
-          if (!func(input.substr(pos + cmd.length(), input.length() - pos - cmd.length()))) {
+          if (!func(input.substr(
+                  pos + cmd.length(), input.length() - pos - cmd.length()))) {
             return;
           } else {
             flag = true;
@@ -81,8 +89,10 @@ class SQLCmdLine::Impl {
       size_t stmt_begin = 0;
       while (true) {
         auto stmt_end = stmts.find(';', stmt_begin);
-        if (stmt_end == std::string::npos) break;
-        if (!sql_func_(std::string_view(stmts.begin() + stmt_begin, stmts.begin() + stmt_end + 1))) {
+        if (stmt_end == std::string::npos)
+          break;
+        if (!sql_func_(std::string_view(
+                stmts.begin() + stmt_begin, stmts.begin() + stmt_end + 1))) {
           return;
         }
         stmt_begin = stmt_end + 1;
@@ -99,8 +109,12 @@ class SQLCmdLine::Impl {
 SQLCmdLine::SQLCmdLine() { ptr_ = std::make_unique<Impl>(); }
 SQLCmdLine::~SQLCmdLine() {}
 
-void SQLCmdLine::SetCommand(std::string_view cmd, CallBackFuncType&& func_) { ptr_->SetCommand(cmd, std::move(func_)); }
-void SQLCmdLine::SetSQLExecutor(CallBackFuncType&& func_) { ptr_->SetSQLExecutor(std::move(func_)); }
+void SQLCmdLine::SetCommand(std::string_view cmd, CallBackFuncType&& func_) {
+  ptr_->SetCommand(cmd, std::move(func_));
+}
+void SQLCmdLine::SetSQLExecutor(CallBackFuncType&& func_) {
+  ptr_->SetSQLExecutor(std::move(func_));
+}
 void SQLCmdLine::StartLoop() { ptr_->StartLoop(); }
 
 }  // namespace wing

@@ -7,8 +7,10 @@ namespace wing {
 
 class PrintExecutor : public Executor {
  public:
-  PrintExecutor(std::shared_ptr<StaticFieldVector> vec, size_t num_fields) : vec_(vec), num_fields_(num_fields) {
-    DB_ASSERT(num_fields_ != 0 && vec_->GetFieldVector().size() % num_fields_ == 0);
+  PrintExecutor(std::shared_ptr<StaticFieldVector> vec, size_t num_fields)
+    : vec_(vec), num_fields_(num_fields) {
+    DB_ASSERT(
+        num_fields_ != 0 && vec_->GetFieldVector().size() % num_fields_ == 0);
     size_ = vec_->GetFieldVector().size();
     ptr_ = vec_->GetFieldVector().data();
   }

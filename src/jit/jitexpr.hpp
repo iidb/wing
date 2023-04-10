@@ -6,32 +6,41 @@
 
 namespace wing {
 
-/* Get string size and string pointer from a pointer. (String is stored as [size, ptr]) */
-std::pair<llvm::Value*, llvm::Value*> JitGetStringFromPointer(llvm::Value* input, llvm::IRBuilder<>& builder) {
+/* Get string size and string pointer from a pointer. (String is stored as
+ * [size, ptr]) */
+std::pair<llvm::Value*, llvm::Value*> JitGetStringFromPointer(
+    llvm::Value* input, llvm::IRBuilder<>& builder) {
   using namespace llvm;
   auto& C = builder.getContext();
   // Size is stored in the first 4B.
-  Value* size = builder.CreateLoad(Type::getInt32Ty(C), builder.CreateBitOrPointerCast(input, Type::getInt32PtrTy(C)));
+  Value* size = builder.CreateLoad(Type::getInt32Ty(C),
+      builder.CreateBitOrPointerCast(input, Type::getInt32PtrTy(C)));
   // Next is the string.
-  Value* ptr = builder.CreateGEP(Type::getInt8Ty(C), builder.CreateBitOrPointerCast(input, Type::getInt8PtrTy(C)),
-                                 ConstantInt::get(C, APInt(32, sizeof(uint32_t))));
+  Value* ptr = builder.CreateGEP(Type::getInt8Ty(C),
+      builder.CreateBitOrPointerCast(input, Type::getInt8PtrTy(C)),
+      ConstantInt::get(C, APInt(32, sizeof(uint32_t))));
   size = builder.CreateSub(size, ConstantInt::get(C, APInt(32, 4)));
   return {size, ptr};
 }
 
 // Create string comparation
-llvm::Value* JitGetStringCompareResult(llvm::Value* L, llvm::Value* R, llvm::IRBuilder<>& builder) {
+llvm::Value* JitGetStringCompareResult(
+    llvm::Value* L, llvm::Value* R, llvm::IRBuilder<>& builder) {
   using namespace llvm;
   auto& C = builder.getContext();
   auto lhs = JitGetStringFromPointer(L, builder);
   auto rhs = JitGetStringFromPointer(R, builder);
   // Value* sz = builder.CreateZExtOrTrunc(lhs.first, Type::getInt64Ty(C));
   // Get minimial length
-  Value* sz = builder.CreateSelect(builder.CreateICmpULT(lhs.first, rhs.first), lhs.first, rhs.first);
+  Value* sz = builder.CreateSelect(
+      builder.CreateICmpULT(lhs.first, rhs.first), lhs.first, rhs.first);
   sz = builder.CreateZExtOrTrunc(sz, Type::getInt64Ty(C));
 
-  auto cmp_func_type = FunctionType::get(Type::getInt32Ty(C), {Type::getInt8PtrTy(C), Type::getInt8PtrTy(C), Type::getInt64Ty(C)}, false);
-  auto cmp_func = builder.GetInsertBlock()->getModule()->getOrInsertFunction("memcmp", cmp_func_type);
+  auto cmp_func_type = FunctionType::get(Type::getInt32Ty(C),
+      {Type::getInt8PtrTy(C), Type::getInt8PtrTy(C), Type::getInt64Ty(C)},
+      false);
+  auto cmp_func = builder.GetInsertBlock()->getModule()->getOrInsertFunction(
+      "memcmp", cmp_func_type);
   // Call memcmp
   Value* c = builder.CreateCall(cmp_func, {lhs.second, rhs.second, sz});
   // Comparate two lengths.
@@ -44,13 +53,14 @@ llvm::Value* JitGetStringCompareResult(llvm::Value* L, llvm::Value* R, llvm::IRB
   Value* p1 = ConstantInt::get(C, APInt(32, 1));
   Value* zero = ConstantInt::get(C, APInt(32, 0));
   // c0 ? (lt ? -1 : (gt ? 1 : 0)) : c
-  return builder.CreateSelect(c0, builder.CreateSelect(lt, n1, builder.CreateSelect(gt, p1, zero)), c);
+  return builder.CreateSelect(
+      c0, builder.CreateSelect(lt, n1, builder.CreateSelect(gt, p1, zero)), c);
 }
 
-// Generate output llvm::Value from input llvm::Value. 
+// Generate output llvm::Value from input llvm::Value.
 // We don't support aggregate functions now.
-llvm::Value* JitGenerateExpr(const Expr* expr, const OutputSchema& input_schema, const std::vector<llvm::Value*> input_value,
-                             llvm::IRBuilder<>& builder) {
+llvm::Value* JitGenerateExpr(const Expr* expr, const OutputSchema& input_schema,
+    const std::vector<llvm::Value*> input_value, llvm::IRBuilder<>& builder) {
   using namespace llvm;
   auto& C = builder.getContext();
   if (expr->type_ == ExprType::LITERAL_INTEGER) {
@@ -61,13 +71,17 @@ llvm::Value* JitGenerateExpr(const Expr* expr, const OutputSchema& input_schema,
     return ConstantFP::get(C, APFloat(this_expr->literal_value_));
   } else if (expr->type_ == ExprType::LITERAL_STRING) {
     auto this_expr = static_cast<const LiteralStringExpr*>(expr);
-    auto x = std::unique_ptr<StaticStringField, void(*)(StaticStringField*)>(
-      StaticStringField::Generate(this_expr->literal_value_), StaticStringField::FreeFromGenerate);
-    return builder.CreateGlobalStringPtr(std::string_view(reinterpret_cast<const char*>(x.get()), x->size_));
+    auto x = std::unique_ptr<StaticStringField, void (*)(StaticStringField*)>(
+        StaticStringField::Generate(this_expr->literal_value_),
+        StaticStringField::FreeFromGenerate);
+    return builder.CreateGlobalStringPtr(
+        std::string_view(reinterpret_cast<const char*>(x.get()), x->size_));
   } else if (expr->type_ == ExprType::BINOP) {
     auto this_expr = static_cast<const BinaryExpr*>(expr);
-    auto lhs = JitGenerateExpr(this_expr->ch0_.get(), input_schema, input_value, builder);
-    auto rhs = JitGenerateExpr(this_expr->ch1_.get(), input_schema, input_value, builder);
+    auto lhs = JitGenerateExpr(
+        this_expr->ch0_.get(), input_schema, input_value, builder);
+    auto rhs = JitGenerateExpr(
+        this_expr->ch1_.get(), input_schema, input_value, builder);
 #define GEN_FUNC(optype, builder_func)           \
   if (this_expr->op_ == OpType::optype) {        \
     Value* ret = builder.builder_func(lhs, rhs); \
@@ -95,8 +109,10 @@ llvm::Value* JitGenerateExpr(const Expr* expr, const OutputSchema& input_schema,
 #undef GEN_FUNC
   } else if (expr->type_ == ExprType::BINCONDOP) {
     auto this_expr = static_cast<const BinaryExpr*>(expr);
-    auto lhs = JitGenerateExpr(this_expr->ch0_.get(), input_schema, input_value, builder);
-    auto rhs = JitGenerateExpr(this_expr->ch1_.get(), input_schema, input_value, builder);
+    auto lhs = JitGenerateExpr(
+        this_expr->ch0_.get(), input_schema, input_value, builder);
+    auto rhs = JitGenerateExpr(
+        this_expr->ch1_.get(), input_schema, input_value, builder);
 #define GEN_FUNC2(optype, builder_func)                        \
   if (this_expr->op_ == OpType::optype) {                      \
     Value* ret = builder.builder_func(lhs, rhs);               \
@@ -115,10 +131,12 @@ llvm::Value* JitGenerateExpr(const Expr* expr, const OutputSchema& input_schema,
       // So we use CreateSelect.
       if (this_expr->op_ == OpType::AND) {
         lhs = builder.CreateICmpNE(lhs, ConstantInt::get(C, APInt(64, 0)));
-        return builder.CreateSelect(lhs, rhs, ConstantInt::get(C, APInt(64, 0)));
+        return builder.CreateSelect(
+            lhs, rhs, ConstantInt::get(C, APInt(64, 0)));
       } else if (this_expr->op_ == OpType::OR) {
         lhs = builder.CreateICmpNE(lhs, ConstantInt::get(C, APInt(64, 0)));
-        return builder.CreateSelect(lhs, ConstantInt::get(C, APInt(64, 1)), rhs);
+        return builder.CreateSelect(
+            lhs, ConstantInt::get(C, APInt(64, 1)), rhs);
       }
     } else if (this_expr->ch0_->ret_type_ == RetType::FLOAT) {
       // All floats are ordered (i.e. not NaNs.)
@@ -130,11 +148,13 @@ llvm::Value* JitGenerateExpr(const Expr* expr, const OutputSchema& input_schema,
       GEN_FUNC2(NEQ, CreateFCmpONE);
 #undef GEN_FUNC2
     } else if (this_expr->ch0_->ret_type_ == RetType::STRING) {
-#define GEN_FUNC3(optype, builder_func)                                                                                 \
-  if (this_expr->op_ == OpType::optype) {                                                                               \
-    Value* ret = builder.builder_func(JitGetStringCompareResult(lhs, rhs, builder), ConstantInt::get(C, APInt(32, 0))); \
-    ret = builder.CreateZExtOrTrunc(ret, Type::getInt64Ty(C));                                                          \
-    return ret;                                                                                                         \
+#define GEN_FUNC3(optype, builder_func)                                    \
+  if (this_expr->op_ == OpType::optype) {                                  \
+    Value* ret =                                                           \
+        builder.builder_func(JitGetStringCompareResult(lhs, rhs, builder), \
+            ConstantInt::get(C, APInt(32, 0)));                            \
+    ret = builder.CreateZExtOrTrunc(ret, Type::getInt64Ty(C));             \
+    return ret;                                                            \
   }
       GEN_FUNC3(LT, CreateICmpSLT);
       GEN_FUNC3(GT, CreateICmpSGT);
@@ -146,12 +166,16 @@ llvm::Value* JitGenerateExpr(const Expr* expr, const OutputSchema& input_schema,
     }
   } else if (expr->type_ == ExprType::CAST) {
     auto this_expr = static_cast<const CastExpr*>(expr);
-    if (expr->ret_type_ == RetType::FLOAT && this_expr->ch0_->ret_type_ == RetType::INT) {
-      auto lhs = JitGenerateExpr(this_expr->ch0_.get(), input_schema, input_value, builder);
+    if (expr->ret_type_ == RetType::FLOAT &&
+        this_expr->ch0_->ret_type_ == RetType::INT) {
+      auto lhs = JitGenerateExpr(
+          this_expr->ch0_.get(), input_schema, input_value, builder);
       Value* ret = builder.CreateSIToFP(lhs, Type::getDoubleTy(C));
       return ret;
-    } else if (expr->ret_type_ == RetType::INT && this_expr->ch0_->ret_type_ == RetType::FLOAT) {
-      auto lhs = JitGenerateExpr(this_expr->ch0_.get(), input_schema, input_value, builder);
+    } else if (expr->ret_type_ == RetType::INT &&
+               this_expr->ch0_->ret_type_ == RetType::FLOAT) {
+      auto lhs = JitGenerateExpr(
+          this_expr->ch0_.get(), input_schema, input_value, builder);
       // Integer is always signed.
       Value* ret = builder.CreateFPToSI(lhs, Type::getInt64Ty(C));
       return ret;
@@ -160,7 +184,8 @@ llvm::Value* JitGenerateExpr(const Expr* expr, const OutputSchema& input_schema,
     }
   } else if (expr->type_ == ExprType::UNARYOP) {
     auto this_expr = static_cast<const UnaryExpr*>(expr);
-    auto lhs = JitGenerateExpr(this_expr->ch0_.get(), input_schema, input_value, builder);
+    auto lhs = JitGenerateExpr(
+        this_expr->ch0_.get(), input_schema, input_value, builder);
     if (expr->ret_type_ == RetType::FLOAT) {
       Value* ret = builder.CreateFNeg(lhs);
       return ret;
@@ -170,7 +195,8 @@ llvm::Value* JitGenerateExpr(const Expr* expr, const OutputSchema& input_schema,
     }
   } else if (expr->type_ == ExprType::UNARYCONDOP) {
     auto this_expr = static_cast<const UnaryConditionExpr*>(expr);
-    auto lhs = JitGenerateExpr(this_expr->ch0_.get(), input_schema, input_value, builder);
+    auto lhs = JitGenerateExpr(
+        this_expr->ch0_.get(), input_schema, input_value, builder);
     Value* ret = builder.CreateNot(lhs);
     return ret;
   } else if (expr->type_ == ExprType::COLUMN) {

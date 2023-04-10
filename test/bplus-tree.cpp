@@ -1,9 +1,11 @@
+#include "storage/bplus-tree.hpp"
+
 #include <gtest/gtest.h>
+
 #include <cstdlib>
 #include <optional>
 #include <random>
 
-#include "storage/bplus-tree.hpp"
 #include "storage/blob.hpp"
 
 namespace fs = std::filesystem;
@@ -11,9 +13,13 @@ namespace fs = std::filesystem;
 #define FAIL_NO_RETURN() \
   GTEST_MESSAGE_("Failed", ::testing::TestPartResult::kFatalFailure)
 
-template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
+template <class... Ts>
+struct overloaded : Ts... {
+  using Ts::operator()...;
+};
 // explicit deduction guide (not needed as of C++20)
-template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+template <class... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
 
 template <typename Val, typename... Ts>
 auto match(Val val, Ts... ts) {
@@ -73,7 +79,7 @@ static std::string gen_value(Env& env) {
   size_t value_len;
   if (env.rand_len)
     value_len =
-      std::uniform_int_distribution<size_t>(1, env.max_val_len)(env.e);
+        std::uniform_int_distribution<size_t>(1, env.max_val_len)(env.e);
   else
     value_len = env.max_val_len;
   return rand_digits(env.e, value_len);
@@ -93,7 +99,8 @@ static void try_update(Env& env) {
   bool exists = env.tree.Update(key, value);
   auto std_ret = env.m.find(key);
   if (std_ret == env.m.end()) {
-    ASSERT_FALSE(exists);;
+    ASSERT_FALSE(exists);
+    ;
   } else {
     ASSERT_TRUE(exists);
     std_ret->second = value;
@@ -200,8 +207,8 @@ struct OPNum {
 };
 
 static void rand_op(Env& env, OPNum num) {
-  size_t tot = num.insert + num.update + num.get + num.take +
-    num.take_nearby + num.lower_bound + num.upper_bound + num.scan;
+  size_t tot = num.insert + num.update + num.get + num.take + num.take_nearby +
+               num.lower_bound + num.upper_bound + num.scan;
   for (; tot; tot -= 1) {
     std::uniform_int_distribution<size_t> dist(0, tot - 1);
     size_t rand_num = dist(env.e);
@@ -271,40 +278,34 @@ static void test_rand_op(const std::filesystem::path& path, const OPNum& num,
     map_t m;
     auto pgm = wing::PageManager::Create(path, MAX_BUF_PAGES);
     auto tree = tree_t::Create(*pgm);
-    Env env {
-      .e = e,
-      .tree = tree,
-      .m = m,
-      .max_key_len = key_len,
-      .max_val_len = val_len,
+    Env env{
+        .e = e,
+        .tree = tree,
+        .m = m,
+        .max_key_len = key_len,
+        .max_val_len = val_len,
     };
     ASSERT_NO_FATAL_FAILURE(rand_op(env, num));
   }
   ASSERT_TRUE(fs::remove(path));
 }
 
-static auto Create(
-  const std::filesystem::path& path
-) -> std::pair<
-  std::unique_ptr<wing::PageManager>,
-  wing::BPlusTree<std::compare_three_way>
-> {
+static auto Create(const std::filesystem::path& path)
+    -> std::pair<std::unique_ptr<wing::PageManager>,
+        wing::BPlusTree<std::compare_three_way>> {
   auto pgm = wing::PageManager::Create(path, MAX_BUF_PAGES);
   assert(pgm->PageNum() == pgm->SuperPageID() + 1);
   auto tree = wing::BPlusTree<std::compare_three_way>::Create(*pgm);
   wing::pgid_t meta = tree.MetaPageID();
-  pgm->GetPlainPage(pgm->SuperPageID()).Write(0,
-    std::string_view(reinterpret_cast<const char *>(&meta), sizeof(meta)));
+  pgm->GetPlainPage(pgm->SuperPageID())
+      .Write(0,
+          std::string_view(reinterpret_cast<const char*>(&meta), sizeof(meta)));
   return std::make_pair(std::move(pgm), std::move(tree));
 }
-static auto Open(
-  const std::filesystem::path& path
-) -> wing::Result<
-  std::pair<
-    std::unique_ptr<wing::PageManager>,
-    wing::BPlusTree<std::compare_three_way>>,
-  wing::io::Error
-> {
+static auto Open(const std::filesystem::path& path)
+    -> wing::Result<std::pair<std::unique_ptr<wing::PageManager>,
+                        wing::BPlusTree<std::compare_three_way>>,
+        wing::io::Error> {
   auto pgm = EXTRACT_RESULT(wing::PageManager::Open(path, MAX_BUF_PAGES));
   wing::pgid_t meta;
   pgm->GetPlainPage(pgm->SuperPageID()).Read(&meta, 0, sizeof(meta));
@@ -326,7 +327,7 @@ struct SeqOpNum {
 };
 
 static std::string_view key_to_string_view(size_t& key) {
-  return std::string_view(reinterpret_cast<const char *>(&key), sizeof(key));
+  return std::string_view(reinterpret_cast<const char*>(&key), sizeof(key));
 }
 static void seq_insert(SeqEnv& env, std::string&& value) {
   env.max_key += 1;
@@ -341,7 +342,7 @@ static void seq_insert(SeqEnv& env) {
 }
 static void seq_insert_rand_len(SeqEnv& env) {
   size_t val_len =
-    std::uniform_int_distribution<size_t>(1, env.max_val_len)(env.e);
+      std::uniform_int_distribution<size_t>(1, env.max_val_len)(env.e);
   seq_insert(env, rand_digits(env.e, val_len));
 }
 static void seq_get(SeqEnv& env) {
@@ -385,18 +386,18 @@ static void seq_op(SeqEnv& env, SeqOpNum num) {
   ASSERT_EQ(num.get, 0);
 }
 
-static void test_seq_op(const fs::path& path, const SeqOpNum& num,
-    size_t val_len) {
+static void test_seq_op(
+    const fs::path& path, const SeqOpNum& num, size_t val_len) {
   {
     std::minstd_rand e(233);
     map_t m;
     auto [pgm, tree] = Create(path);
     SeqEnv env{
-      .e = e,
-      .tree = tree,
-      .m = m,
-      .max_key = 0,
-      .max_val_len = val_len,
+        .e = e,
+        .tree = tree,
+        .m = m,
+        .max_key = 0,
+        .max_val_len = val_len,
     };
     ASSERT_NO_FATAL_FAILURE(seq_op(env, num));
   }
@@ -404,55 +405,55 @@ static void test_seq_op(const fs::path& path, const SeqOpNum& num,
 }
 
 static auto create_rand_insert(
-  const std::filesystem::path& path, std::minstd_rand& e, size_t magnitude
-) -> std::tuple<std::unique_ptr<wing::PageManager>, tree_t, map_t> {
+    const std::filesystem::path& path, std::minstd_rand& e, size_t magnitude)
+    -> std::tuple<std::unique_ptr<wing::PageManager>, tree_t, map_t> {
   size_t n = pow<size_t>(10, magnitude);
   map_t m;
   auto [pgm, tree] = Create(path);
-  Env env {
-    .e = e,
-    .tree = tree,
-    .m = m,
-    .max_key_len = magnitude,
-    .max_val_len = magnitude,
+  Env env{
+      .e = e,
+      .tree = tree,
+      .m = m,
+      .max_key_len = magnitude,
+      .max_val_len = magnitude,
   };
   rand_op(env, OPNum{
-    .insert = n,
-  });
+                   .insert = n,
+               });
   return std::make_tuple(std::move(pgm), std::move(tree), std::move(m));
 }
-static auto create_seq_op(
-  const fs::path& path, std::minstd_rand& e, size_t max_val_len,
-  const SeqOpNum& num
-) -> std::tuple<std::unique_ptr<wing::PageManager>, tree_t, map_t> {
+static auto create_seq_op(const fs::path& path, std::minstd_rand& e,
+    size_t max_val_len, const SeqOpNum& num)
+    -> std::tuple<std::unique_ptr<wing::PageManager>, tree_t, map_t> {
   map_t m;
   auto [pgm, tree] = Create(path);
   SeqEnv env{
-    .e = e,
-    .tree = tree,
-    .m = m,
-    .max_key = 0,
-    .max_val_len = max_val_len,
+      .e = e,
+      .tree = tree,
+      .m = m,
+      .max_key = 0,
+      .max_val_len = max_val_len,
   };
   seq_op(env, num);
   return std::make_tuple(std::move(pgm), std::move(tree), std::move(m));
 }
 static auto create_seq_insert(
-  const fs::path& path, std::minstd_rand& e, size_t magnitude, size_t val_len
-) -> std::tuple<std::unique_ptr<wing::PageManager>, tree_t, map_t> {
+    const fs::path& path, std::minstd_rand& e, size_t magnitude, size_t val_len)
+    -> std::tuple<std::unique_ptr<wing::PageManager>, tree_t, map_t> {
   size_t n = pow<size_t>(10, magnitude);
-  return create_seq_op(path, e, val_len, SeqOpNum{
-    .insert = n,
-  });
+  return create_seq_op(path, e, val_len,
+      SeqOpNum{
+          .insert = n,
+      });
 }
-static auto create_seq_insert_rand_len(
-  const fs::path& path, std::minstd_rand& e, size_t magnitude,
-  size_t max_val_len
-) -> std::tuple<std::unique_ptr<wing::PageManager>, tree_t, map_t> {
+static auto create_seq_insert_rand_len(const fs::path& path,
+    std::minstd_rand& e, size_t magnitude, size_t max_val_len)
+    -> std::tuple<std::unique_ptr<wing::PageManager>, tree_t, map_t> {
   size_t n = pow<size_t>(10, magnitude);
-  return create_seq_op(path, e, max_val_len, SeqOpNum{
-    .insert_rand_len = n,
-  });
+  return create_seq_op(path, e, max_val_len,
+      SeqOpNum{
+          .insert_rand_len = n,
+      });
 }
 
 // Insert, Update, Get, MaxKey
@@ -485,39 +486,27 @@ TEST(BPlusTreeTest, Basic1) {
   ASSERT_TRUE(fs::remove(name));
 }
 
-static void rand_insert_get(const std::filesystem::path& path,
-    size_t magnitude) {
+static void rand_insert_get(
+    const std::filesystem::path& path, size_t magnitude) {
   size_t n = pow<size_t>(10, magnitude);
   OPNum num{
-    .insert = n,
-    .get = n,
+      .insert = n,
+      .get = n,
   };
   ASSERT_NO_FATAL_FAILURE(test_rand_op(path, num, magnitude, magnitude));
 }
-TEST(BPlusTreeTest, RandInsertGet1e1) {
-  rand_insert_get(test_name(), 1);
-}
-TEST(BPlusTreeTest, RandInsertGet1e2) {
-  rand_insert_get(test_name(), 2);
-}
-TEST(BPlusTreeTest, RandInsertGet1e3) {
-  rand_insert_get(test_name(), 3);
-}
-TEST(BPlusTreeTest, RandInsertGet1e4) {
-  rand_insert_get(test_name(), 4);
-}
-TEST(BPlusTreeTest, RandInsertGet1e5) {
-  rand_insert_get(test_name(), 5);
-}
-TEST(BPlusTreeTest, RandInsertGet1e6) {
-  rand_insert_get(test_name(), 6);
-}
+TEST(BPlusTreeTest, RandInsertGet1e1) { rand_insert_get(test_name(), 1); }
+TEST(BPlusTreeTest, RandInsertGet1e2) { rand_insert_get(test_name(), 2); }
+TEST(BPlusTreeTest, RandInsertGet1e3) { rand_insert_get(test_name(), 3); }
+TEST(BPlusTreeTest, RandInsertGet1e4) { rand_insert_get(test_name(), 4); }
+TEST(BPlusTreeTest, RandInsertGet1e5) { rand_insert_get(test_name(), 5); }
+TEST(BPlusTreeTest, RandInsertGet1e6) { rand_insert_get(test_name(), 6); }
 
 static void seq_insert_get_value_16B(const fs::path& path, size_t magnitude) {
   size_t n = pow<size_t>(10, magnitude);
   SeqOpNum num{
-    .insert = n,
-    .get = n,
+      .insert = n,
+      .get = n,
   };
   test_seq_op(path, num, 16);
 }
@@ -543,8 +532,8 @@ TEST(BPlusTreeTest, SeqInsertGetValue16B1e6) {
 static void seq_insert_get_value_1024B(const fs::path& path, size_t magnitude) {
   size_t n = pow<size_t>(10, magnitude);
   SeqOpNum num{
-    .insert = n,
-    .get = n,
+      .insert = n,
+      .get = n,
   };
   test_seq_op(path, num, 1024);
 }
@@ -564,13 +553,13 @@ TEST(BPlusTreeTest, SeqInsertGetValue1024B1e5) {
   seq_insert_get_value_1024B(test_name(), 5);
 }
 
-static void rand_insert_update_get(const std::filesystem::path& path,
-    size_t magnitude) {
+static void rand_insert_update_get(
+    const std::filesystem::path& path, size_t magnitude) {
   size_t n = pow<size_t>(10, magnitude);
   OPNum num{
-    .insert = n,
-    .update = n,
-    .get = n,
+      .insert = n,
+      .update = n,
+      .get = n,
   };
   ASSERT_NO_FATAL_FAILURE(test_rand_op(path, num, magnitude, magnitude));
 }
@@ -612,13 +601,13 @@ TEST(BPlusTreeTest, Delete1) {
   ASSERT_TRUE(fs::remove(name));
 }
 
-static void rand_insert_get_take_nearby(const std::filesystem::path& path,
-    size_t magnitude) {
+static void rand_insert_get_take_nearby(
+    const std::filesystem::path& path, size_t magnitude) {
   size_t n = pow<size_t>(10, magnitude);
   OPNum num{
-    .insert = n,
-    .get = n,
-    .take_nearby = n,
+      .insert = n,
+      .get = n,
+      .take_nearby = n,
   };
   ASSERT_NO_FATAL_FAILURE(test_rand_op(path, num, magnitude, magnitude));
 }
@@ -641,13 +630,13 @@ TEST(BPlusTreeTest, RandInsertGetDelete1e6) {
   rand_insert_get_take_nearby(test_name(), 6);
 }
 
-static void rand_insert_get_take(const std::filesystem::path& path,
-    size_t magnitude) {
+static void rand_insert_get_take(
+    const std::filesystem::path& path, size_t magnitude) {
   size_t n = pow<size_t>(10, magnitude);
   OPNum num{
-    .insert = n,
-    .get = n,
-    .take = n,
+      .insert = n,
+      .get = n,
+      .take = n,
   };
   ASSERT_NO_FATAL_FAILURE(test_rand_op(path, num, magnitude, magnitude));
 }
@@ -670,8 +659,8 @@ TEST(BPlusTreeTest, RandInsertGetTake1e6) {
   rand_insert_get_take(test_name(), 6);
 }
 
-static void rand_insert_delete_all(const std::filesystem::path& path,
-    size_t magnitude) {
+static void rand_insert_delete_all(
+    const std::filesystem::path& path, size_t magnitude) {
   std::minstd_rand e(233);
   {
     auto [pgm, tree, m] = create_rand_insert(path, e, magnitude);
@@ -713,17 +702,17 @@ TEST(BPlusTreeTest, Scan1) {
     ASSERT_TRUE(tree.Insert("123", "456"));
     it = tree.Begin();
     ASSERT_EQ(it.Cur(),
-      std::make_pair(std::string_view("123"), std::string_view("456")));
+        std::make_pair(std::string_view("123"), std::string_view("456")));
     it.Next();
     ASSERT_FALSE(it.Cur().has_value());
 
     ASSERT_TRUE(tree.Insert("233", "332"));
     it = tree.Begin();
     ASSERT_EQ(it.Cur(),
-      std::make_pair(std::string_view("123"), std::string_view("456")));
+        std::make_pair(std::string_view("123"), std::string_view("456")));
     it.Next();
     ASSERT_EQ(it.Cur(),
-      std::make_pair(std::string_view("233"), std::string_view("332")));
+        std::make_pair(std::string_view("233"), std::string_view("332")));
     it.Next();
     ASSERT_FALSE(it.Cur().has_value());
   }
@@ -745,8 +734,8 @@ void scan_all(wing::BPlusTree<std::compare_three_way>& tree, map_t& m) {
   }
   ASSERT_EQ(std_it, m.end());
 }
-static void rand_insert_scan_all(const std::filesystem::path& path,
-    size_t magnitude) {
+static void rand_insert_scan_all(
+    const std::filesystem::path& path, size_t magnitude) {
   std::minstd_rand e(233);
   {
     auto [pgm, tree, m] = create_rand_insert(path, e, magnitude);
@@ -775,8 +764,8 @@ TEST(BPlusTreeTest, RandInsertScanAll1e6) {
   rand_insert_scan_all(test_name(), 6);
 }
 
-static void seq_insert_scan_all(const fs::path& path, size_t magnitude,
-    size_t val_len) {
+static void seq_insert_scan_all(
+    const fs::path& path, size_t magnitude, size_t val_len) {
   std::minstd_rand e(233);
   {
     auto [pgm, tree, m] = create_seq_insert(path, e, magnitude, val_len);
@@ -786,8 +775,8 @@ static void seq_insert_scan_all(const fs::path& path, size_t magnitude,
   }
   ASSERT_TRUE(fs::remove(path));
 }
-static void seq_insert_scan_all_value_16B(const fs::path& path,
-    size_t magnitude) {
+static void seq_insert_scan_all_value_16B(
+    const fs::path& path, size_t magnitude) {
   seq_insert_scan_all(path, magnitude, 16);
 }
 TEST(BPlusTreeTest, SeqInsertScanAllValue16B1e1) {
@@ -809,8 +798,8 @@ TEST(BPlusTreeTest, SeqInsertScanAllValue16B1e6) {
   seq_insert_scan_all_value_16B(test_name(), 6);
 }
 
-static void seq_insert_scan_all_value_1024B(const fs::path& path,
-    size_t magnitude) {
+static void seq_insert_scan_all_value_1024B(
+    const fs::path& path, size_t magnitude) {
   seq_insert_scan_all(path, magnitude, 1024);
 }
 TEST(BPlusTreeTest, SeqInsertScanAllValue1024B1e1) {
@@ -829,19 +818,20 @@ TEST(BPlusTreeTest, SeqInsertScanAllValue1024B1e5) {
   seq_insert_scan_all_value_1024B(test_name(), 5);
 }
 
-static void seq_insert_rand_len_scan_all(const fs::path& path, size_t magnitude,
-    size_t max_val_len) {
+static void seq_insert_rand_len_scan_all(
+    const fs::path& path, size_t magnitude, size_t max_val_len) {
   std::minstd_rand e(233);
   {
     auto [pgm, tree, m] =
-      create_seq_insert_rand_len(path, e, magnitude, max_val_len);
+        create_seq_insert_rand_len(path, e, magnitude, max_val_len);
     if (::testing::Test::HasFatalFailure())
       return;
     scan_all(tree, m);
   }
   ASSERT_TRUE(fs::remove(path));
 }
-static void seq_insert_scan_all_value_max_1024B(const fs::path& path, size_t magnitude) {
+static void seq_insert_scan_all_value_max_1024B(
+    const fs::path& path, size_t magnitude) {
   seq_insert_rand_len_scan_all(path, magnitude, 1024);
 }
 TEST(BPlusTreeTest, SeqInsertScanAllValueMax1024B1e1) {
@@ -870,14 +860,14 @@ TEST(BPlusTreeTest, LowerBound1) {
   ASSERT_TRUE(tree.Insert("123", "456"));
   it = tree.LowerBound("123");
   ASSERT_EQ(it.Cur(),
-    std::make_pair(std::string_view("123"), std::string_view("456")));
+      std::make_pair(std::string_view("123"), std::string_view("456")));
   it.Next();
   ASSERT_FALSE(it.Cur().has_value());
 
   ASSERT_TRUE(tree.Insert("234", "567"));
   it = tree.LowerBound("200");
   ASSERT_EQ(it.Cur(),
-    std::make_pair(std::string_view("234"), std::string_view("567")));
+      std::make_pair(std::string_view("234"), std::string_view("567")));
   it.Next();
   ASSERT_FALSE(it.Cur().has_value());
 
@@ -887,12 +877,12 @@ TEST(BPlusTreeTest, LowerBound1) {
   ASSERT_TRUE(fs::remove(name));
 }
 
-static void rand_insert_lower_bound(const std::filesystem::path& path,
-    size_t magnitude) {
+static void rand_insert_lower_bound(
+    const std::filesystem::path& path, size_t magnitude) {
   size_t n = pow<size_t>(10, magnitude);
   OPNum num{
-    .insert = n,
-    .lower_bound = n,
+      .insert = n,
+      .lower_bound = n,
   };
   ASSERT_NO_FATAL_FAILURE(test_rand_op(path, num, magnitude, magnitude));
 }
@@ -928,14 +918,14 @@ TEST(BPlusTreeTest, UpperBound1) {
     ASSERT_FALSE(it.Cur().has_value());
     it = tree.UpperBound("122");
     ASSERT_EQ(it.Cur(),
-      std::make_pair(std::string_view("123"), std::string_view("456")));
+        std::make_pair(std::string_view("123"), std::string_view("456")));
     it.Next();
     ASSERT_FALSE(it.Cur().has_value());
 
     ASSERT_TRUE(tree.Insert("234", "567"));
     it = tree.UpperBound("123");
     ASSERT_EQ(it.Cur(),
-      std::make_pair(std::string_view("234"), std::string_view("567")));
+        std::make_pair(std::string_view("234"), std::string_view("567")));
     it.Next();
     ASSERT_FALSE(it.Cur().has_value());
 
@@ -945,12 +935,12 @@ TEST(BPlusTreeTest, UpperBound1) {
   ASSERT_TRUE(fs::remove(name));
 }
 
-static void rand_insert_upper_bound(const std::filesystem::path& path,
-    size_t magnitude) {
+static void rand_insert_upper_bound(
+    const std::filesystem::path& path, size_t magnitude) {
   size_t n = pow<size_t>(10, magnitude);
   OPNum num{
-    .insert = n,
-    .upper_bound = n,
+      .insert = n,
+      .upper_bound = n,
   };
   ASSERT_NO_FATAL_FAILURE(test_rand_op(path, num, magnitude, magnitude));
 }
@@ -973,57 +963,45 @@ TEST(BPlusTreeTest, RandInsertUpperBound1e6) {
   rand_insert_upper_bound(test_name(), 6);
 }
 
-static void rand_insert_scan(const std::filesystem::path& path,
-    size_t magnitude) {
+static void rand_insert_scan(
+    const std::filesystem::path& path, size_t magnitude) {
   size_t n = pow<size_t>(10, magnitude);
   OPNum num{
-    .insert = n,
-    .scan = n,
+      .insert = n,
+      .scan = n,
   };
   ASSERT_NO_FATAL_FAILURE(test_rand_op(path, num, magnitude, magnitude));
 }
-TEST(BPlusTreeTest, RandInsertScan1e1) {
-  rand_insert_scan(test_name(), 1);
-}
-TEST(BPlusTreeTest, RandInsertScan1e2) {
-  rand_insert_scan(test_name(), 2);
-}
-TEST(BPlusTreeTest, RandInsertScan1e3) {
-  rand_insert_scan(test_name(), 3);
-}
-TEST(BPlusTreeTest, RandInsertScan1e4) {
-  rand_insert_scan(test_name(), 4);
-}
-TEST(BPlusTreeTest, RandInsertScan1e5) {
-  rand_insert_scan(test_name(), 5);
-}
-TEST(BPlusTreeTest, RandInsertScan1e6) {
-  rand_insert_scan(test_name(), 6);
-}
+TEST(BPlusTreeTest, RandInsertScan1e1) { rand_insert_scan(test_name(), 1); }
+TEST(BPlusTreeTest, RandInsertScan1e2) { rand_insert_scan(test_name(), 2); }
+TEST(BPlusTreeTest, RandInsertScan1e3) { rand_insert_scan(test_name(), 3); }
+TEST(BPlusTreeTest, RandInsertScan1e4) { rand_insert_scan(test_name(), 4); }
+TEST(BPlusTreeTest, RandInsertScan1e5) { rand_insert_scan(test_name(), 5); }
+TEST(BPlusTreeTest, RandInsertScan1e6) { rand_insert_scan(test_name(), 6); }
 
 static void rand_all_operations(
     const std::filesystem::path& path, size_t magnitude) {
   size_t n = pow<size_t>(10, magnitude);
   OPNum num{
-    .insert = n,
-    .update = n,
-    .get = n,
-    .take_nearby = n,
-    .lower_bound = n,
-    .upper_bound = n,
-    .scan = n,
+      .insert = n,
+      .update = n,
+      .get = n,
+      .take_nearby = n,
+      .lower_bound = n,
+      .upper_bound = n,
+      .scan = n,
   };
   {
     std::minstd_rand e(233);
     map_t m;
     auto pgm = wing::PageManager::Create(path, MAX_BUF_PAGES);
     auto tree = tree_t::Create(*pgm);
-    Env env {
-      .e = e,
-      .tree = tree,
-      .m = m,
-      .max_key_len = magnitude,
-      .max_val_len = magnitude,
+    Env env{
+        .e = e,
+        .tree = tree,
+        .m = m,
+        .max_key_len = magnitude,
+        .max_val_len = magnitude,
     };
     ASSERT_NO_FATAL_FAILURE(rand_op(env, num));
     tree.Destroy();
@@ -1055,26 +1033,26 @@ static void rand_all_operations_fixed(
     const std::filesystem::path& path, size_t magnitude) {
   size_t n = pow<size_t>(10, magnitude);
   OPNum num{
-    .insert = n,
-    .update = n,
-    .get = n,
-    .take = n,
-    .take_nearby = n / 10,
-    .lower_bound = n,
-    .upper_bound = n,
-    .scan = n,
+      .insert = n,
+      .update = n,
+      .get = n,
+      .take = n,
+      .take_nearby = n / 10,
+      .lower_bound = n,
+      .upper_bound = n,
+      .scan = n,
   };
   {
     std::minstd_rand e(233);
     map_t m;
     auto pgm = wing::PageManager::Create(path, MAX_BUF_PAGES);
     auto tree = tree_t::Create(*pgm);
-    Env env {
-      .e = e,
-      .tree = tree,
-      .m = m,
-      .max_key_len = magnitude,
-      .max_val_len = magnitude,
+    Env env{
+        .e = e,
+        .tree = tree,
+        .m = m,
+        .max_key_len = magnitude,
+        .max_val_len = magnitude,
     };
     ASSERT_NO_FATAL_FAILURE(rand_op(env, num));
     tree.Destroy();
@@ -1106,27 +1084,27 @@ static void rand_all_operations_rand_len(
     const std::filesystem::path& path, size_t magnitude) {
   size_t n = pow<size_t>(10, magnitude);
   OPNum num{
-    .insert = n,
-    .update = n,
-    .get = n,
-    .take = n,
-    .take_nearby = n / 10,
-    .lower_bound = n,
-    .upper_bound = n,
-    .scan = n,
+      .insert = n,
+      .update = n,
+      .get = n,
+      .take = n,
+      .take_nearby = n / 10,
+      .lower_bound = n,
+      .upper_bound = n,
+      .scan = n,
   };
   {
     std::minstd_rand e(233);
     map_t m;
     auto pgm = wing::PageManager::Create(path, MAX_BUF_PAGES);
     auto tree = tree_t::Create(*pgm);
-    Env env {
-      .e = e,
-      .tree = tree,
-      .m = m,
-      .max_key_len = magnitude * 2,
-      .max_val_len = 1024,
-      .rand_len = true,
+    Env env{
+        .e = e,
+        .tree = tree,
+        .m = m,
+        .max_key_len = magnitude * 2,
+        .max_val_len = 1024,
+        .rand_len = true,
     };
     ASSERT_NO_FATAL_FAILURE(rand_op(env, num));
     tree.Destroy();
@@ -1151,8 +1129,8 @@ TEST(BPlusTreeTest, RandAllOperationsRandLen1e5) {
   rand_all_operations_rand_len(test_name(), 5);
 }
 
-static void rand_insert_close_open_scan(const std::filesystem::path& path,
-    size_t magnitude) {
+static void rand_insert_close_open_scan(
+    const std::filesystem::path& path, size_t magnitude) {
   std::minstd_rand e(233);
   std::map<std::string, std::string> m;
   {
@@ -1201,8 +1179,8 @@ static void rand_insert_blob_close_open_scan_destroy(
       auto blob = wing::Blob::Create(*pgm);
       blob.Rewrite(value);
       wing::pgid_t page_id = blob.MetaPageID();
-      std::string blob_value(reinterpret_cast<const char *>(&page_id),
-        sizeof(page_id));
+      std::string blob_value(
+          reinterpret_cast<const char*>(&page_id), sizeof(page_id));
       bool succeed = tree.Insert(key, blob_value);
       ASSERT_EQ(succeed, std_ret.second);
       if (!succeed)
@@ -1223,7 +1201,7 @@ static void rand_insert_blob_close_open_scan_destroy(
       auto kv = ret.value();
       ASSERT_EQ(kv.first, std_it->first);
       ASSERT_EQ(kv.second.size(), sizeof(wing::pgid_t));
-      auto page_id = *(wing::pgid_t *)kv.second.data();
+      auto page_id = *(wing::pgid_t*)kv.second.data();
       auto blob = wing::Blob::Open(*pgm, page_id);
       ASSERT_EQ(blob.Read(), std_it->second);
       blob.Destroy();
@@ -1262,8 +1240,8 @@ TEST(BPlusTreeTest, RandInsertBlobCloseOpenScanDestroy1e3Value23333) {
   rand_insert_blob_close_open_scan_destroy(test_name(), 3, 23333, 1000, 233);
 }
 
-static void rand_insert_destroy(const std::filesystem::path& path,
-    size_t magnitude) {
+static void rand_insert_destroy(
+    const std::filesystem::path& path, size_t magnitude) {
   std::minstd_rand e(233);
   std::map<std::string, std::string> m;
   wing::pgid_t page_num;
@@ -1275,14 +1253,12 @@ static void rand_insert_destroy(const std::filesystem::path& path,
   }
   {
     std::unique_ptr<wing::PageManager> pgm;
-    ASSERT_NO_FATAL_FAILURE(match(wing::PageManager::Open(path, MAX_BUF_PAGES),
-      [&pgm](std::unique_ptr<wing::PageManager>& pgm_ret) {
-        pgm = std::move(pgm_ret);
-      },
-      [](wing::io::Error& err) {
-        FAIL() << err;
-      }
-    ));
+    ASSERT_NO_FATAL_FAILURE(match(
+        wing::PageManager::Open(path, MAX_BUF_PAGES),
+        [&pgm](std::unique_ptr<wing::PageManager>& pgm_ret) {
+          pgm = std::move(pgm_ret);
+        },
+        [](wing::io::Error& err) { FAIL() << err; }));
     ASSERT_EQ(pgm->PageNum(), page_num);
     pgm->ShrinkToFit();
     ASSERT_EQ(pgm->PageNum(), pgm->SuperPageID() + 1);

@@ -8,7 +8,7 @@ namespace wing {
 
 /**
  * Use to generate primary key when multiple txns are inserting one table.
-*/
+ */
 class GenPKHandle {
  public:
   GenPKHandle(std::atomic<int64_t>* pk) : pk_(pk) {}

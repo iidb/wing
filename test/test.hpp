@@ -21,7 +21,8 @@ bool test_timeout(std::function<void()> function, size_t timeout_in_ms) {
     function();
     promisedFinished.set_value(true);
   }).detach();
-  return futureResult.wait_for(std::chrono::milliseconds(timeout_in_ms)) != std::future_status::timeout;
+  return futureResult.wait_for(std::chrono::milliseconds(timeout_in_ms)) !=
+         std::future_status::timeout;
 }
 class Value {
  public:
@@ -68,25 +69,32 @@ class StringValue : public Value {
 
 bool TestEQ(const ResultSet::ResultData& tuple, int id, const Value* v) {
   if (v->type() == Value::STRING) {
-    auto ret = tuple.ReadString(id) == static_cast<const StringValue*>(v)->ReadString();
+    auto ret = tuple.ReadString(id) ==
+               static_cast<const StringValue*>(v)->ReadString();
     if (!ret) {
-      DB_INFO("Wrong Answer comparing {}-th field: {}, {}", id + 1, tuple.ReadString(id), static_cast<const FloatValue*>(v)->ReadString());
+      DB_INFO("Wrong Answer comparing {}-th field: {}, {}", id + 1,
+          tuple.ReadString(id),
+          static_cast<const FloatValue*>(v)->ReadString());
     }
     return ret;
   } else if (v->type() == Value::INT) {
     auto ret = tuple.ReadInt(id) == static_cast<const IntValue*>(v)->ReadInt();
     if (!ret) {
-      DB_INFO("Wrong Answer comparing {}-th field: {}, {}", id + 1, tuple.ReadInt(id), static_cast<const FloatValue*>(v)->ReadInt());
+      DB_INFO("Wrong Answer comparing {}-th field: {}, {}", id + 1,
+          tuple.ReadInt(id), static_cast<const FloatValue*>(v)->ReadInt());
     }
     return ret;
   } else if (v->type() == Value::FLOAT) {
     //
-    // DB_INFO("{}, {}",fabs(tuple.ReadFloat(id) - static_cast<const FloatValue*>(v)->ReadFloat()), 1e-9 * fabs(static_cast<const
+    // DB_INFO("{}, {}",fabs(tuple.ReadFloat(id) - static_cast<const
+    // FloatValue*>(v)->ReadFloat()), 1e-9 * fabs(static_cast<const
     // FloatValue*>(v)->ReadFloat()));
-    auto ret =
-        fabs(tuple.ReadFloat(id) - static_cast<const FloatValue*>(v)->ReadFloat()) <= 1e-7 * fabs(static_cast<const FloatValue*>(v)->ReadFloat());
+    auto ret = fabs(tuple.ReadFloat(id) -
+                    static_cast<const FloatValue*>(v)->ReadFloat()) <=
+               1e-7 * fabs(static_cast<const FloatValue*>(v)->ReadFloat());
     if (!ret) {
-      DB_INFO("Wrong Answer comparing {}-th field: {}, {}", id + 1, tuple.ReadFloat(id), static_cast<const FloatValue*>(v)->ReadFloat());
+      DB_INFO("Wrong Answer comparing {}-th field: {}, {}", id + 1,
+          tuple.ReadFloat(id), static_cast<const FloatValue*>(v)->ReadFloat());
     }
     return ret;
   } else {
@@ -101,10 +109,12 @@ struct __gen_random_tuple_pair {};
 template <>
 struct __gen_random_tuple_pair<int> {
   template <int FLAG>
-  static std::pair<std::string, std::unique_ptr<Value>> Generate(std::mt19937_64& gen,
-                                                                 const std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>& range) {
-    std::uniform_int_distribution<int> dis(static_cast<const IntValue*>(range.first.get())->data,
-                                           static_cast<const IntValue*>(range.second.get())->data);
+  static std::pair<std::string, std::unique_ptr<Value>> Generate(
+      std::mt19937_64& gen,
+      const std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>& range) {
+    std::uniform_int_distribution<int> dis(
+        static_cast<const IntValue*>(range.first.get())->data,
+        static_cast<const IntValue*>(range.second.get())->data);
     int t = dis(gen);
     auto v = std::make_unique<IntValue>();
     v->data = t;
@@ -115,10 +125,12 @@ struct __gen_random_tuple_pair<int> {
 template <>
 struct __gen_random_tuple_pair<int64_t> {
   template <int FLAG>
-  static std::pair<std::string, std::unique_ptr<Value>> Generate(std::mt19937_64& gen,
-                                                                 const std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>& range) {
-    std::uniform_int_distribution<int64_t> dis(static_cast<const IntValue*>(range.first.get())->data,
-                                               static_cast<const IntValue*>(range.second.get())->data);
+  static std::pair<std::string, std::unique_ptr<Value>> Generate(
+      std::mt19937_64& gen,
+      const std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>& range) {
+    std::uniform_int_distribution<int64_t> dis(
+        static_cast<const IntValue*>(range.first.get())->data,
+        static_cast<const IntValue*>(range.second.get())->data);
     int64_t t = dis(gen);
     if (!FLAG) {
       return {fmt::format("{}", t), nullptr};
@@ -131,15 +143,19 @@ struct __gen_random_tuple_pair<int64_t> {
 template <>
 struct __gen_random_tuple_pair<double> {
   template <int FLAG>
-  static std::pair<std::string, std::unique_ptr<Value>> Generate(std::mt19937_64& gen,
-                                                                 const std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>& range) {
-    std::uniform_real_distribution<double> dis(static_cast<const FloatValue*>(range.first.get())->data,
-                                               static_cast<const FloatValue*>(range.second.get())->data);
+  static std::pair<std::string, std::unique_ptr<Value>> Generate(
+      std::mt19937_64& gen,
+      const std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>& range) {
+    std::uniform_real_distribution<double> dis(
+        static_cast<const FloatValue*>(range.first.get())->data,
+        static_cast<const FloatValue*>(range.second.get())->data);
     double t = dis(gen);
     auto s = fmt::format("{:.10f}", t);
     bool flag = false;
-    for (auto& a : s) flag |= a == '.' || a == 'e' || a == 'E';
-    if (!flag) s += ".0";
+    for (auto& a : s)
+      flag |= a == '.' || a == 'e' || a == 'E';
+    if (!flag)
+      s += ".0";
     if (!FLAG) {
       return {std::move(s), nullptr};
     }
@@ -151,10 +167,12 @@ struct __gen_random_tuple_pair<double> {
 template <>
 struct __gen_random_tuple_pair<std::string> {
   template <int FLAG>
-  static std::pair<std::string, std::unique_ptr<Value>> Generate(std::mt19937_64& gen,
-                                                                 const std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>& range) {
-    std::uniform_int_distribution<> dis(static_cast<const IntValue*>(range.first.get())->data,
-                                        static_cast<const IntValue*>(range.second.get())->data);
+  static std::pair<std::string, std::unique_ptr<Value>> Generate(
+      std::mt19937_64& gen,
+      const std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>& range) {
+    std::uniform_int_distribution<> dis(
+        static_cast<const IntValue*>(range.first.get())->data,
+        static_cast<const IntValue*>(range.second.get())->data);
     int64_t len = dis(gen);
     std::uniform_int_distribution<> dis2(0, 51);
     std::string t;
@@ -174,29 +192,38 @@ struct __gen_random_tuple_pair<std::string> {
 
 template <typename... T>
 struct __gen_random_tuple {
-  template<int FLAG>
+  template <int FLAG>
   static std::pair<std::string, std::vector<std::unique_ptr<Value>>> Generate(
-      std::mt19937_64& gen, std::span<std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>> vec) {
+      std::mt19937_64& gen,
+      std::span<std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>>
+          vec) {
     return fuck<FLAG, T...>(gen, vec);
   }
 
  private:
   template <int FLAG, typename UU, typename VV, typename... TT>
-  static std::pair<std::string, std::vector<std::unique_ptr<Value>>> fuck(std::mt19937_64& gen,
-                                                                          std::span<std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>> vec) {
-    auto R = __gen_random_tuple<VV, TT...>::template Generate<FLAG>(gen, vec.subspan(1, vec.size() - 1));
+  static std::pair<std::string, std::vector<std::unique_ptr<Value>>> fuck(
+      std::mt19937_64& gen,
+      std::span<std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>>
+          vec) {
+    auto R = __gen_random_tuple<VV, TT...>::template Generate<FLAG>(
+        gen, vec.subspan(1, vec.size() - 1));
     auto L = __gen_random_tuple_pair<UU>::template Generate<FLAG>(gen, vec[0]);
     L.first += ", " + R.first;
-    if(FLAG) R.second.push_back(std::move(L.second));
+    if (FLAG)
+      R.second.push_back(std::move(L.second));
     return std::make_pair(L.first, std::move(R.second));
   }
 
   template <int FLAG, typename UU>
-  static std::pair<std::string, std::vector<std::unique_ptr<Value>>> fuck(std::mt19937_64& gen,
-                                                                          std::span<std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>> vec) {
+  static std::pair<std::string, std::vector<std::unique_ptr<Value>>> fuck(
+      std::mt19937_64& gen,
+      std::span<std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>>
+          vec) {
     auto L = __gen_random_tuple_pair<UU>::template Generate<FLAG>(gen, vec[0]);
     std::vector<std::unique_ptr<Value>> lvec;
-    if(FLAG) lvec.push_back(std::move(L.second));
+    if (FLAG)
+      lvec.push_back(std::move(L.second));
     return std::make_pair(L.first, std::move(lvec));
   }
 };
@@ -206,32 +233,39 @@ struct __gen_range_vec_pair {};
 
 template <>
 struct __gen_range_vec_pair<int, int> {
-  static std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>> Generate(int x, int y) {
+  static std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>> Generate(
+      int x, int y) {
     return std::make_pair(IntValue::Create(x), IntValue::Create(y));
   }
 };
 
 template <>
 struct __gen_range_vec_pair<int64_t, int64_t> {
-  static std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>> Generate(int64_t x, int64_t y) {
+  static std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>> Generate(
+      int64_t x, int64_t y) {
     return std::make_pair(IntValue::Create(x), IntValue::Create(y));
   }
 };
 
 template <>
 struct __gen_range_vec_pair<double, double> {
-  static std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>> Generate(double x, double y) {
+  static std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>> Generate(
+      double x, double y) {
     return std::make_pair(FloatValue::Create(x), FloatValue::Create(y));
   }
 };
 
 template <typename... T>
 struct __gen_range_vec {
-  static std::vector<std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>> Generate(T... args) { return fuck(std::forward<T>(args)...); }
+  static std::vector<std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>>
+  Generate(T... args) {
+    return fuck(std::forward<T>(args)...);
+  }
 
  private:
   template <typename UU, typename VV, typename WW, typename... TT>
-  static std::vector<std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>> fuck(UU x, VV y, WW z, TT... args) {
+  static std::vector<std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>>
+  fuck(UU x, VV y, WW z, TT... args) {
     auto R = __gen_range_vec<WW, TT...>::Generate(z, args...);
     auto L = __gen_range_vec_pair<UU, VV>::Generate(x, y);
     R.push_back(std::move(L));
@@ -239,7 +273,8 @@ struct __gen_range_vec {
   }
 
   template <typename UU, typename VV>
-  static std::vector<std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>> fuck(UU x, VV y) {
+  static std::vector<std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>>
+  fuck(UU x, VV y) {
     auto L = __gen_range_vec_pair<UU, VV>::Generate(x, y);
     std::vector<std::pair<std::unique_ptr<Value>, std::unique_ptr<Value>>> vec;
     vec.push_back(std::move(L));
@@ -251,13 +286,20 @@ struct __gen_range_vec {
 
 class ValueVector {
  public:
-  ValueVector(size_t num_per_tuple, std::vector<std::unique_ptr<Value>>&& values) : num_per_tuple_(num_per_tuple), values_(std::move(values)) {}
-  std::unique_ptr<Value>& Get(size_t id, size_t i) { return values_[num_per_tuple_ * id + i]; }
+  ValueVector(
+      size_t num_per_tuple, std::vector<std::unique_ptr<Value>>&& values)
+    : num_per_tuple_(num_per_tuple), values_(std::move(values)) {}
+  std::unique_ptr<Value>& Get(size_t id, size_t i) {
+    return values_[num_per_tuple_ * id + i];
+  }
   std::span<std::unique_ptr<Value>> GetTuple(size_t id) {
-    return {values_.begin() + id * num_per_tuple_, values_.begin() + (id + 1) * num_per_tuple_};
+    return {values_.begin() + id * num_per_tuple_,
+        values_.begin() + (id + 1) * num_per_tuple_};
   }
   std::vector<std::unique_ptr<Value>>& GetVector() { return values_; }
-  const std::vector<std::unique_ptr<Value>>& GetVector() const { return values_; }
+  const std::vector<std::unique_ptr<Value>>& GetVector() const {
+    return values_;
+  }
   size_t GetTupleSize() { return num_per_tuple_; }
   size_t GetSize() { return values_.size() / num_per_tuple_; }
 
@@ -270,9 +312,9 @@ class ValueVector {
  * Constructor requires the ranges of fields.
  * For numeric fields, the range is a closed interval of the number.
  * For string fields, the range is a closed interval of the length of string.
- * For example, for table (a int64, b float64, c varchar(1), d char(255), e int32);
- * We use RandomTuple<int64_t, double, std::string, std::string, int32_t> tuple_gen
- *  (0, 10000, 0.0, 1.0, 0, 1, 0, 255, 1, 1);
+ * For example, for table (a int64, b float64, c varchar(1), d char(255), e
+ * int32); We use RandomTuple<int64_t, double, std::string, std::string,
+ * int32_t> tuple_gen (0, 10000, 0.0, 1.0, 0, 1, 0, 255, 1, 1);
  * */
 template <typename... T>
 class RandomTuple {
@@ -286,7 +328,8 @@ class RandomTuple {
   /**
    * Generate something like:
    * ret.first: "2, \"xxx\", 0.123456"
-   * ret.second: {std::unique_ptr<IntValue>, std::unique_ptr<StringValue>, std::unique_ptr<FloatValue>}
+   * ret.second: {std::unique_ptr<IntValue>, std::unique_ptr<StringValue>,
+   * std::unique_ptr<FloatValue>}
    */
   std::pair<std::string, std::vector<std::unique_ptr<Value>>> Generate() {
     auto ret = __detail::__gen_random_tuple<T...>::Generate<1>(gen, vec_);
@@ -298,18 +341,22 @@ class RandomTuple {
    * Generate something like:
    * GenerateValuesClause(3)
    * ret.first: "values(2,3.0),(4,5.0),(5,6.234)"
-   * ret.second: {std::unique_ptr<IntValue>, std::unique_ptr<FloatValue>, std::unique_ptr<IntValue>,
-   * std::unique_ptr<FloatValue>,std::unique_ptr<IntValue>, std::unique_ptr<FloatValue>}
+   * ret.second: {std::unique_ptr<IntValue>, std::unique_ptr<FloatValue>,
+   * std::unique_ptr<IntValue>,
+   * std::unique_ptr<FloatValue>,std::unique_ptr<IntValue>,
+   * std::unique_ptr<FloatValue>}
    */
   std::pair<std::string, ValueVector> GenerateValuesClause(size_t x) {
     std::string clause = "values";
     std::vector<std::unique_ptr<Value>> vecs;
     for (size_t i = 0; i < x; i++) {
-      auto ret = __detail::__gen_random_tuple<T...>::template Generate<1>(gen, vec_);
+      auto ret =
+          __detail::__gen_random_tuple<T...>::template Generate<1>(gen, vec_);
       clause += "(";
       clause += ret.first;
       clause += i == x - 1 ? ")" : "),";
-      vecs.insert(vecs.end(), std::make_move_iterator(ret.second.rbegin()), std::make_move_iterator(ret.second.rend()));
+      vecs.insert(vecs.end(), std::make_move_iterator(ret.second.rbegin()),
+          std::make_move_iterator(ret.second.rend()));
     }
     return {clause, ValueVector(vec_.size(), std::move(vecs))};
   }
@@ -317,7 +364,8 @@ class RandomTuple {
   std::string GenerateValuesClauseStmt(size_t x) {
     std::string clause = "values";
     for (size_t i = 0; i < x; i++) {
-      auto ret = __detail::__gen_random_tuple<T...>::template Generate<0>(gen, vec_);
+      auto ret =
+          __detail::__gen_random_tuple<T...>::template Generate<0>(gen, vec_);
       clause += "(";
       clause += ret.first;
       clause += i == x - 1 ? ")" : "),";
@@ -339,12 +387,15 @@ class SortedVec {
     values_.push_back(std::forward<U>(v));
   }
   void Sort() {
-    std::sort(vec_.begin(), vec_.end(), [](auto& x, auto& y) { return x.first < y.first; });
+    std::sort(vec_.begin(), vec_.end(),
+        [](auto& x, auto& y) { return x.first < y.first; });
   }
   template <typename T>
   V* find(T&& k) {
-    auto it = std::lower_bound(vec_.begin(), vec_.end(), std::make_pair(k, 0), [](auto& x, auto& y) { return x.first < y.first; });
-    if (it == vec_.end() || it->first != k) return nullptr;
+    auto it = std::lower_bound(vec_.begin(), vec_.end(), std::make_pair(k, 0),
+        [](auto& x, auto& y) { return x.first < y.first; });
+    if (it == vec_.end() || it->first != k)
+      return nullptr;
     return &values_[it->second];
   }
   size_t size() { return vec_.size(); }
@@ -379,15 +430,14 @@ PVec MkVec(T&&... args) {
 
 template <typename T, typename U>
 concept IsStdMap = requires(T m, U key) {
-                     m.find(key);
-                     m.find(key) == m.end();
-                     m.find(key)->second;
-                   };
+  m.find(key);
+  m.find(key) == m.end();
+  m.find(key)->second;
+};
 
 template <typename U, typename T>
-bool CheckAns(U&& key, T&& m, const ResultSet::ResultData& tuple, size_t sz)
-  requires IsStdMap<T, U>
-{
+bool CheckAns(U&& key, T&& m, const ResultSet::ResultData& tuple,
+    size_t sz) requires IsStdMap<T, U> {
   auto it = m.find(key);
   if (it == m.end()) {
     DB_INFO("{}", key);
@@ -395,24 +445,29 @@ bool CheckAns(U&& key, T&& m, const ResultSet::ResultData& tuple, size_t sz)
   }
   auto& ans = it->second;
   for (size_t i = 0; i < sz; i++) {
-    if (!TestEQ(tuple, i, ans[i].get())) return false;
+    if (!TestEQ(tuple, i, ans[i].get()))
+      return false;
   }
   return true;
 }
 
 template <typename U, typename T>
-bool CheckAns(U&& key, SortAnsMap<T>& m, const ResultSet::ResultData& tuple, size_t sz) {
+bool CheckAns(
+    U&& key, SortAnsMap<T>& m, const ResultSet::ResultData& tuple, size_t sz) {
   auto ans_ptr = m.find(std::forward<U>(key));
-  if (!ans_ptr) return false;
+  if (!ans_ptr)
+    return false;
   for (size_t i = 0; i < sz; i++) {
-    if (!TestEQ(tuple, i, (*ans_ptr)[i].get())) return false;
+    if (!TestEQ(tuple, i, (*ans_ptr)[i].get()))
+      return false;
   }
   return true;
 }
 
 bool CheckVecAns(const PVec& m, const ResultSet::ResultData& tuple, size_t sz) {
   for (size_t i = 0; i < sz; i++) {
-    if (!TestEQ(tuple, i, m[i].get())) return false;
+    if (!TestEQ(tuple, i, m[i].get()))
+      return false;
   }
   return true;
 }
@@ -422,7 +477,8 @@ bool CheckVecAns(const PVec& m, const ResultSet::ResultData& tuple, size_t sz) {
   for (uint32_t __i = 0; __i < answer.size(); __i++) {           \
     auto tuple = result.Next();                                  \
     EXPECT_TRUE(bool(tuple));                                    \
-    if (!tuple) break;                                           \
+    if (!tuple)                                                  \
+      break;                                                     \
     EXPECT_TRUE(CheckAns((key_stmt), answer, tuple, num_field)); \
   }                                                              \
   EXPECT_FALSE(result.Next());
@@ -432,7 +488,8 @@ bool CheckVecAns(const PVec& m, const ResultSet::ResultData& tuple, size_t sz) {
   for (uint32_t __i = 0; __i < answer.size(); __i++) {       \
     auto tuple = result.Next();                              \
     EXPECT_TRUE(bool(tuple));                                \
-    if (!tuple) break;                                       \
+    if (!tuple)                                              \
+      break;                                                 \
     EXPECT_TRUE(CheckVecAns(answer[__i], tuple, num_field)); \
   }                                                          \
   EXPECT_FALSE(result.Next());

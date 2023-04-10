@@ -12,7 +12,8 @@ class CountMinSketch {
  public:
   const static uint32_t kDefaultHashCounts = 8;
   const static uint32_t kDefaultHashBuckets = 2027;
-  CountMinSketch(size_t buckets, size_t funcs) : buckets_(buckets), funcs_(funcs), data_(buckets * funcs) {}
+  CountMinSketch(size_t buckets, size_t funcs)
+    : buckets_(buckets), funcs_(funcs), data_(buckets * funcs) {}
   CountMinSketch() : CountMinSketch(kDefaultHashBuckets, kDefaultHashCounts) {}
   double GetFreqCount(std::string_view data) const;
   void AddCount(std::string_view data, double value = 1.0);
@@ -37,9 +38,14 @@ class HyperLL {
 
 class TableStatistics {
  public:
-  TableStatistics(size_t tuple_num, std::vector<Field>&& max, std::vector<Field>&& min, std::vector<double>&& distinct_rate,
-                  std::vector<CountMinSketch>&& freq)
-      : tuple_num_(tuple_num), max_(std::move(max)), min_(std::move(min)), distinct_rate_(std::move(distinct_rate)), freq_(std::move(freq)) {}
+  TableStatistics(size_t tuple_num, std::vector<Field>&& max,
+      std::vector<Field>&& min, std::vector<double>&& distinct_rate,
+      std::vector<CountMinSketch>&& freq)
+    : tuple_num_(tuple_num),
+      max_(std::move(max)),
+      min_(std::move(min)),
+      distinct_rate_(std::move(distinct_rate)),
+      freq_(std::move(freq)) {}
   const Field& GetMax(int col) const { return max_[col]; }
   const Field& GetMin(int col) const { return min_[col]; }
   double GetDistinctRate(int col) const { return distinct_rate_[col]; }

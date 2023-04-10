@@ -54,7 +54,9 @@ static size_t Hash(const char* _data, size_t n, size_t seed) {
   return h;
 }
 
-static size_t Hash(std::string_view str, size_t seed) { return Hash(str.data(), str.length(), seed); }
+static size_t Hash(std::string_view str, size_t seed) {
+  return Hash(str.data(), str.length(), seed);
+}
 
 static size_t Hash8(const void* _data, size_t seed) {
   const uint64_t m = 0xc6a4a7935bd1e995LLU;
@@ -79,9 +81,7 @@ static size_t Hash8(const void* _data, size_t seed) {
   return h;
 }
 
-static size_t Hash8(size_t data, size_t seed) {
-  return Hash8(&data, seed);
-}
+static size_t Hash8(size_t data, size_t seed) { return Hash8(&data, seed); }
 
 }  // namespace wing::utils
 

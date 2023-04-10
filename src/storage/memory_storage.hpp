@@ -26,7 +26,9 @@ class MemoryTable {
  public:
   class Iterator : public wing::Iterator<const uint8_t*> {
    public:
-    Iterator(MemoryTable::map_t::const_iterator iter_begin, MemoryTable::map_t::const_iterator iter_end) : iter_(iter_begin), iter_end_(iter_end) {}
+    Iterator(MemoryTable::map_t::const_iterator iter_begin,
+        MemoryTable::map_t::const_iterator iter_end)
+      : iter_(iter_begin), iter_end_(iter_end) {}
     void Init() override { first_flag_ = true; }
     const uint8_t* Next() override {
       if (iter_ == iter_end_)
@@ -53,8 +55,12 @@ class MemoryTable {
     ModifyHandle(MemoryTable& table) : table_(table) {}
     void Init() override {}
     bool Delete(std::string_view key) override { return table_.Delete(key); }
-    bool Insert(std::string_view key, std::string_view tuple) override { return table_.Insert(key, tuple); }
-    bool Update(std::string_view key, std::string_view tuple) override { return table_.Update(key, tuple); }
+    bool Insert(std::string_view key, std::string_view tuple) override {
+      return table_.Insert(key, tuple);
+    }
+    bool Update(std::string_view key, std::string_view tuple) override {
+      return table_.Update(key, tuple);
+    }
 
    private:
     MemoryTable& table_;
@@ -64,7 +70,9 @@ class MemoryTable {
    public:
     SearchHandle(MemoryTable& table) : table_(table) {}
     void Init() override {}
-    const uint8_t* Search(std::string_view key) override { return table_.Search(key); }
+    const uint8_t* Search(std::string_view key) override {
+      return table_.Search(key);
+    }
 
    private:
     MemoryTable& table_;
@@ -95,7 +103,9 @@ class MemoryTable {
 
   const uint8_t* Search(std::string_view key) {
     auto it = index_.find(key);
-    return it == index_.end() ? nullptr : reinterpret_cast<const uint8_t*>(it->second.data());
+    return it == index_.end()
+               ? nullptr
+               : reinterpret_cast<const uint8_t*>(it->second.data());
   }
 
   bool Update(std::string_view key, std::string_view tuple) {
@@ -138,22 +148,22 @@ class MemoryTable {
   TableSchema schema_;
   size_t ticks_{1};
   template <typename S>
-  friend void tag_invoke(serde::tag_t<serde::serialize>, const MemoryTable& table,
-      S s) {
+  friend void tag_invoke(
+      serde::tag_t<serde::serialize>, const MemoryTable& table, S s) {
     serde::serialize(table.ticks_, s);
     serde::serialize(table.schema_, s);
     serde::serialize(table.index_, s);
   }
   template <typename D>
   friend auto tag_invoke(
-    serde::tag_t<serde::deserialize>, serde::type_tag_t<MemoryTable>, D d
-  ) -> Result<MemoryTable, typename D::Error> {
+      serde::tag_t<serde::deserialize>, serde::type_tag_t<MemoryTable>, D d)
+      -> Result<MemoryTable, typename D::Error> {
     size_t ticks =
-      EXTRACT_RESULT(serde::deserialize(serde::type_tag<size_t>, d));
+        EXTRACT_RESULT(serde::deserialize(serde::type_tag<size_t>, d));
     TableSchema schema =
-      EXTRACT_RESULT(serde::deserialize(serde::type_tag<TableSchema>, d));
+        EXTRACT_RESULT(serde::deserialize(serde::type_tag<TableSchema>, d));
     MemoryTable::map_t index = EXTRACT_RESULT(
-      serde::deserialize(serde::type_tag<MemoryTable::map_t>, d));
+        serde::deserialize(serde::type_tag<MemoryTable::map_t>, d));
     return MemoryTable(std::move(index), std::move(schema), ticks);
   }
 };
@@ -162,15 +172,15 @@ class MemoryTableStorage {
  private:
   // https://stackoverflow.com/questions/20317413/what-are-transparent-comparators
   typedef std::map<std::string, MemoryTable, std::less<>> map_t;
+
  public:
   ~MemoryTableStorage() {
     std::ofstream out(path_, std::ios::binary);
     serde::bin_stream::Serializer s(out);
     serde::serialize(tables_, s);
   }
-  static auto Open(
-    std::filesystem::path&& path, bool create_if_missing, size_t max_buf_pages
-  ) -> Result<MemoryTableStorage, io::Error> {
+  static auto Open(std::filesystem::path&& path, bool create_if_missing,
+      size_t max_buf_pages) -> Result<MemoryTableStorage, io::Error> {
     (void)max_buf_pages;
     if (!std::filesystem::exists(path)) {
       if (create_if_missing)
@@ -181,31 +191,40 @@ class MemoryTableStorage {
     std::ifstream in(path, std::ios::binary);
     serde::bin_stream::Deserializer d(in);
     map_t tables =
-      EXTRACT_RESULT(serde::deserialize(serde::type_tag<map_t>, d));
+        EXTRACT_RESULT(serde::deserialize(serde::type_tag<map_t>, d));
     DBSchema schema;
     for (auto& kv : tables)
       schema.AddTable(kv.second.GetTableSchema());
-    return MemoryTableStorage(std::move(tables), std::move(path),
-      std::move(schema));
+    return MemoryTableStorage(
+        std::move(tables), std::move(path), std::move(schema));
   }
-  std::unique_ptr<Iterator<const uint8_t*>> GetIterator(std::string_view table_name) {
+  std::unique_ptr<Iterator<const uint8_t*>> GetIterator(
+      std::string_view table_name) {
     auto& table = GetMemoryTable(table_name);
-    return std::make_unique<MemoryTable::Iterator>(table.GetIndexBegin(), table.GetIndexEnd());
+    return std::make_unique<MemoryTable::Iterator>(
+        table.GetIndexBegin(), table.GetIndexEnd());
   }
 
-  std::unique_ptr<Iterator<const uint8_t*>> GetRangeIterator(std::string_view table_name, std::tuple<std::string_view, bool, bool> L,
-                                                             std::tuple<std::string_view, bool, bool> R) {
+  std::unique_ptr<Iterator<const uint8_t*>> GetRangeIterator(
+      std::string_view table_name, std::tuple<std::string_view, bool, bool> L,
+      std::tuple<std::string_view, bool, bool> R) {
     auto& table = GetMemoryTable(table_name);
-    auto iter_l = std::get<1>(L) ? table.GetIndexBegin() : std::get<2>(L) ? table.GetIndexLower(std::get<0>(L)) : table.GetIndexUpper(std::get<0>(L));
-    auto iter_r = std::get<1>(R) ? table.GetIndexEnd() : std::get<2>(R) ? table.GetIndexUpper(std::get<0>(R)) : table.GetIndexLower(std::get<0>(R));
+    auto iter_l = std::get<1>(L)   ? table.GetIndexBegin()
+                  : std::get<2>(L) ? table.GetIndexLower(std::get<0>(L))
+                                   : table.GetIndexUpper(std::get<0>(L));
+    auto iter_r = std::get<1>(R)   ? table.GetIndexEnd()
+                  : std::get<2>(R) ? table.GetIndexUpper(std::get<0>(R))
+                                   : table.GetIndexLower(std::get<0>(R));
     return std::make_unique<MemoryTable::Iterator>(iter_l, iter_r);
   }
 
   std::unique_ptr<ModifyHandle> GetModifyHandle(std::string_view table_name) {
-    return std::make_unique<MemoryTable::ModifyHandle>(GetMemoryTable(table_name));
+    return std::make_unique<MemoryTable::ModifyHandle>(
+        GetMemoryTable(table_name));
   }
   std::unique_ptr<SearchHandle> GetSearchHandle(std::string_view table_name) {
-    return std::make_unique<MemoryTable::SearchHandle>(GetMemoryTable(table_name));
+    return std::make_unique<MemoryTable::SearchHandle>(
+        GetMemoryTable(table_name));
   }
   void Create(const TableSchema& schema) {
     auto table_name = schema.GetName();
@@ -219,19 +238,24 @@ class MemoryTableStorage {
       schema_.RemoveTable(table_name);
     }
   }
-  size_t TupleNum(std::string_view table_name) { return GetMemoryTable(table_name).TupleNum(); }
+  size_t TupleNum(std::string_view table_name) {
+    return GetMemoryTable(table_name).TupleNum();
+  }
 
-  std::optional<std::string_view> GetMaxKey(std::string_view table_name) { return GetMemoryTable(table_name).GetMaxKey(); }
+  std::optional<std::string_view> GetMaxKey(std::string_view table_name) {
+    return GetMemoryTable(table_name).GetMaxKey();
+  }
 
-  size_t GetTicks(std::string_view table_name) { return GetMemoryTable(table_name).GetTicks(); }
+  size_t GetTicks(std::string_view table_name) {
+    return GetMemoryTable(table_name).GetTicks();
+  }
 
   const DBSchema& GetDBSchema() const { return schema_; }
 
  private:
-  MemoryTableStorage(std::filesystem::path&& path)
-    : path_(std::move(path)) {}
-  MemoryTableStorage(map_t&& tables, std::filesystem::path&& path,
-      DBSchema&& schema)
+  MemoryTableStorage(std::filesystem::path&& path) : path_(std::move(path)) {}
+  MemoryTableStorage(
+      map_t&& tables, std::filesystem::path&& path, DBSchema&& schema)
     : tables_(std::move(tables)),
       path_(std::move(path)),
       schema_(std::move(schema)) {}
@@ -253,6 +277,6 @@ class MemoryTableStorage {
 
 }  // namespace wing
 
-#endif // SAKURA_ONLINE_JUDGE
+#endif  // SAKURA_ONLINE_JUDGE
 
-#endif // SAKURA_MEMORY_STORAGE_H__
+#endif  // SAKURA_MEMORY_STORAGE_H__

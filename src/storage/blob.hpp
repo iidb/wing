@@ -21,13 +21,11 @@ class Blob {
   inline pgid_t MetaPageID() const { return head_; }
   void Rewrite(std::string_view value);
   std::string Read();
+
  private:
-  Blob(PageManager& pgm, pgid_t meta_pgid)
-    : pgm_(pgm), head_(meta_pgid) {}
+  Blob(PageManager& pgm, pgid_t meta_pgid) : pgm_(pgm), head_(meta_pgid) {}
   void Init();
-  inline PlainPage GetHeadPage() {
-    return pgm_.GetPlainPage(head_);
-  }
+  inline PlainPage GetHeadPage() { return pgm_.GetPlainPage(head_); }
   inline size_t Size() {
     size_t size;
     GetHeadPage().Read(&size, 0, sizeof(size));
@@ -35,7 +33,7 @@ class Blob {
   }
   inline void UpdateSize(size_t size) {
     GetHeadPage().Write(0,
-      std::string_view(reinterpret_cast<const char *>(&size), sizeof(size)));
+        std::string_view(reinterpret_cast<const char*>(&size), sizeof(size)));
   }
   inline pgid_t NextPageID(const PlainPage& page) {
     pgid_t next;
@@ -47,13 +45,13 @@ class Blob {
   }
   inline void UpdateNext(PlainPage& page, pgid_t next) {
     page.Write(Page::SIZE - sizeof(pgid_t),
-      std::string_view(reinterpret_cast<const char *>(&next), sizeof(next)));
+        std::string_view(reinterpret_cast<const char*>(&next), sizeof(next)));
   }
   void Free(pgid_t cur);
   PageManager& pgm_;
   pgid_t head_;
 };
 
-} // namespace wing
+}  // namespace wing
 
-#endif // BLOB_H_
+#endif  // BLOB_H_

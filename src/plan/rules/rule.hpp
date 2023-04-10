@@ -13,7 +13,8 @@ class OptRule {
   // Check whether we can apply this rule.
   virtual bool Match(const PlanNode* node) = 0;
   // Transform the plan node.
-  virtual std::unique_ptr<PlanNode> Transform(std::unique_ptr<PlanNode> node) = 0;
+  virtual std::unique_ptr<PlanNode> Transform(
+      std::unique_ptr<PlanNode> node) = 0;
 };
 
 }  // namespace wing

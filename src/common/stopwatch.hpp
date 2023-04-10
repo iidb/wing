@@ -9,7 +9,7 @@ namespace wing {
 // StopWatch sw;
 // ...some functions...
 // std::cout << "Use " << sw.GetTimeInSeconds() << " s" << std::endl;
-// You can also reset it. 
+// You can also reset it.
 class StopWatch {
  public:
   StopWatch() { start_ = std::chrono::system_clock::now(); }

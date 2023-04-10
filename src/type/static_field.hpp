@@ -10,10 +10,10 @@
 namespace wing {
 
 /**
- * StaticStringField is used for the case that the string is known and will not be modified.
- * For example, tuple stored in B+tree and the outputs of Executors.
- * The length of the string is stored at the beginning. It is not managed by StaticStringField itself.
- * It is determined at the beginning.
+ * StaticStringField is used for the case that the string is known and will not
+ * be modified. For example, tuple stored in B+tree and the outputs of
+ * Executors. The length of the string is stored at the beginning. It is not
+ * managed by StaticStringField itself. It is determined at the beginning.
  *
  */
 class StaticStringField {
@@ -25,25 +25,34 @@ class StaticStringField {
 
   /* Generate a new StaticStringField from a[0...len - 1]. */
   static StaticStringField* Generate(const uint8_t* a, uint32_t len) {
-    auto mem = reinterpret_cast<StaticStringField*>(new uint8_t[len + sizeof(uint32_t)]);
+    auto mem = reinterpret_cast<StaticStringField*>(
+        new uint8_t[len + sizeof(uint32_t)]);
     std::memcpy(mem->str_, a, len);
     mem->size_ = len + sizeof(uint32_t);
     return mem;
   }
 
-  /** Free the StaticStringField that is create by Generate. We cannot delete field
-   * directly, since field is StaticStringField*, so it uses delete operator,
-   * but the corresponding new is uint8_t[], which needs delete[] operator.
+  /** Free the StaticStringField that is create by Generate. We cannot delete
+   * field directly, since field is StaticStringField*, so it uses delete
+   * operator, but the corresponding new is uint8_t[], which needs delete[]
+   * operator.
    */
-  static void FreeFromGenerate(StaticStringField* field) { delete[] reinterpret_cast<uint8_t*>(field); }
+  static void FreeFromGenerate(StaticStringField* field) {
+    delete[] reinterpret_cast<uint8_t*>(field);
+  }
 
   /* Generate a new StaticStringField from a std::string_view. */
-  static StaticStringField* Generate(std::string_view str) { return Generate(reinterpret_cast<const uint8_t*>(str.data()), str.size()); }
+  static StaticStringField* Generate(std::string_view str) {
+    return Generate(reinterpret_cast<const uint8_t*>(str.data()), str.size());
+  }
 
   /* Generate a new StaticStringField from a StaticStringField. */
-  static StaticStringField* Generate(const StaticStringField* field) { return Generate(field->str_, field->Length()); }
+  static StaticStringField* Generate(const StaticStringField* field) {
+    return Generate(field->str_, field->Length());
+  }
 
-  /* Write to dest (StaticStringField*) using the layout of StaticStringField. */
+  /* Write to dest (StaticStringField*) using the layout of StaticStringField.
+   */
   static void Write(void* dest, const void* a, uint32_t len) {
     auto cdest = reinterpret_cast<uint8_t*>(dest);
     *reinterpret_cast<uint32_t*>(cdest) = len + sizeof(uint32_t);
@@ -58,10 +67,14 @@ class StaticStringField {
   }
 
   /* Create a std::string_view referring this string. */
-  std::string_view ReadStringView() const { return std::string_view(reinterpret_cast<const char*>(str_), Length()); }
+  std::string_view ReadStringView() const {
+    return std::string_view(reinterpret_cast<const char*>(str_), Length());
+  }
 
   /* Create a std::string from str_[0...size_ - 1]. */
-  std::string ReadString() const { return std::string(reinterpret_cast<const char*>(str_), Length()); }
+  std::string ReadString() const {
+    return std::string(reinterpret_cast<const char*>(str_), Length());
+  }
 
   /* Write the string to data, return pointer pointing to the end. */
   uint8_t* Write(uint8_t* data) const {
@@ -80,8 +93,8 @@ class StaticStringField {
  * It uses 8 byte, which is the lower bound.
  *
  * To create a StaticFieldRef, you better use StaticFieldRef::CreateXXX,
- * since StaticFieldRef(int64_t) and StaticFieldRef(double) cannot be deduced correctly sometimes.
- * To read, you can use
+ * since StaticFieldRef(int64_t) and StaticFieldRef(double) cannot be deduced
+ * correctly sometimes. To read, you can use
  */
 class StaticFieldRef {
  public:
@@ -121,7 +134,8 @@ class StaticFieldRef {
   }
 
   /* Create a string ref from std::string_view. */
-  static StaticFieldRef CreateFromStringView(const std::string_view a, FieldType type) {
+  static StaticFieldRef CreateFromStringView(
+      const std::string_view a, FieldType type) {
     StaticFieldRef ret;
     if (type == FieldType::CHAR || type == FieldType::VARCHAR) {
       ret.data_.str_data = reinterpret_cast<const StaticStringField*>(a.data());
@@ -147,10 +161,14 @@ class StaticFieldRef {
   double ReadFloat() const { return data_.double_data; }
 
   /* Read StaticStringField pointer. */
-  const StaticStringField* ReadStringFieldPointer() const { return data_.str_data; }
+  const StaticStringField* ReadStringFieldPointer() const {
+    return data_.str_data;
+  }
 
   /* Read std::string_view. */
-  std::string_view ReadStringView() const { return data_.str_data->ReadStringView(); }
+  std::string_view ReadStringView() const {
+    return data_.str_data->ReadStringView();
+  }
 
   /* Read string, and create std::string. */
   std::string ReadString() const { return data_.str_data->ReadString(); }
@@ -230,7 +248,8 @@ class StaticFieldRef {
    * But for numeric data, it uses the address of (*this).
    * You should use GetView() in the same scope of the StaticFieldRef variable.
    */
-  static std::string_view GetView(const StaticFieldRef* a, FieldType type, size_t size) {
+  static std::string_view GetView(
+      const StaticFieldRef* a, FieldType type, size_t size) {
     if (type == FieldType::CHAR || type == FieldType::VARCHAR) {
       // TODO: CHAR type uses another way.
       return a->ReadStringView();

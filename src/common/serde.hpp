@@ -1,12 +1,12 @@
 #ifndef SERDE_H_
 #define SERDE_H_
 
-#include "common/error.hpp"
-
-#include <variant>
-#include <vector>
 #include <map>
 #include <sstream>
+#include <variant>
+#include <vector>
+
+#include "common/error.hpp"
 
 namespace wing {
 namespace serde {
@@ -26,10 +26,10 @@ struct serialize_t {
 };
 
 struct deserialize_t {
-	template <typename T, typename D>
-	Result<T, typename D::Error> operator()(type_tag_t<T>, D d) {
-		return tag_invoke(deserialize_t{}, type_tag<T>, d);
-	}
+  template <typename T, typename D>
+  Result<T, typename D::Error> operator()(type_tag_t<T>, D d) {
+    return tag_invoke(deserialize_t{}, type_tag<T>, d);
+  }
 };
 
 // Implementations for serialize_t
@@ -86,53 +86,46 @@ void tag_invoke(serialize_t, const std::map<K, V, C, A>& m, S s) {
 
 // Implementations for deserialize_t
 template <typename D>
-auto tag_invoke(
-  deserialize_t, type_tag_t<bool>, D d
-) -> Result<bool, typename D::Error> {
+auto tag_invoke(deserialize_t, type_tag_t<bool>, D d)
+    -> Result<bool, typename D::Error> {
   return d.deserialize_bool();
 }
 
 template <typename D>
-auto tag_invoke(
-  deserialize_t, type_tag_t<unsigned char>, D d
-) -> Result<unsigned char, typename D::Error> {
+auto tag_invoke(deserialize_t, type_tag_t<unsigned char>, D d)
+    -> Result<unsigned char, typename D::Error> {
   return d.deserialize_uc();
 }
 
 template <typename D>
-auto tag_invoke(
-  deserialize_t, type_tag_t<unsigned int>, D d
-) -> Result<unsigned int, typename D::Error> {
+auto tag_invoke(deserialize_t, type_tag_t<unsigned int>, D d)
+    -> Result<unsigned int, typename D::Error> {
   return d.deserialize_u();
 }
 
 template <typename D>
-auto tag_invoke(
-  deserialize_t, type_tag_t<unsigned long>, D d
-) -> Result<unsigned long, typename D::Error> {
+auto tag_invoke(deserialize_t, type_tag_t<unsigned long>, D d)
+    -> Result<unsigned long, typename D::Error> {
   return d.deserialize_ul();
 }
 
 template <typename D>
-auto tag_invoke(
-  deserialize_t, type_tag_t<unsigned long long>, D d
-) -> Result<unsigned long long, typename D::Error> {
+auto tag_invoke(deserialize_t, type_tag_t<unsigned long long>, D d)
+    -> Result<unsigned long long, typename D::Error> {
   return d.deserialize_ull();
 }
 
 template <typename D>
-auto tag_invoke(
-  deserialize_t, type_tag_t<std::string>, D d
-) -> Result<std::string, typename D::Error> {
+auto tag_invoke(deserialize_t, type_tag_t<std::string>, D d)
+    -> Result<std::string, typename D::Error> {
   return d.deserialize_string();
 }
 
 template <typename T, typename D>
-auto tag_invoke(
-  deserialize_t, type_tag_t<std::vector<T>>, D d
-) -> Result<std::vector<T>, typename D::Error> {
+auto tag_invoke(deserialize_t, type_tag_t<std::vector<T>>, D d)
+    -> Result<std::vector<T>, typename D::Error> {
   size_t size =
-    EXTRACT_RESULT(tag_invoke(deserialize_t{}, type_tag<size_t>, d));
+      EXTRACT_RESULT(tag_invoke(deserialize_t{}, type_tag<size_t>, d));
   std::vector<T> v;
   v.reserve(size);
   for (; size; size -= 1)
@@ -141,22 +134,21 @@ auto tag_invoke(
 }
 
 template <typename K, typename V, typename C, typename A, typename D>
-auto tag_invoke(
-  deserialize_t, type_tag_t<std::map<K, V, C, A>>, D d
-) -> Result<std::map<K, V, C, A>, typename D::Error> {
+auto tag_invoke(deserialize_t, type_tag_t<std::map<K, V, C, A>>, D d)
+    -> Result<std::map<K, V, C, A>, typename D::Error> {
   size_t size =
-    EXTRACT_RESULT(tag_invoke(deserialize_t{}, type_tag<size_t>, d));
+      EXTRACT_RESULT(tag_invoke(deserialize_t{}, type_tag<size_t>, d));
   std::map<K, V, C, A> m;
   for (; size; size -= 1) {
     K key = EXTRACT_RESULT(tag_invoke(deserialize_t{}, type_tag<K>, d));
     V val = EXTRACT_RESULT(tag_invoke(deserialize_t{}, type_tag<V>, d));
     auto ret = m.insert(std::make_pair(std::move(key), std::move(val)));
     crash_if(ret.second == false,
-      "Deserialize std::map<K, V>: Repeated key on disk");
+        "Deserialize std::map<K, V>: Repeated key on disk");
   }
   return m;
 }
-} // namespace detail
+}  // namespace detail
 template <auto& Tag>
 using tag_t = std::decay_t<decltype(Tag)>;
 
@@ -167,29 +159,20 @@ namespace bin_stream {
 class Serializer {
  public:
   Serializer(std::ostream& out) : out_(out) {}
-  void serialize_bool(bool x) {
-    serialize_fixed(x);
-  }
-  void serialize_uc(unsigned char x) {
-    serialize_fixed(x);
-  }
-  void serialize_u(unsigned int x) {
-    serialize_fixed(x);
-  }
-  void serialize_ul(unsigned long x) {
-    serialize_fixed(x);
-  }
-  void serialize_ull(unsigned long long x) {
-    serialize_fixed(x);
-  }
+  void serialize_bool(bool x) { serialize_fixed(x); }
+  void serialize_uc(unsigned char x) { serialize_fixed(x); }
+  void serialize_u(unsigned int x) { serialize_fixed(x); }
+  void serialize_ul(unsigned long x) { serialize_fixed(x); }
+  void serialize_ull(unsigned long long x) { serialize_fixed(x); }
   void serialize_str(std::string_view x) {
     serialize_fixed(x.size());
     out_.write(x.data(), x.size());
   }
+
  private:
   template <typename T>
   void serialize_fixed(T x) {
-    out_.write(reinterpret_cast<const char *>(&x), sizeof(x));
+    out_.write(reinterpret_cast<const char*>(&x), sizeof(x));
   }
   std::ostream& out_;
 };
@@ -198,9 +181,7 @@ class Deserializer {
  public:
   typedef io::Error Error;
   Deserializer(std::istream& in) : in_(in) {}
-  Result<bool, Error> deserialize_bool() {
-    return deserialize_fixed<bool>();
-  }
+  Result<bool, Error> deserialize_bool() { return deserialize_fixed<bool>(); }
   Result<unsigned char, Error> deserialize_uc() {
     return deserialize_fixed<unsigned char>();
   }
@@ -217,26 +198,27 @@ class Deserializer {
     size_t size = EXTRACT_RESULT(deserialize(type_tag<size_t>, *this));
     // Any way to avoid the redundant clearing?
     std::string x(size, 0);
-    in_.read(reinterpret_cast<char *>(x.data()), size);
+    in_.read(reinterpret_cast<char*>(x.data()), size);
     if (!in_.good())
       return Error::New(io::ErrorKind::Other,
-        "stream::Deserializer::deserialize_string failed");
+          "stream::Deserializer::deserialize_string failed");
     return x;
   }
   Result<std::vector<uint8_t>, Error> deserialize_bytes() {
     size_t size = EXTRACT_RESULT(deserialize(type_tag<size_t>, *this));
     std::vector<uint8_t> x(size);
-    in_.read(reinterpret_cast<char *>(x.data()), size);
+    in_.read(reinterpret_cast<char*>(x.data()), size);
     if (!in_.good())
       return Error::New(io::ErrorKind::Other,
-        "stream::Deserializer::deserialize_bytes failed");
+          "stream::Deserializer::deserialize_bytes failed");
     return x;
   }
+
  private:
   template <typename T>
   Result<T, Error> deserialize_fixed() {
     T x;
-    in_.read(reinterpret_cast<char *>(&x), sizeof(x));
+    in_.read(reinterpret_cast<char*>(&x), sizeof(x));
     if (!in_.good())
       return Error::New(io::ErrorKind::Other, "stream::Deserializer failed");
     return x;
@@ -253,11 +235,12 @@ std::string to_string(T x) {
 template <typename T>
 Result<T, Deserializer::Error> from_string(std::string&& x) {
   std::istringstream in(std::move(x));
-  return tag_invoke(serde::tag_t<serde::deserialize>{}, type_tag<T>, Deserializer(in));
+  return tag_invoke(
+      serde::tag_t<serde::deserialize>{}, type_tag<T>, Deserializer(in));
 }
-} // namespace bin_stream
+}  // namespace bin_stream
 
-} // namespace serde
-} // namespace wing
+}  // namespace serde
+}  // namespace wing
 
-#endif // SERDE_H_
+#endif  // SERDE_H_

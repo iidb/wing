@@ -10,15 +10,19 @@ namespace wing {
 class LogicalOptimizer {
  public:
   // Apply some logical rules to plan.
-  static std::unique_ptr<PlanNode> Apply(std::unique_ptr<PlanNode> plan, const std::vector<std::unique_ptr<OptRule>>& rules);
+  static std::unique_ptr<PlanNode> Apply(std::unique_ptr<PlanNode> plan,
+      const std::vector<std::unique_ptr<OptRule>>& rules);
   // Optimize the plan using logical rules.
-  static std::unique_ptr<PlanNode> Optimize(std::unique_ptr<PlanNode> plan, const DB& db);
+  static std::unique_ptr<PlanNode> Optimize(
+      std::unique_ptr<PlanNode> plan, const DB& db);
 };
 
 class CostBasedOptimizer {
  public:
-  // Optimize the plan using logical-to-physical rules and join reordering rules.
-  static std::unique_ptr<PlanNode> Optimize(std::unique_ptr<PlanNode> plan, const DB& db);
+  // Optimize the plan using logical-to-physical rules and join reordering
+  // rules.
+  static std::unique_ptr<PlanNode> Optimize(
+      std::unique_ptr<PlanNode> plan, const DB& db);
 };
 
 }  // namespace wing

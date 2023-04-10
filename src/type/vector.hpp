@@ -11,7 +11,8 @@ namespace wing {
 class StaticFieldVector {
  public:
   StaticFieldVector() = default;
-  StaticFieldVector(StaticFieldVector&& vec) noexcept : vec_(std::move(vec.vec_)), str_(std::move(vec.str_)) {}
+  StaticFieldVector(StaticFieldVector&& vec) noexcept
+    : vec_(std::move(vec.vec_)), str_(std::move(vec.str_)) {}
   StaticFieldVector(const std::vector<Field>& fields) {
     vec_.reserve(fields.size());
     size_t str_sz = 0;
@@ -25,9 +26,12 @@ class StaticFieldVector {
     size_t str_offset = 0;
     for (uint32_t i = 0; auto& a : fields) {
       if (a.type_ == FieldType::CHAR || a.type_ == FieldType::VARCHAR) {
-        *reinterpret_cast<uint32_t*>(str_.get() + str_offset) = a.size_ + sizeof(uint32_t);
-        std::memcpy(str_.get() + str_offset + sizeof(uint32_t), a.data_.str_data, a.size_);
-        vec_[i].data_.str_data = reinterpret_cast<const StaticStringField*>(str_.get() + str_offset);
+        *reinterpret_cast<uint32_t*>(str_.get() + str_offset) =
+            a.size_ + sizeof(uint32_t);
+        std::memcpy(str_.get() + str_offset + sizeof(uint32_t),
+            a.data_.str_data, a.size_);
+        vec_[i].data_.str_data =
+            reinterpret_cast<const StaticStringField*>(str_.get() + str_offset);
         str_offset += a.size_ + sizeof(uint32_t);
       }
       i++;
@@ -48,7 +52,7 @@ class StaticFieldVector {
 
 /**
  * Store tuples of a output schema.
-*/
+ */
 class TupleVector {
  public:
   /* This is invalid. */
@@ -103,12 +107,17 @@ class TupleVector {
   uint8_t* Append(const uint8_t* input) {
     auto size = field_num_ * sizeof(StaticFieldRef);
     if (is_raw_data_flag_) {
-      /* If it is raw data, then we get the size of strings by reading the offset table. */
-      size += has_str_field_ ? Tuple::GetSizeOfAllStrings(input, static_field_size_) : 0;
+      /* If it is raw data, then we get the size of strings by reading the
+       * offset table. */
+      size += has_str_field_
+                  ? Tuple::GetSizeOfAllStrings(input, static_field_size_)
+                  : 0;
     } else {
-      /* If it is not raw data, then we get the size by reading size of each string fields. */
+      /* If it is not raw data, then we get the size by reading size of each
+       * string fields. */
       for (auto index : str_indexes_) {
-        size += reinterpret_cast<const StaticFieldRef*>(input)[index].Size(FieldType::VARCHAR, 0);
+        size += reinterpret_cast<const StaticFieldRef*>(input)[index].Size(
+            FieldType::VARCHAR, 0);
       }
     }
     /* Allocate memory for StaticFieldRefs and string data. */
@@ -117,7 +126,8 @@ class TupleVector {
       /* If it is raw data, we must deserialize it first. */
       Tuple::DeSerialize(ret, input, columns_schema_);
     } else {
-      /* If it is not raw data, copy the fields directly. String fields are set after. */
+      /* If it is not raw data, copy the fields directly. String fields are set
+       * after. */
       std::memcpy(ret, input, field_num_ * sizeof(StaticFieldRef));
     }
     /* Copy string to the allocated memory region. */
@@ -126,7 +136,8 @@ class TupleVector {
     for (auto index : str_indexes_) {
       StaticStringField::Copy(data_ptr, vec[index].ReadStringFieldPointer());
       /* Set the pointers of string fields to copied strings. */
-      reinterpret_cast<StaticFieldRef*>(ret)[index].data_.str_data = reinterpret_cast<const StaticStringField*>(data_ptr);
+      reinterpret_cast<StaticFieldRef*>(ret)[index].data_.str_data =
+          reinterpret_cast<const StaticStringField*>(data_ptr);
       data_ptr += vec[index].Size(FieldType::VARCHAR, 0);
     }
     return ret;
@@ -161,7 +172,9 @@ class TupleStore {
   TupleStore(const OutputSchema& input_schema) : tuple_vec_(input_schema) {}
 
   /* Append tuple. */
-  void Append(const uint8_t* input) { pointer_vec_.push_back(tuple_vec_.Append(input)); }
+  void Append(const uint8_t* input) {
+    pointer_vec_.push_back(tuple_vec_.Append(input));
+  }
 
   /* Get all tuples. */
   const std::vector<uint8_t*>& GetPointerVec() const { return pointer_vec_; }

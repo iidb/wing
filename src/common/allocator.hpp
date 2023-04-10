@@ -7,14 +7,14 @@
 namespace wing {
 
 // An allocator providing invariant memory address.
-// Used in TupleVector. You can modify it to store on the disk. 
+// Used in TupleVector. You can modify it to store on the disk.
 template <const size_t BlockSize>
 class BlockAllocator {
  public:
   uint8_t* Allocate(size_t size) {
     if (offset_ + size > BlockSize) {
       ptrs_.push_back(
-        std::unique_ptr<uint8_t[]>(new uint8_t[std::max(size, BlockSize)]));
+          std::unique_ptr<uint8_t[]>(new uint8_t[std::max(size, BlockSize)]));
       offset_ = 0;
     }
     auto ret = ptrs_.back().get() + offset_;

@@ -27,7 +27,8 @@ namespace wing {
  *         Aggregate [Group predicate: NULL]
  *                     |
  *                 SeqScan [Table: A]
- * We should put the filter predicate into the group predicate of the aggregate node.
+ * We should put the filter predicate into the group predicate of the aggregate
+ * node.
  *
  * Filters can be swapped with Project, OrderBy, Distinct, SeqScan.
  * Filters should be combined with other Filters. This is done by this OptLRule.
@@ -40,8 +41,12 @@ class PushDownFilterRule : public OptRule {
     if (node->type_ == PlanType::Filter) {
       auto t_node = static_cast<const FilterPlanNode*>(node);
       // t_node->ch_ should be non-null.
-      if (t_node->ch_->type_ == PlanType::Project || t_node->ch_->type_ == PlanType::Aggregate || t_node->ch_->type_ == PlanType::Order ||
-          t_node->ch_->type_ == PlanType::Distinct || t_node->ch_->type_ == PlanType::Filter || t_node->ch_->type_ == PlanType::Join ||
+      if (t_node->ch_->type_ == PlanType::Project ||
+          t_node->ch_->type_ == PlanType::Aggregate ||
+          t_node->ch_->type_ == PlanType::Order ||
+          t_node->ch_->type_ == PlanType::Distinct ||
+          t_node->ch_->type_ == PlanType::Filter ||
+          t_node->ch_->type_ == PlanType::Join ||
           t_node->ch_->type_ == PlanType::SeqScan) {
         return true;
       }
@@ -50,7 +55,8 @@ class PushDownFilterRule : public OptRule {
   }
   std::unique_ptr<PlanNode> Transform(std::unique_ptr<PlanNode> node) override {
     auto t_node = static_cast<FilterPlanNode*>(node.get());
-    if (t_node->ch_->type_ == PlanType::Distinct || t_node->ch_->type_ == PlanType::Order) {
+    if (t_node->ch_->type_ == PlanType::Distinct ||
+        t_node->ch_->type_ == PlanType::Order) {
       auto ch = std::move(t_node->ch_);
       t_node->ch_ = std::move(ch->ch_);
       ch->ch_ = std::move(node);
@@ -63,7 +69,8 @@ class PushDownFilterRule : public OptRule {
     } else if (t_node->ch_->type_ == PlanType::Project) {
       auto proj = std::move(t_node->ch_);
       auto t_proj = static_cast<ProjectPlanNode*>(proj.get());
-      t_node->predicate_.ApplyExpr(t_proj->output_exprs_, t_proj->output_schema_);
+      t_node->predicate_.ApplyExpr(
+          t_proj->output_exprs_, t_proj->output_schema_);
       t_node->ch_ = std::move(t_proj->ch_);
       t_proj->ch_ = std::move(node);
       return proj;

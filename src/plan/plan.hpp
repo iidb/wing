@@ -36,20 +36,25 @@ enum class PlanType {
 /**
  * PlanNode: It is used to represent a relational expression.
  *
- *              +-- ProjectPlanNode: It computes a set of "select expressions" from its input relational expression.
+ *              +-- ProjectPlanNode: It computes a set of "select expressions"
+ * from its input relational expression.
  *              |
  * PlanNode   --+-- SeqScanPlanNode: It returns the contents of a table.
  *              |
- *              +-- FilterPlanNode: It iterates over its input and returns elements for which condition evaluates to true.
- *              |                    The predicate doesn't contain aggregate functions.
- *              |                    Predicates containing aggregate functions are stored in AggregatePlanNode.
+ *              +-- FilterPlanNode: It iterates over its input and returns
+ * elements for which condition evaluates to true. |                    The
+ * predicate doesn't contain aggregate functions. | Predicates containing
+ * aggregate functions are stored in AggregatePlanNode.
  *              |
- *              +-- JoinPlanNode: Each output row has columns from the left and right inputs.
- *              |                  The set of output rows is a subset of the cartesian product of the two inputs.
- *              |                  It iterates the set and returns the rows which satisfy some conditions.
- *              |                  It may not be implemented by directly iterates the cross product, for example, use hash join.
+ *              +-- JoinPlanNode: Each output row has columns from the left and
+ * right inputs. |                  The set of output rows is a subset of the
+ * cartesian product of the two inputs. |                  It iterates the set
+ * and returns the rows which satisfy some conditions. |                  It may
+ * not be implemented by directly iterates the cross product, for example, use
+ * hash join.
  *              |
- *              +-- AggregatePlanNode: It eliminates duplicates and computes totals.
+ *              +-- AggregatePlanNode: It eliminates duplicates and computes
+ * totals.
  *              |
  *              +-- OrderByPlanNode: It sorts the input rows by some fields.
  *              |
@@ -57,9 +62,11 @@ enum class PlanType {
  *              |
  *              +-- InsertPlanNode: Insert the input rows to a table.
  *              |
- *              +-- UpdatePlanNode: Get the primary key from input rows and update the rows.
+ *              +-- UpdatePlanNode: Get the primary key from input rows and
+ * update the rows.
  *              |
- *              +-- DeletePlanNode: Get the primary key from input rows and delete the input rows.
+ *              +-- DeletePlanNode: Get the primary key from input rows and
+ * delete the input rows.
  *              |
  *              +-- PrintPlanNode: It directly print rows.
  *              |
@@ -117,8 +124,8 @@ class AggregatePlanNode : public PlanNode {
   std::string ToString() const override;
   std::unique_ptr<PlanNode> clone() const override;
   // The predicates in HAVING clause.
-  // For example, select * from A where A.a > 1 group by A.b having sum(A.c) > 10.
-  // group_predicate_ = [sum(A.c)]
+  // For example, select * from A where A.a > 1 group by A.b having sum(A.c)
+  // > 10. group_predicate_ = [sum(A.c)]
   PredicateVec group_predicate_;
   std::vector<std::unique_ptr<Expr>> output_exprs_;
   std::vector<std::unique_ptr<Expr>> group_by_exprs_;
@@ -197,7 +204,7 @@ class HashJoinPlanNode : public PlanNode {
   std::unique_ptr<PlanNode> clone() const override;
   // left_hash_exprs are hash keys of left table (build table)
   // right_hash_exprs are hash keys of right table
-  // left_hash_exprs[i] is corresponding to right_hash_exprs_[i] 
+  // left_hash_exprs[i] is corresponding to right_hash_exprs_[i]
   std::vector<std::unique_ptr<Expr>> left_hash_exprs_;
   std::vector<std::unique_ptr<Expr>> right_hash_exprs_;
   PredicateVec predicate_;

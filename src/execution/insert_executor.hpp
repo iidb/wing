@@ -11,11 +11,17 @@ namespace wing {
 
 class InsertExecutor : public Executor {
  public:
-  InsertExecutor(std::unique_ptr<ModifyHandle>&& handle, std::unique_ptr<Executor> ch, FKChecker checker, GenPKHandle gen_pk,
-                 const TableSchema& table_schema)
-      : handle_(std::move(handle)), ch_(std::move(ch)), gen_pk_(gen_pk), fk_checker_(std::move(checker)), table_schema_(table_schema) {
+  InsertExecutor(std::unique_ptr<ModifyHandle>&& handle,
+      std::unique_ptr<Executor> ch, FKChecker checker, GenPKHandle gen_pk,
+      const TableSchema& table_schema)
+    : handle_(std::move(handle)),
+      ch_(std::move(ch)),
+      gen_pk_(gen_pk),
+      fk_checker_(std::move(checker)),
+      table_schema_(table_schema) {
     pk_index_ = table_schema_.GetPrimaryKeyIndex();
-    pk_offset_ = Tuple::GetOffset(table_schema_.GetStoragePrimaryKeyIndex(), table_schema_.GetStorageColumns());
+    pk_offset_ = Tuple::GetOffset(table_schema_.GetStoragePrimaryKeyIndex(),
+        table_schema_.GetStorageColumns());
     pk_type_ = table_schema_.GetPrimaryKeySchema().type_;
     pk_size_ = table_schema_.GetPrimaryKeySchema().size_;
   }
@@ -35,10 +41,12 @@ class InsertExecutor : public Executor {
     }
     done_flag_ = true;
     auto ch_ret = ch_->Next();
-    // TODO: if ch_ is PrintExecutor then we don't need to insert after read all tuples.
-    // We should check the constraints and raise DBExeceptions before inserting into table.
+    // TODO: if ch_ is PrintExecutor then we don't need to insert after read all
+    // tuples. We should check the constraints and raise DBExeceptions before
+    // inserting into table.
     while (ch_ret) {
-      // If the primary key is hidden, then we insert a '0' at the position (default at the end).
+      // If the primary key is hidden, then we insert a '0' at the position
+      // (default at the end).
       if (table_schema_.GetHidePKFlag()) {
         auto p = table_schema_.GetPrimaryKeyIndex();
         for (uint32_t i = 0; i < p; i++) {
@@ -46,7 +54,8 @@ class InsertExecutor : public Executor {
         }
         temp_[p] = StaticFieldRef::CreateInt(0);
         for (uint32_t i = p; i < table_schema_.GetColumns().size() - 1; i++) {
-          temp_[i + 1] = ch_ret.Read<StaticFieldRef>(i * sizeof(StaticFieldRef));
+          temp_[i + 1] =
+              ch_ret.Read<StaticFieldRef>(i * sizeof(StaticFieldRef));
         }
         fk_checker_.InsertCheck(temp_);
         insert_rows_.push_back(Serialize(temp_));
@@ -60,7 +69,8 @@ class InsertExecutor : public Executor {
     ch_ = nullptr;
     // Insert the tuples
     for (auto& row : insert_rows_) {
-      auto key_view = Tuple::GetFieldView(row.data(), pk_offset_, pk_type_, pk_size_);
+      auto key_view =
+          Tuple::GetFieldView(row.data(), pk_offset_, pk_type_, pk_size_);
       if (!handle_->Insert(key_view, row)) {
         throw DBException("Insert error: duplicate key!");
       }
@@ -71,16 +81,21 @@ class InsertExecutor : public Executor {
 
  private:
   std::string_view Serialize(InputTuplePtr input) {
-    auto size = Tuple::GetSerializeSize(input.Data(), table_schema_.GetColumns());
+    auto size =
+        Tuple::GetSerializeSize(input.Data(), table_schema_.GetColumns());
     auto data_ptr = data_.Allocate(size);
-    Tuple::Serialize(data_ptr, input.Data(), table_schema_.GetStorageColumns(), table_schema_.GetShuffleFromStorage());
-    // Since InputTuplePtr is const, we cannot modify it. Instead, we modify serialized result.
-    // Auto_increment keys are integers. so we directly use pk_offset_.
+    Tuple::Serialize(data_ptr, input.Data(), table_schema_.GetStorageColumns(),
+        table_schema_.GetShuffleFromStorage());
+    // Since InputTuplePtr is const, we cannot modify it. Instead, we modify
+    // serialized result. Auto_increment keys are integers. so we directly use
+    // pk_offset_.
     if (gen_pk_) {
       // Generate only when the value is 0. (MySQL grammar)
-      auto pk = input.Read<StaticFieldRef>(pk_index_ * sizeof(StaticFieldRef)).ReadInt();
+      auto pk = input.Read<StaticFieldRef>(pk_index_ * sizeof(StaticFieldRef))
+                    .ReadInt();
       if (pk == 0) {
-        StaticFieldRef::CreateInt(gen_pk_.Gen()).Write(pk_type_, pk_size_, data_ptr + pk_offset_);
+        StaticFieldRef::CreateInt(gen_pk_.Gen())
+            .Write(pk_type_, pk_size_, data_ptr + pk_offset_);
       }
     }
     return {reinterpret_cast<char*>(data_ptr), size};

@@ -1,12 +1,11 @@
 #ifndef SAKURA_SCHEMA_H__
 #define SAKURA_SCHEMA_H__
 
-#include "common/serde.hpp"
-
 #include <optional>
 #include <string>
 #include <vector>
 
+#include "common/serde.hpp"
 #include "type/field_type.hpp"
 
 namespace wing {
@@ -41,7 +40,7 @@ class ForeignKeySchema {
       const std::string& column_name, const std::string& name, FieldType type,
       uint32_t size)
     : ForeignKeySchema(index, std::string(table_name), std::string(column_name),
-      std::string(name), type, size) {}
+          std::string(name), type, size) {}
   /* the index_ in columns_ in parent TableSchema. */
   uint32_t index_;
   /* the table name of the referred primary key. */
@@ -84,20 +83,28 @@ class TableSchema {
   }
 
   // Get the index in columns_ by column name.
-  // If the column exists, you should use s[s.Find(name).value()] to access the ColumnSchema. 
+  // If the column exists, you should use s[s.Find(name).value()] to access the
+  // ColumnSchema.
   std::optional<uint32_t> Find(std::string_view name) const {
     for (uint32_t i = 0; i < columns_.size(); i++)
-      if (columns_[i].name_ == name) return i;
+      if (columns_[i].name_ == name)
+        return i;
     return {};
   }
 
   const std::vector<ColumnSchema>& GetColumns() const { return columns_; }
 
-  const std::vector<ColumnSchema>& GetStorageColumns() const { return storage_columns_; }
+  const std::vector<ColumnSchema>& GetStorageColumns() const {
+    return storage_columns_;
+  }
 
-  const std::vector<uint32_t>& GetShuffleToStorage() const { return shuffle_to_storage_; }
+  const std::vector<uint32_t>& GetShuffleToStorage() const {
+    return shuffle_to_storage_;
+  }
 
-  const std::vector<uint32_t>& GetShuffleFromStorage() const { return shuffle_from_storage_; }
+  const std::vector<uint32_t>& GetShuffleFromStorage() const {
+    return shuffle_from_storage_;
+  }
 
   const ColumnSchema& operator[](uint32_t idx) const { return columns_[idx]; }
 
@@ -105,7 +112,9 @@ class TableSchema {
 
   uint32_t GetPrimaryKeyIndex() const { return pk_index_; }
 
-  uint32_t GetStoragePrimaryKeyIndex() const { return shuffle_to_storage_[pk_index_]; }
+  uint32_t GetStoragePrimaryKeyIndex() const {
+    return shuffle_to_storage_[pk_index_];
+  }
 
   const ColumnSchema& GetPrimaryKeySchema() const { return (*this)[pk_index_]; }
 
@@ -128,9 +137,11 @@ class TableSchema {
   std::vector<ColumnSchema> columns_;
   /* rearranged columns_. The real columns_ using in storage. */
   std::vector<ColumnSchema> storage_columns_;
-  /* The shuffle from columns_ to storage_columns_. i.e. columns[i] = storage_columns_[shuffle_to_storage_[i]]. */
+  /* The shuffle from columns_ to storage_columns_. i.e. columns[i] =
+   * storage_columns_[shuffle_to_storage_[i]]. */
   std::vector<uint32_t> shuffle_to_storage_;
-  /* The shuffle from storage_columns_ to columns_. i.e. storage_columns[i] = columns_[shuffle_from_storage_[i]]. */
+  /* The shuffle from storage_columns_ to columns_. i.e. storage_columns[i] =
+   * columns_[shuffle_from_storage_[i]]. */
   std::vector<uint32_t> shuffle_from_storage_;
   // Every table must have a primary key.
   // Primary key index in columns_
@@ -149,13 +160,17 @@ class DBSchema {
  public:
   DBSchema() = default;
 
-  DBSchema(auto&& name, auto&& table) : name_(std::forward<decltype(name_)>(name)), tables_(std::forward<decltype(tables_)>(table)) {}
+  DBSchema(auto&& name, auto&& table)
+    : name_(std::forward<decltype(name_)>(name)),
+      tables_(std::forward<decltype(tables_)>(table)) {}
 
   // Get the index in tables_ by table name.
-  // If the table exists, you should use s[s.Find(name).value()] to access the TableSchema. 
+  // If the table exists, you should use s[s.Find(name).value()] to access the
+  // TableSchema.
   std::optional<uint32_t> Find(std::string_view table_name) const {
     for (uint32_t i = 0; i < tables_.size(); i++)
-      if (tables_[i].GetName() == table_name) return i;
+      if (tables_[i].GetName() == table_name)
+        return i;
     return {};
   }
 
@@ -173,7 +188,8 @@ class DBSchema {
 
   void RemoveTable(std::string_view table_name) {
     auto id = Find(table_name);
-    if (id.has_value()) tables_.erase(tables_.begin() + id.value());
+    if (id.has_value())
+      tables_.erase(tables_.begin() + id.value());
   }
 
  private:
@@ -184,16 +200,15 @@ class DBSchema {
 };
 
 template <typename S>
-void tag_invoke(serde::tag_t<serde::serialize>, const ColumnSchema& x,
-    S s) {
+void tag_invoke(serde::tag_t<serde::serialize>, const ColumnSchema& x, S s) {
   serde::serialize(x.name_, s);
   serde::serialize(x.type_, s);
   serde::serialize(x.size_, s);
 }
 
 template <typename S>
-void tag_invoke(serde::tag_t<serde::serialize>, const ForeignKeySchema& x,
-    S s) {
+void tag_invoke(
+    serde::tag_t<serde::serialize>, const ForeignKeySchema& x, S s) {
   serde::serialize(x.index_, s);
   serde::serialize(x.table_name_, s);
   serde::serialize(x.column_name_, s);
@@ -214,61 +229,57 @@ void tag_invoke(serde::tag_t<serde::serialize>, const TableSchema& x, S s) {
 }
 
 template <typename D>
-auto tag_invoke(
-  serde::tag_t<serde::deserialize> tag, serde::type_tag_t<wing::ColumnSchema>, D d
-) -> Result<wing::ColumnSchema, typename D::Error> {
+auto tag_invoke(serde::tag_t<serde::deserialize> tag,
+    serde::type_tag_t<wing::ColumnSchema>, D d)
+    -> Result<wing::ColumnSchema, typename D::Error> {
   std::string name =
-    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<std::string>, d));
+      EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<std::string>, d));
   wing::FieldType type =
-    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<wing::FieldType>, d));
+      EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<wing::FieldType>, d));
   uint32_t size = EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<uint32_t>, d));
   return wing::ColumnSchema(std::move(name), type, size);
 }
 
 template <typename D>
-auto tag_invoke(
-  serde::tag_t<serde::deserialize> tag,
-  serde::type_tag_t<wing::ForeignKeySchema>, D d
-) -> Result<wing::ForeignKeySchema, typename D::Error> {
+auto tag_invoke(serde::tag_t<serde::deserialize> tag,
+    serde::type_tag_t<wing::ForeignKeySchema>, D d)
+    -> Result<wing::ForeignKeySchema, typename D::Error> {
   uint32_t index =
-    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<uint32_t>, d));
+      EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<uint32_t>, d));
   std::string table_name =
-    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<std::string>, d));
+      EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<std::string>, d));
   std::string column_name =
-    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<std::string>, d));
+      EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<std::string>, d));
   std::string name =
-    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<std::string>, d));
+      EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<std::string>, d));
   wing::FieldType type =
-    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<wing::FieldType>, d));
+      EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<wing::FieldType>, d));
   uint32_t size = EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<uint32_t>, d));
   return wing::ForeignKeySchema(index, std::move(table_name),
-    std::move(column_name), std::move(name), type, size);
+      std::move(column_name), std::move(name), type, size);
 }
 
 template <typename D>
-auto tag_invoke(
-  serde::tag_t<serde::deserialize> tag, serde::type_tag_t<wing::TableSchema>,
-  D d
-) -> Result<wing::TableSchema, typename D::Error> {
+auto tag_invoke(serde::tag_t<serde::deserialize> tag,
+    serde::type_tag_t<wing::TableSchema>, D d)
+    -> Result<wing::TableSchema, typename D::Error> {
   std::string name =
-    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<std::string>, d));
+      EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<std::string>, d));
   std::vector<wing::ColumnSchema> column = EXTRACT_RESULT(
-    tag_invoke(tag, serde::type_tag<std::vector<wing::ColumnSchema>>, d));
+      tag_invoke(tag, serde::type_tag<std::vector<wing::ColumnSchema>>, d));
   std::vector<wing::ColumnSchema> storage_columns = EXTRACT_RESULT(
-    tag_invoke(tag, serde::type_tag<std::vector<wing::ColumnSchema>>, d));
+      tag_invoke(tag, serde::type_tag<std::vector<wing::ColumnSchema>>, d));
   uint32_t primary_key_index =
-    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<uint32_t>, d));
-  bool auto_gen_key =
-    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<bool>, d));
-  bool pk_hide =
-    EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<bool>, d));
+      EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<uint32_t>, d));
+  bool auto_gen_key = EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<bool>, d));
+  bool pk_hide = EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<bool>, d));
   std::vector<wing::ForeignKeySchema> fk = EXTRACT_RESULT(
-    tag_invoke(tag, serde::type_tag<std::vector<wing::ForeignKeySchema>>, d));
+      tag_invoke(tag, serde::type_tag<std::vector<wing::ForeignKeySchema>>, d));
   return wing::TableSchema(std::move(name), std::move(column),
-    std::move(storage_columns), primary_key_index, auto_gen_key, pk_hide,
-    std::move(fk));
+      std::move(storage_columns), primary_key_index, auto_gen_key, pk_hide,
+      std::move(fk));
 }
 
-} // namespace wing
+}  // namespace wing
 
 #endif

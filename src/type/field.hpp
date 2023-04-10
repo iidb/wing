@@ -12,16 +12,20 @@
 namespace wing {
 
 /**
- * FieldRef is a reference to an existing memory region. This memory region may become invalid without informing FieldRef.
- * So you must use FieldRef within the lifetime of the memory region.
+ * FieldRef is a reference to an existing memory region. This memory region may
+ * become invalid without informing FieldRef. So you must use FieldRef within
+ * the lifetime of the memory region.
  *
- * For integers and real numbers, their sizes equal to the size of uint8_t* on 64-bit machine.
- * So if type is FieldType::INT32 or FieldType::INT64 or FieldType::FLOAT64, we store the value directly.
+ * For integers and real numbers, their sizes equal to the size of uint8_t* on
+ * 64-bit machine. So if type is FieldType::INT32 or FieldType::INT64 or
+ * FieldType::FLOAT64, we store the value directly.
  *
- * For integers of different length, we store them using int64_t and cast them to int32_t if it is needed.
+ * For integers of different length, we store them using int64_t and cast them
+ * to int32_t if it is needed.
  *
- * FieldRef is used in iterating pages of tables and passing parameters while executing.
- * Clearly, pages cannot be flushed while being iterated. Parameters cannot be released while evaluating expressions.
+ * FieldRef is used in iterating pages of tables and passing parameters while
+ * executing. Clearly, pages cannot be flushed while being iterated. Parameters
+ * cannot be released while evaluating expressions.
  */
 
 class FieldRef {
@@ -38,7 +42,8 @@ class FieldRef {
 
   static FieldRef CreateInt(FieldType type, uint32_t size, int64_t int_data) {
     DB_ASSERT(type == FieldType::INT32 || type == FieldType::INT64);
-    DB_ASSERT((type == FieldType::INT32 && size == 4) || (type == FieldType::INT64 && size == 8));
+    DB_ASSERT((type == FieldType::INT32 && size == 4) ||
+              (type == FieldType::INT64 && size == 8));
     FieldRef ret;
     ret.type_ = type;
     ret.size_ = size;
@@ -46,7 +51,8 @@ class FieldRef {
     return ret;
   }
 
-  static FieldRef CreateStringRef(FieldType type, uint32_t size, const uint8_t* str_data) {
+  static FieldRef CreateStringRef(
+      FieldType type, uint32_t size, const uint8_t* str_data) {
     DB_ASSERT(type == FieldType::CHAR || type == FieldType::VARCHAR);
     DB_ASSERT(str_data != nullptr);
     FieldRef ret;
@@ -56,7 +62,8 @@ class FieldRef {
     return ret;
   }
 
-  static FieldRef CreateFloat(FieldType type, uint32_t size, double double_data) {
+  static FieldRef CreateFloat(
+      FieldType type, uint32_t size, double double_data) {
     DB_ASSERT(type == FieldType::FLOAT64);
     DB_ASSERT(size == 8);
     FieldRef ret;
@@ -67,7 +74,8 @@ class FieldRef {
   }
 
   static FieldRef CreateStringRef(FieldType type, std::string_view str) {
-    return CreateStringRef(type, str.size(), reinterpret_cast<const uint8_t*>(str.data()));
+    return CreateStringRef(
+        type, str.size(), reinterpret_cast<const uint8_t*>(str.data()));
   }
 
   uint32_t Size() { return size_; }
@@ -126,9 +134,14 @@ class FieldRef {
 
   double ReadFloat() const { return data_.double_data; }
 
-  std::string ReadString() const { return std::string(reinterpret_cast<const char*>(data_.str_data), size_); }
+  std::string ReadString() const {
+    return std::string(reinterpret_cast<const char*>(data_.str_data), size_);
+  }
 
-  std::string_view ReadStringView() const { return std::string_view(reinterpret_cast<const char*>(data_.str_data), size_); }
+  std::string_view ReadStringView() const {
+    return std::string_view(
+        reinterpret_cast<const char*>(data_.str_data), size_);
+  }
 
   std::string ToString() const {
     if (type_ == FieldType::INT32) {
@@ -147,7 +160,8 @@ class FieldRef {
 };
 
 /**
- * Field is a independent field, i.e., it is not a reference to an existing memory area.
+ * Field is a independent field, i.e., it is not a reference to an existing
+ * memory area.
  *
  */
 
@@ -165,7 +179,8 @@ class Field {
 
   static Field CreateInt(FieldType type, uint32_t size, int64_t int_data) {
     DB_ASSERT(type == FieldType::INT32 || type == FieldType::INT64);
-    DB_ASSERT((type == FieldType::INT32 && size == 4) || (type == FieldType::INT64 && size == 8));
+    DB_ASSERT((type == FieldType::INT32 && size == 4) ||
+              (type == FieldType::INT64 && size == 8));
     Field ret;
     ret.type_ = type;
     ret.size_ = size;
@@ -193,7 +208,8 @@ class Field {
   }
 
   static Field CreateString(FieldType type, std::string_view str) {
-    return CreateString(type, str.size(), reinterpret_cast<const uint8_t*>(str.data()));
+    return CreateString(
+        type, str.size(), reinterpret_cast<const uint8_t*>(str.data()));
   }
 
   static Field CreateFloat(FieldType type, uint32_t size, double double_data) {
@@ -207,7 +223,8 @@ class Field {
   }
 
   Field& operator=(const FieldRef& d) {
-    if ((type_ == FieldType::CHAR || type_ == FieldType::VARCHAR) && data_.str_data != nullptr) {
+    if ((type_ == FieldType::CHAR || type_ == FieldType::VARCHAR) &&
+        data_.str_data != nullptr) {
       delete[] data_.str_data;
     }
     if (d.type_ == FieldType::CHAR || d.type_ == FieldType::VARCHAR) {
@@ -263,7 +280,9 @@ class Field {
   }
 
   ~Field() {
-    if ((type_ == FieldType::CHAR || type_ == FieldType::VARCHAR) && data_.str_data != nullptr) delete[] data_.str_data;
+    if ((type_ == FieldType::CHAR || type_ == FieldType::VARCHAR) &&
+        data_.str_data != nullptr)
+      delete[] data_.str_data;
   }
 
   uint32_t Size() { return size_; }
@@ -277,7 +296,8 @@ class Field {
       return FieldRef::CreateStringRef(type_, size_, data_.str_data);
     else if (type_ == FieldType::EMPTY)
       return FieldRef();
-    else DB_ERR("Unrecognized FieldType!");
+    else
+      DB_ERR("Unrecognized FieldType!");
   }
 
   static Field Read(FieldType type, size_t size, const uint8_t* a) {
@@ -335,9 +355,14 @@ class Field {
 
   double ReadFloat() const { return data_.double_data; }
 
-  std::string ReadString() const { return std::string(reinterpret_cast<char*>(data_.str_data), size_); }
+  std::string ReadString() const {
+    return std::string(reinterpret_cast<char*>(data_.str_data), size_);
+  }
 
-  std::string_view ReadStringView() const { return std::string_view(reinterpret_cast<const char*>(data_.str_data), size_); }
+  std::string_view ReadStringView() const {
+    return std::string_view(
+        reinterpret_cast<const char*>(data_.str_data), size_);
+  }
 
   std::string ToString() const {
     if (type_ == FieldType::INT32) {
@@ -365,9 +390,7 @@ class Field {
       DB_ERR("Internal Error: Invalid FieldType.");
   }
 
-  bool Empty() const {
-    return type_ == FieldType::EMPTY;
-  }
+  bool Empty() const { return type_ == FieldType::EMPTY; }
 };
 
 }  // namespace wing

@@ -24,18 +24,25 @@ TEST(OptimizerTest, PushdownTest) {
         1000));
     EXPECT_TRUE(result.Valid());
     AnsVec answer;
-    answer.push_back(MkVec(IV::Create(5), IV::Create(4), IV::Create(2), IV::Create(5), IV::Create(2), IV::Create(4), IV::Create(2), IV::Create(2),
-                           IV::Create(2), IV::Create(1), IV::Create(4), IV::Create(1), IV::Create(5), IV::Create(4), IV::Create(3), IV::Create(1),
-                           IV::Create(1), IV::Create(1), IV::Create(3), IV::Create(5), IV::Create(3), IV::Create(1), IV::Create(3), IV::Create(5),
-                           IV::Create(1), IV::Create(5)));
+    answer.push_back(MkVec(IV::Create(5), IV::Create(4), IV::Create(2),
+        IV::Create(5), IV::Create(2), IV::Create(4), IV::Create(2),
+        IV::Create(2), IV::Create(2), IV::Create(1), IV::Create(4),
+        IV::Create(1), IV::Create(5), IV::Create(4), IV::Create(3),
+        IV::Create(1), IV::Create(1), IV::Create(1), IV::Create(3),
+        IV::Create(5), IV::Create(3), IV::Create(1), IV::Create(3),
+        IV::Create(5), IV::Create(1), IV::Create(5)));
     CHECK_ALL_SORTED_ANS(answer, result, 26);
   }
 
   {
-    EXPECT_TRUE(db->Execute("create table A(a int64 primary key, b int64);").Valid());
-    EXPECT_TRUE(db->Execute("create table B(a int64 primary key, b int64);").Valid());
-    EXPECT_TRUE(db->Execute("create table C(a int64 primary key, b int64);").Valid());
-    RandomTuple<int64_t, int64_t> tuple_gen(202303041622ull, INT64_MIN, INT64_MAX, 0, 100);
+    EXPECT_TRUE(
+        db->Execute("create table A(a int64 primary key, b int64);").Valid());
+    EXPECT_TRUE(
+        db->Execute("create table B(a int64 primary key, b int64);").Valid());
+    EXPECT_TRUE(
+        db->Execute("create table C(a int64 primary key, b int64);").Valid());
+    RandomTuple<int64_t, int64_t> tuple_gen(
+        202303041622ull, INT64_MIN, INT64_MAX, 0, 100);
     int NUM = 1e4;
     auto [stmt_a, data_a] = tuple_gen.GenerateValuesClause(NUM);
     EXPECT_TRUE(db->Execute("insert into A " + stmt_a + ";").Valid());
@@ -53,11 +60,14 @@ TEST(OptimizerTest, PushdownTest) {
         1000));
     std::vector<int64_t> A, B, C;
     for (int i = 0; i < NUM; i++)
-      if (data_a.Get(i, 1)->ReadInt() == 0) A.push_back(data_a.Get(i, 0)->ReadInt());
+      if (data_a.Get(i, 1)->ReadInt() == 0)
+        A.push_back(data_a.Get(i, 0)->ReadInt());
     for (int i = 0; i < NUM; i++)
-      if (data_b.Get(i, 1)->ReadInt() == 0) B.push_back(data_b.Get(i, 0)->ReadInt());
+      if (data_b.Get(i, 1)->ReadInt() == 0)
+        B.push_back(data_b.Get(i, 0)->ReadInt());
     for (int i = 0; i < NUM; i++)
-      if (data_c.Get(i, 1)->ReadInt() == 0) C.push_back(data_c.Get(i, 0)->ReadInt());
+      if (data_c.Get(i, 1)->ReadInt() == 0)
+        C.push_back(data_c.Get(i, 0)->ReadInt());
     std::sort(A.begin(), A.end());
     std::sort(B.begin(), B.end());
     std::sort(C.begin(), C.end());
@@ -66,7 +76,8 @@ TEST(OptimizerTest, PushdownTest) {
       for (auto b : B)
         for (auto c : C)
           if (((a ^ b ^ c) & 6) == 6) {
-            answer.push_back(MkVec(IV::Create(a), IV::Create(b), IV::Create(c)));
+            answer.push_back(
+                MkVec(IV::Create(a), IV::Create(b), IV::Create(c)));
           }
     CHECK_ALL_SORTED_ANS(answer, result, 3);
   }
@@ -81,8 +92,11 @@ TEST(OptimizerTest, ProjectFoldTest) {
   std::filesystem::remove("__tmp0202");
   auto db = std::make_unique<wing::Instance>("__tmp0202", 0);
   {
-    EXPECT_TRUE(db->Execute("create table A(a int64 primary key, b int64, c float64);").Valid());
-    RandomTuple<int64_t, int64_t, double> tuple_gen(202303051133ull, INT64_MIN, INT64_MAX, 0, 100, 0.0, 1.0);
+    EXPECT_TRUE(
+        db->Execute("create table A(a int64 primary key, b int64, c float64);")
+            .Valid());
+    RandomTuple<int64_t, int64_t, double> tuple_gen(
+        202303051133ull, INT64_MIN, INT64_MAX, 0, 100, 0.0, 1.0);
     int NUM = 5e3;
     auto [stmt_a, data_a] = tuple_gen.GenerateValuesClause(NUM);
     EXPECT_TRUE(db->Execute("insert into A " + stmt_a + ";").Valid());
@@ -125,7 +139,8 @@ TEST(StatsTest, CountMinSketchTest) {
   CountMinSketch sk(2000, 8);
   std::vector<int> seq(100000);
   std::vector<int> st(100000);
-  for (int i = 0; i < 100000; i++) seq[i] = i;
+  for (int i = 0; i < 100000; i++)
+    seq[i] = i;
   std::shuffle(seq.begin(), seq.end(), gen);
   for (int i = 0; i < N; i++) {
     int j = seq[zipf(gen) - 1];
@@ -145,17 +160,22 @@ TEST(OptimizerTest, JoinCommuteTest) {
   std::filesystem::remove("__tmp0203");
   auto db = std::make_unique<wing::Instance>("__tmp0203", 0);
   {
-    EXPECT_TRUE(db->Execute("create table A(a int64, b int64, c float64);").Valid());
-    EXPECT_TRUE(db->Execute("create table B(a int64 auto_increment primary key, data varchar(20));").Valid());
+    EXPECT_TRUE(
+        db->Execute("create table A(a int64, b int64, c float64);").Valid());
+    EXPECT_TRUE(db->Execute("create table B(a int64 auto_increment primary "
+                            "key, data varchar(20));")
+                    .Valid());
     int NUMA = 1e7, NUMB = 1e3;
-    RandomTuple<int64_t, int64_t, double> tuple_gen(202303051627ull, 1, NUMB, 0, 10000, 0.0, 1.0);
+    RandomTuple<int64_t, int64_t, double> tuple_gen(
+        202303051627ull, 1, NUMB, 0, 10000, 0.0, 1.0);
     DB_INFO("Generating data...");
     auto stmt_a = tuple_gen.GenerateValuesClauseStmt(NUMA);
     StopWatch _sw;
     EXPECT_TRUE(db->Execute("insert into A " + stmt_a + ";").Valid());
     DB_INFO("{}", _sw.GetTimeInSeconds());
     stmt_a.clear();
-    RandomTuple<int64_t, std::string> tuple_gen2(20230305162702ull, 0, 0, 15, 20);
+    RandomTuple<int64_t, std::string> tuple_gen2(
+        20230305162702ull, 0, 0, 15, 20);
     auto stmt_b = tuple_gen2.GenerateValuesClauseStmt(NUMB);
     EXPECT_TRUE(db->Execute("insert into B " + stmt_b + ";").Valid());
     stmt_b.clear();
@@ -173,7 +193,8 @@ TEST(OptimizerTest, JoinCommuteTest) {
         3000));
     DB_INFO("Use: {} s", sw.GetTimeInSeconds());
     sw.Reset();
-    // You should swap dupA and A. because b is uniformly distributed in [0, 100]. So dupA's size is 1e7 / 10000.
+    // You should swap dupA and A. because b is uniformly distributed in [0,
+    // 100]. So dupA's size is 1e7 / 10000.
     EXPECT_TRUE(test_timeout(
         [&]() {
           // clang-format off
@@ -197,10 +218,18 @@ TEST(OptimizerTest, JoinAssociate4Test) {
   // The cat dba only stores the id of the referenced information in table Cats.
   // Now she wants to print these information for each cat.
   {
-    EXPECT_TRUE(db->Execute("create table Cats(emp_id int64, cat_id int64, username_id int64);").Valid());
-    EXPECT_TRUE(db->Execute("create table Employee(id int64 auto_increment primary key, name varchar(20));").Valid());
-    EXPECT_TRUE(db->Execute("create table Username(id int64 auto_increment primary key, name varchar(20));").Valid());
-    EXPECT_TRUE(db->Execute("create table Catname(id int64 auto_increment primary key, name varchar(20));").Valid());
+    EXPECT_TRUE(db->Execute("create table Cats(emp_id int64, cat_id int64, "
+                            "username_id int64);")
+                    .Valid());
+    EXPECT_TRUE(db->Execute("create table Employee(id int64 auto_increment "
+                            "primary key, name varchar(20));")
+                    .Valid());
+    EXPECT_TRUE(db->Execute("create table Username(id int64 auto_increment "
+                            "primary key, name varchar(20));")
+                    .Valid());
+    EXPECT_TRUE(db->Execute("create table Catname(id int64 auto_increment "
+                            "primary key, name varchar(20));")
+                    .Valid());
     int CATNUM = 1e3;
     int NUM = 1e5;
     RandomTuple<int64_t, std::string> tuple_gen(0x202303091108, 0, 0, 20, 20);
@@ -210,7 +239,8 @@ TEST(OptimizerTest, JoinAssociate4Test) {
     EXPECT_TRUE(db->Execute("insert into Username " + stmt_u + ";").Valid());
     auto [stmt_c, data_c] = tuple_gen.GenerateValuesClause(NUM);
     EXPECT_TRUE(db->Execute("insert into Catname " + stmt_c + ";").Valid());
-    RandomTuple<int64_t, int64_t, int64_t> tuple_gen2(0x202303091110, 1, NUM, 1, NUM, 1, NUM);
+    RandomTuple<int64_t, int64_t, int64_t> tuple_gen2(
+        0x202303091110, 1, NUM, 1, NUM, 1, NUM);
     auto [stmt_cats, data_cats] = tuple_gen2.GenerateValuesClause(CATNUM);
     EXPECT_TRUE(db->Execute("insert into Cats " + stmt_cats + ";").Valid());
 
@@ -243,11 +273,21 @@ TEST(OptimizerTest, JoinAssociate5Test) {
   // Now she wants to print these information for each cat.
   // Different from JoinAssociate5Test, there are 5 tables.
   {
-    EXPECT_TRUE(db->Execute("create table Cats(emp_id int64, cat_id int64, username_id int64, maid_id int64);").Valid());
-    EXPECT_TRUE(db->Execute("create table Employee(id int64 auto_increment primary key, name varchar(20));").Valid());
-    EXPECT_TRUE(db->Execute("create table Username(id int64 auto_increment primary key, name varchar(20));").Valid());
-    EXPECT_TRUE(db->Execute("create table Catname(id int64 auto_increment primary key, name varchar(20));").Valid());
-    EXPECT_TRUE(db->Execute("create table Maidname(id int64 auto_increment primary key, name varchar(20));").Valid());
+    EXPECT_TRUE(db->Execute("create table Cats(emp_id int64, cat_id int64, "
+                            "username_id int64, maid_id int64);")
+                    .Valid());
+    EXPECT_TRUE(db->Execute("create table Employee(id int64 auto_increment "
+                            "primary key, name varchar(20));")
+                    .Valid());
+    EXPECT_TRUE(db->Execute("create table Username(id int64 auto_increment "
+                            "primary key, name varchar(20));")
+                    .Valid());
+    EXPECT_TRUE(db->Execute("create table Catname(id int64 auto_increment "
+                            "primary key, name varchar(20));")
+                    .Valid());
+    EXPECT_TRUE(db->Execute("create table Maidname(id int64 auto_increment "
+                            "primary key, name varchar(20));")
+                    .Valid());
     int CATNUM = 1e5;
     int NUM = 1e5;
     RandomTuple<int64_t, std::string> tuple_gen(0x202303091108, 0, 0, 20, 20);
@@ -259,7 +299,8 @@ TEST(OptimizerTest, JoinAssociate5Test) {
     EXPECT_TRUE(db->Execute("insert into Catname " + stmt_c + ";").Valid());
     auto [stmt_m, data_m] = tuple_gen.GenerateValuesClause(NUM);
     EXPECT_TRUE(db->Execute("insert into Maidname " + stmt_m + ";").Valid());
-    RandomTuple<int64_t, int64_t, int64_t, int64_t> tuple_gen2(0x202303091110, 1, NUM, 1, NUM, 1, NUM, 1, NUM);
+    RandomTuple<int64_t, int64_t, int64_t, int64_t> tuple_gen2(
+        0x202303091110, 1, NUM, 1, NUM, 1, NUM, 1, NUM);
     auto [stmt_cats, data_cats] = tuple_gen2.GenerateValuesClause(CATNUM);
     EXPECT_TRUE(db->Execute("insert into Cats " + stmt_cats + ";").Valid());
 
@@ -291,12 +332,15 @@ TEST(OptimizerTest, SimpleRangeScanTest) {
   // Insert key-value data
   // Read the corresponding value of a random key while inserting.
   {
-    EXPECT_TRUE(db->Execute("create table A(a int64 primary key, b float64);").Valid());
+    EXPECT_TRUE(
+        db->Execute("create table A(a int64 primary key, b float64);").Valid());
     int NUM = 1e6, round = 2e5, short_range_round = 5e4, short_range_len = 100;
     int long_range_round = 10;
-    RandomTuple<int64_t, double> tuple_gen(0x202304041203ll, INT64_MIN, INT64_MAX, 0.0, 1.0);
+    RandomTuple<int64_t, double> tuple_gen(
+        0x202304041203ll, INT64_MIN, INT64_MAX, 0.0, 1.0);
     std::vector<std::pair<std::string, ValueVector>> stmt_data;
-    for (int i = 0; i < round; i++) stmt_data.push_back(tuple_gen.GenerateValuesClause(NUM / round));
+    for (int i = 0; i < round; i++)
+      stmt_data.push_back(tuple_gen.GenerateValuesClause(NUM / round));
 
     std::map<int64_t, double> mp;
     std::mt19937_64 rgen(0x202304041223);
@@ -305,11 +349,13 @@ TEST(OptimizerTest, SimpleRangeScanTest) {
     EXPECT_TRUE(test_timeout(
         [&]() {
           for (int i = 0; i < round; i++) {
-            EXPECT_TRUE(db->Execute("insert into A " + stmt_data[i].first + ";").Valid());
+            EXPECT_TRUE(db->Execute("insert into A " + stmt_data[i].first + ";")
+                            .Valid());
             for (int j = 0; j < NUM / round; j++) {
               auto key = stmt_data[i].second.Get(j, 0)->ReadInt();
               auto value = stmt_data[i].second.Get(j, 1)->ReadFloat();
-              if(!mp.count(key)) mp[key] = value;
+              if (!mp.count(key))
+                mp[key] = value;
             }
             int64_t random_key = rgen();
             if (rgen() % 2) {
@@ -318,7 +364,8 @@ TEST(OptimizerTest, SimpleRangeScanTest) {
                 random_key = it->first;
               }
             }
-            auto result = db->Execute(fmt::format("select * from A where a = {};", random_key));
+            auto result = db->Execute(
+                fmt::format("select * from A where a = {};", random_key));
             EXPECT_TRUE(result.Valid());
             auto tuple = result.Next();
             if (mp.count(random_key)) {
@@ -342,10 +389,12 @@ TEST(OptimizerTest, SimpleRangeScanTest) {
             for (int j = 0; j < short_range_len && it != mp.end(); j++) {
               it++;
             }
-            if (it != mp.end()) R = it->first;
-            auto result = db->Execute(fmt::format("select * from A where a >= {} and a < {};", L, R));
+            if (it != mp.end())
+              R = it->first;
+            auto result = db->Execute(
+                fmt::format("select * from A where a >= {} and a < {};", L, R));
             it = mp.lower_bound(L);
-            while(it->first < R) {
+            while (it->first < R) {
               auto tuple = result.Next();
               EXPECT_TRUE(tuple);
               EXPECT_EQ(tuple.ReadFloat(1), it->second);
@@ -354,14 +403,15 @@ TEST(OptimizerTest, SimpleRangeScanTest) {
             EXPECT_FALSE(result.Next());
           }
           std::string ops[] = {">", "<", ">=", "<="};
-          for (int j = 0; j < 4; ++j ){
+          for (int j = 0; j < 4; ++j) {
             for (int i = 0; i < long_range_round; i++) {
               int64_t L = rgen();
-              auto result = db->Execute(fmt::format("select * from A where a {} {};", ops[j], L));
+              auto result = db->Execute(
+                  fmt::format("select * from A where a {} {};", ops[j], L));
               std::map<int64_t, double>::iterator it;
               if (ops[j] == ">") {
                 it = mp.upper_bound(L);
-                while(it != mp.end()) {
+                while (it != mp.end()) {
                   auto tuple = result.Next();
                   EXPECT_TRUE(tuple);
                   EXPECT_EQ(tuple.ReadFloat(1), it->second);
@@ -370,7 +420,7 @@ TEST(OptimizerTest, SimpleRangeScanTest) {
                 EXPECT_FALSE(result.Next());
               } else if (ops[j] == ">=") {
                 it = mp.lower_bound(L);
-                while(it != mp.end()) {
+                while (it != mp.end()) {
                   auto tuple = result.Next();
                   EXPECT_TRUE(tuple);
                   EXPECT_EQ(tuple.ReadFloat(1), it->second);
@@ -379,7 +429,7 @@ TEST(OptimizerTest, SimpleRangeScanTest) {
                 EXPECT_FALSE(result.Next());
               } else if (ops[j] == "<") {
                 it = mp.begin();
-                while(it->first < L) {
+                while (it->first < L) {
                   auto tuple = result.Next();
                   EXPECT_TRUE(tuple);
                   EXPECT_EQ(tuple.ReadFloat(1), it->second);
@@ -388,7 +438,7 @@ TEST(OptimizerTest, SimpleRangeScanTest) {
                 EXPECT_FALSE(result.Next());
               } else {
                 it = mp.begin();
-                while(it->first <= L) {
+                while (it->first <= L) {
                   auto tuple = result.Next();
                   EXPECT_TRUE(tuple);
                   EXPECT_EQ(tuple.ReadFloat(1), it->second);
@@ -396,9 +446,8 @@ TEST(OptimizerTest, SimpleRangeScanTest) {
                 }
                 EXPECT_FALSE(result.Next());
               }
-            }  
+            }
           }
-          
         },
         10000));
     DB_INFO("Use: {} s", sw.GetTimeInSeconds());

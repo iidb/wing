@@ -1,9 +1,9 @@
 #ifndef SAKURA_INSTANCE_H__
 #define SAKURA_INSTANCE_H__
 
+#include <future>
 #include <memory>
 #include <string>
-#include <future>
 
 #include "instance/resultset.hpp"
 #include "plan/plan.hpp"
@@ -22,6 +22,7 @@ class Instance {
   // Used for testing optimizer.
   // (It can also used to avoid parsing... But it's not useful in this course.)
   std::unique_ptr<PlanNode> GetPlan(std::string_view statement);
+
  private:
   class Impl;
   std::unique_ptr<Impl> ptr_;

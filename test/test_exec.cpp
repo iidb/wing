@@ -27,23 +27,29 @@ TEST(ExecutorJoinTest, JoinTestNum10Table2) {
 
   // Test duplicate tuple join.
   {
-    auto result = db->Execute("select * from (values(1), (1), (1)), (values(2), (2), (2));");
+    auto result = db->Execute(
+        "select * from (values(1), (1), (1)), (values(2), (2), (2));");
     AnsVec answer;
     EXPECT_TRUE(result.Valid());
-    for (int i = 0; i < 9; i++) answer.emplace_back(MkVec(IV::Create(1), IV::Create(2)));
+    for (int i = 0; i < 9; i++)
+      answer.emplace_back(MkVec(IV::Create(1), IV::Create(2)));
     CHECK_ALL_SORTED_ANS(answer, result, 2);
   }
 
   {
-    auto result = db->Execute("select * from (values(1), (1), (1)) A(a), (values(2), (2), (2)) B(b) where A.a = B.b - 1;");
+    auto result = db->Execute(
+        "select * from (values(1), (1), (1)) A(a), (values(2), (2), (2)) B(b) "
+        "where A.a = B.b - 1;");
     AnsVec answer;
     EXPECT_TRUE(result.Valid());
-    for (int i = 0; i < 9; i++) answer.emplace_back(MkVec(IV::Create(1), IV::Create(2)));
+    for (int i = 0; i < 9; i++)
+      answer.emplace_back(MkVec(IV::Create(1), IV::Create(2)));
     CHECK_ALL_SORTED_ANS(answer, result, 2);
   }
 
   {
-    auto result = db->Execute("select * from (values(2, 3)) join (values(4, 5)) on 1;");
+    auto result =
+        db->Execute("select * from (values(2, 3)) join (values(4, 5)) on 1;");
     EXPECT_TRUE(result.Valid());
     auto tuple = result.Next();
     EXPECT_TRUE(bool(tuple));
@@ -55,23 +61,31 @@ TEST(ExecutorJoinTest, JoinTestNum10Table2) {
   }
 
   {
-    auto result = db->Execute("select * from (values(2, 3)) as A(a, b) join (values(4, 5)) as A(c, d) on a = c;");
+    auto result = db->Execute(
+        "select * from (values(2, 3)) as A(a, b) join (values(4, 5)) as A(c, "
+        "d) on a = c;");
     EXPECT_TRUE(result.Valid());
     EXPECT_FALSE(result.Next());
   }
 
-  // One database records the number of apples people have. Another records the number of bananas people have.
-  // Now I want to know how much money people get when they sell their fruit.
+  // One database records the number of apples people have. Another records the
+  // number of bananas people have. Now I want to know how much money people get
+  // when they sell their fruit.
   {
     auto result = db->Execute(
-        "select A.name, A.age, A.apple * 3 + B.banana * 7 from (values('alice', 10, 3), ('bob', 8, 4), ('carol', 15, 9)) as A(name, age, apple), "
-        "(values('alice', 10.5), ('carol', 9.5)) as B(name, banana) where A.name = B.name;");
+        "select A.name, A.age, A.apple * 3 + B.banana * 7 from "
+        "(values('alice', 10, 3), ('bob', 8, 4), ('carol', 15, 9)) as A(name, "
+        "age, apple), "
+        "(values('alice', 10.5), ('carol', 9.5)) as B(name, banana) where "
+        "A.name = B.name;");
     EXPECT_TRUE(result.Valid());
     auto tuple = result.Next();
     EXPECT_TRUE(bool(tuple));
     AnsMap<std::string> answer;
-    answer.emplace("alice", MkVec(SV::Create("alice"), IV::Create(10), FV::Create(82.5)));
-    answer.emplace("carol", MkVec(SV::Create("carol"), IV::Create(15), FV::Create(93.5)));
+    answer.emplace(
+        "alice", MkVec(SV::Create("alice"), IV::Create(10), FV::Create(82.5)));
+    answer.emplace(
+        "carol", MkVec(SV::Create("carol"), IV::Create(15), FV::Create(93.5)));
     EXPECT_TRUE(CheckAns(tuple.ReadString(0), answer, tuple, 3));
     tuple = result.Next();
     EXPECT_TRUE(bool(tuple));
@@ -81,94 +95,185 @@ TEST(ExecutorJoinTest, JoinTestNum10Table2) {
 
   // xxxholic
   {
-    EXPECT_TRUE(db->Execute("create table Numbers(t varchar(30) primary key, a int32, b float64);").Valid());
-    EXPECT_TRUE(db->Execute("insert into Numbers values ('blogaholic', 1, 2.3), "
-                            " ('bookaholic', 2, 3.4), "
-                            " ('alcoholic', 3, 4.5),"
-                            " ('milkaholic', 4, 5.9),"
-                            " ('foodaholic', 5, 9.7),"
-                            " ('workaholic', 6, 10.99),"
-                            " ('chocaholic', 7, 9.2),"
-                            " ('lifeaholic', 8, 11.9),"
-                            " ('laughaholic', 9, 7.0),"
-                            " ('spendaholic', 10, 75.0);")
+    EXPECT_TRUE(db->Execute("create table Numbers(t varchar(30) primary key, a "
+                            "int32, b float64);")
                     .Valid());
+    EXPECT_TRUE(
+        db->Execute("insert into Numbers values ('blogaholic', 1, 2.3), "
+                    " ('bookaholic', 2, 3.4), "
+                    " ('alcoholic', 3, 4.5),"
+                    " ('milkaholic', 4, 5.9),"
+                    " ('foodaholic', 5, 9.7),"
+                    " ('workaholic', 6, 10.99),"
+                    " ('chocaholic', 7, 9.2),"
+                    " ('lifeaholic', 8, 11.9),"
+                    " ('laughaholic', 9, 7.0),"
+                    " ('spendaholic', 10, 75.0);")
+            .Valid());
     {
-      auto result = db->Execute("select A.t, A.b from Numbers as A, Numbers as B where A.a * B.a = 0;");
+      auto result = db->Execute(
+          "select A.t, A.b from Numbers as A, Numbers as B where A.a * B.a = "
+          "0;");
       EXPECT_TRUE(result.Valid());
       EXPECT_FALSE(result.Next());
     }
 
     {
-      auto result = db->Execute("select A.t, A.b from Numbers as A, Numbers as B where A.a * B.a > 100;");
+      auto result = db->Execute(
+          "select A.t, A.b from Numbers as A, Numbers as B where A.a * B.a > "
+          "100;");
       EXPECT_TRUE(result.Valid());
       EXPECT_FALSE(result.Next());
     }
 
     {
-      auto result = db->Execute("select A.b, A.t from (values(10), (3), (4)) as C(c), Numbers as A where A.a = C.c;");
+      auto result = db->Execute(
+          "select A.b, A.t from (values(10), (3), (4)) as C(c), Numbers as A "
+          "where A.a = C.c;");
       EXPECT_TRUE(result.Valid());
       AnsMap<std::string> answer;
-      answer.emplace("spendaholic", MkVec(FV::Create(75.0), SV::Create("spendaholic")));
-      answer.emplace("alcoholic", MkVec(FV::Create(4.5), SV::Create("alcoholic")));
-      answer.emplace("milkaholic", MkVec(FV::Create(5.9), SV::Create("milkaholic")));
+      answer.emplace(
+          "spendaholic", MkVec(FV::Create(75.0), SV::Create("spendaholic")));
+      answer.emplace(
+          "alcoholic", MkVec(FV::Create(4.5), SV::Create("alcoholic")));
+      answer.emplace(
+          "milkaholic", MkVec(FV::Create(5.9), SV::Create("milkaholic")));
       CHECK_ALL_ANS(answer, result, tuple.ReadString(1), 2);
     }
 
     {
-      auto result = db->Execute("select A.b, A.t from Numbers as A, (values(1), (8), (-1), (19)) as C(c) where A.a = C.c;");
+      auto result = db->Execute(
+          "select A.b, A.t from Numbers as A, (values(1), (8), (-1), (19)) as "
+          "C(c) where A.a = C.c;");
       AnsMap<std::string> answer;
-      answer.emplace("blogaholic", MkVec(FV::Create(2.3), SV::Create("blogaholic")));
-      answer.emplace("lifeaholic", MkVec(FV::Create(11.9), SV::Create("lifeaholic")));
+      answer.emplace(
+          "blogaholic", MkVec(FV::Create(2.3), SV::Create("blogaholic")));
+      answer.emplace(
+          "lifeaholic", MkVec(FV::Create(11.9), SV::Create("lifeaholic")));
       CHECK_ALL_ANS(answer, result, tuple.ReadString(1), 2);
     }
 
     {
-      auto result =
-          db->Execute("select A.t, B.t, A.b * B.b from Numbers as A, Numbers as B where A.a * B.a < 50 and A.t < 'm' and B.t > 'bookaholic';");
+      auto result = db->Execute(
+          "select A.t, B.t, A.b * B.b from Numbers as A, Numbers as B where "
+          "A.a * B.a < 50 and A.t < 'm' and B.t > 'bookaholic';");
 
       AnsMap<std::string> answer;
-      answer.emplace("blogaholic_milkaholic", MkVec(SV::Create("blogaholic"), SV::Create("milkaholic"), FV::Create(13.570)));
-      answer.emplace("blogaholic_foodaholic", MkVec(SV::Create("blogaholic"), SV::Create("foodaholic"), FV::Create(22.310)));
-      answer.emplace("blogaholic_workaholic", MkVec(SV::Create("blogaholic"), SV::Create("workaholic"), FV::Create(25.277)));
-      answer.emplace("blogaholic_chocaholic", MkVec(SV::Create("blogaholic"), SV::Create("chocaholic"), FV::Create(21.160)));
-      answer.emplace("blogaholic_lifeaholic", MkVec(SV::Create("blogaholic"), SV::Create("lifeaholic"), FV::Create(27.370)));
-      answer.emplace("blogaholic_laughaholic", MkVec(SV::Create("blogaholic"), SV::Create("laughaholic"), FV::Create(16.100)));
-      answer.emplace("blogaholic_spendaholic", MkVec(SV::Create("blogaholic"), SV::Create("spendaholic"), FV::Create(172.500)));
-      answer.emplace("bookaholic_milkaholic", MkVec(SV::Create("bookaholic"), SV::Create("milkaholic"), FV::Create(20.060)));
-      answer.emplace("bookaholic_foodaholic", MkVec(SV::Create("bookaholic"), SV::Create("foodaholic"), FV::Create(32.980)));
-      answer.emplace("bookaholic_workaholic", MkVec(SV::Create("bookaholic"), SV::Create("workaholic"), FV::Create(37.366)));
-      answer.emplace("bookaholic_chocaholic", MkVec(SV::Create("bookaholic"), SV::Create("chocaholic"), FV::Create(31.280)));
-      answer.emplace("bookaholic_lifeaholic", MkVec(SV::Create("bookaholic"), SV::Create("lifeaholic"), FV::Create(40.460)));
-      answer.emplace("bookaholic_laughaholic", MkVec(SV::Create("bookaholic"), SV::Create("laughaholic"), FV::Create(23.800)));
-      answer.emplace("bookaholic_spendaholic", MkVec(SV::Create("bookaholic"), SV::Create("spendaholic"), FV::Create(255.000)));
-      answer.emplace("alcoholic_milkaholic", MkVec(SV::Create("alcoholic"), SV::Create("milkaholic"), FV::Create(26.550)));
-      answer.emplace("alcoholic_foodaholic", MkVec(SV::Create("alcoholic"), SV::Create("foodaholic"), FV::Create(43.650)));
-      answer.emplace("alcoholic_workaholic", MkVec(SV::Create("alcoholic"), SV::Create("workaholic"), FV::Create(49.455)));
-      answer.emplace("alcoholic_chocaholic", MkVec(SV::Create("alcoholic"), SV::Create("chocaholic"), FV::Create(41.400)));
-      answer.emplace("alcoholic_lifeaholic", MkVec(SV::Create("alcoholic"), SV::Create("lifeaholic"), FV::Create(53.550)));
-      answer.emplace("alcoholic_laughaholic", MkVec(SV::Create("alcoholic"), SV::Create("laughaholic"), FV::Create(31.500)));
-      answer.emplace("alcoholic_spendaholic", MkVec(SV::Create("alcoholic"), SV::Create("spendaholic"), FV::Create(337.500)));
-      answer.emplace("foodaholic_milkaholic", MkVec(SV::Create("foodaholic"), SV::Create("milkaholic"), FV::Create(57.230)));
-      answer.emplace("foodaholic_foodaholic", MkVec(SV::Create("foodaholic"), SV::Create("foodaholic"), FV::Create(94.090)));
-      answer.emplace("foodaholic_workaholic", MkVec(SV::Create("foodaholic"), SV::Create("workaholic"), FV::Create(106.603)));
-      answer.emplace("foodaholic_chocaholic", MkVec(SV::Create("foodaholic"), SV::Create("chocaholic"), FV::Create(89.240)));
-      answer.emplace("foodaholic_lifeaholic", MkVec(SV::Create("foodaholic"), SV::Create("lifeaholic"), FV::Create(115.430)));
-      answer.emplace("foodaholic_laughaholic", MkVec(SV::Create("foodaholic"), SV::Create("laughaholic"), FV::Create(67.900)));
-      answer.emplace("chocaholic_milkaholic", MkVec(SV::Create("chocaholic"), SV::Create("milkaholic"), FV::Create(54.280)));
-      answer.emplace("chocaholic_foodaholic", MkVec(SV::Create("chocaholic"), SV::Create("foodaholic"), FV::Create(89.240)));
-      answer.emplace("chocaholic_workaholic", MkVec(SV::Create("chocaholic"), SV::Create("workaholic"), FV::Create(101.108)));
-      answer.emplace("chocaholic_chocaholic", MkVec(SV::Create("chocaholic"), SV::Create("chocaholic"), FV::Create(84.640)));
-      answer.emplace("lifeaholic_milkaholic", MkVec(SV::Create("lifeaholic"), SV::Create("milkaholic"), FV::Create(70.210)));
-      answer.emplace("lifeaholic_foodaholic", MkVec(SV::Create("lifeaholic"), SV::Create("foodaholic"), FV::Create(115.430)));
-      answer.emplace("lifeaholic_workaholic", MkVec(SV::Create("lifeaholic"), SV::Create("workaholic"), FV::Create(130.781)));
-      answer.emplace("laughaholic_milkaholic", MkVec(SV::Create("laughaholic"), SV::Create("milkaholic"), FV::Create(41.300)));
-      answer.emplace("laughaholic_foodaholic", MkVec(SV::Create("laughaholic"), SV::Create("foodaholic"), FV::Create(67.900)));
+      answer.emplace("blogaholic_milkaholic",
+          MkVec(SV::Create("blogaholic"), SV::Create("milkaholic"),
+              FV::Create(13.570)));
+      answer.emplace("blogaholic_foodaholic",
+          MkVec(SV::Create("blogaholic"), SV::Create("foodaholic"),
+              FV::Create(22.310)));
+      answer.emplace("blogaholic_workaholic",
+          MkVec(SV::Create("blogaholic"), SV::Create("workaholic"),
+              FV::Create(25.277)));
+      answer.emplace("blogaholic_chocaholic",
+          MkVec(SV::Create("blogaholic"), SV::Create("chocaholic"),
+              FV::Create(21.160)));
+      answer.emplace("blogaholic_lifeaholic",
+          MkVec(SV::Create("blogaholic"), SV::Create("lifeaholic"),
+              FV::Create(27.370)));
+      answer.emplace("blogaholic_laughaholic",
+          MkVec(SV::Create("blogaholic"), SV::Create("laughaholic"),
+              FV::Create(16.100)));
+      answer.emplace("blogaholic_spendaholic",
+          MkVec(SV::Create("blogaholic"), SV::Create("spendaholic"),
+              FV::Create(172.500)));
+      answer.emplace("bookaholic_milkaholic",
+          MkVec(SV::Create("bookaholic"), SV::Create("milkaholic"),
+              FV::Create(20.060)));
+      answer.emplace("bookaholic_foodaholic",
+          MkVec(SV::Create("bookaholic"), SV::Create("foodaholic"),
+              FV::Create(32.980)));
+      answer.emplace("bookaholic_workaholic",
+          MkVec(SV::Create("bookaholic"), SV::Create("workaholic"),
+              FV::Create(37.366)));
+      answer.emplace("bookaholic_chocaholic",
+          MkVec(SV::Create("bookaholic"), SV::Create("chocaholic"),
+              FV::Create(31.280)));
+      answer.emplace("bookaholic_lifeaholic",
+          MkVec(SV::Create("bookaholic"), SV::Create("lifeaholic"),
+              FV::Create(40.460)));
+      answer.emplace("bookaholic_laughaholic",
+          MkVec(SV::Create("bookaholic"), SV::Create("laughaholic"),
+              FV::Create(23.800)));
+      answer.emplace("bookaholic_spendaholic",
+          MkVec(SV::Create("bookaholic"), SV::Create("spendaholic"),
+              FV::Create(255.000)));
+      answer.emplace("alcoholic_milkaholic",
+          MkVec(SV::Create("alcoholic"), SV::Create("milkaholic"),
+              FV::Create(26.550)));
+      answer.emplace("alcoholic_foodaholic",
+          MkVec(SV::Create("alcoholic"), SV::Create("foodaholic"),
+              FV::Create(43.650)));
+      answer.emplace("alcoholic_workaholic",
+          MkVec(SV::Create("alcoholic"), SV::Create("workaholic"),
+              FV::Create(49.455)));
+      answer.emplace("alcoholic_chocaholic",
+          MkVec(SV::Create("alcoholic"), SV::Create("chocaholic"),
+              FV::Create(41.400)));
+      answer.emplace("alcoholic_lifeaholic",
+          MkVec(SV::Create("alcoholic"), SV::Create("lifeaholic"),
+              FV::Create(53.550)));
+      answer.emplace("alcoholic_laughaholic",
+          MkVec(SV::Create("alcoholic"), SV::Create("laughaholic"),
+              FV::Create(31.500)));
+      answer.emplace("alcoholic_spendaholic",
+          MkVec(SV::Create("alcoholic"), SV::Create("spendaholic"),
+              FV::Create(337.500)));
+      answer.emplace("foodaholic_milkaholic",
+          MkVec(SV::Create("foodaholic"), SV::Create("milkaholic"),
+              FV::Create(57.230)));
+      answer.emplace("foodaholic_foodaholic",
+          MkVec(SV::Create("foodaholic"), SV::Create("foodaholic"),
+              FV::Create(94.090)));
+      answer.emplace("foodaholic_workaholic",
+          MkVec(SV::Create("foodaholic"), SV::Create("workaholic"),
+              FV::Create(106.603)));
+      answer.emplace("foodaholic_chocaholic",
+          MkVec(SV::Create("foodaholic"), SV::Create("chocaholic"),
+              FV::Create(89.240)));
+      answer.emplace("foodaholic_lifeaholic",
+          MkVec(SV::Create("foodaholic"), SV::Create("lifeaholic"),
+              FV::Create(115.430)));
+      answer.emplace("foodaholic_laughaholic",
+          MkVec(SV::Create("foodaholic"), SV::Create("laughaholic"),
+              FV::Create(67.900)));
+      answer.emplace("chocaholic_milkaholic",
+          MkVec(SV::Create("chocaholic"), SV::Create("milkaholic"),
+              FV::Create(54.280)));
+      answer.emplace("chocaholic_foodaholic",
+          MkVec(SV::Create("chocaholic"), SV::Create("foodaholic"),
+              FV::Create(89.240)));
+      answer.emplace("chocaholic_workaholic",
+          MkVec(SV::Create("chocaholic"), SV::Create("workaholic"),
+              FV::Create(101.108)));
+      answer.emplace("chocaholic_chocaholic",
+          MkVec(SV::Create("chocaholic"), SV::Create("chocaholic"),
+              FV::Create(84.640)));
+      answer.emplace("lifeaholic_milkaholic",
+          MkVec(SV::Create("lifeaholic"), SV::Create("milkaholic"),
+              FV::Create(70.210)));
+      answer.emplace("lifeaholic_foodaholic",
+          MkVec(SV::Create("lifeaholic"), SV::Create("foodaholic"),
+              FV::Create(115.430)));
+      answer.emplace("lifeaholic_workaholic",
+          MkVec(SV::Create("lifeaholic"), SV::Create("workaholic"),
+              FV::Create(130.781)));
+      answer.emplace("laughaholic_milkaholic",
+          MkVec(SV::Create("laughaholic"), SV::Create("milkaholic"),
+              FV::Create(41.300)));
+      answer.emplace("laughaholic_foodaholic",
+          MkVec(SV::Create("laughaholic"), SV::Create("foodaholic"),
+              FV::Create(67.900)));
 
       for (uint32_t i = 0; i < answer.size(); i++) {
         auto tuple = result.Next();
         EXPECT_TRUE(bool(tuple));
-        EXPECT_TRUE(CheckAns(fmt::format("{}_{}", tuple.ReadString(0), tuple.ReadString(1)), answer, tuple, 3));
+        EXPECT_TRUE(CheckAns(
+            fmt::format("{}_{}", tuple.ReadString(0), tuple.ReadString(1)),
+            answer, tuple, 3));
       }
       EXPECT_FALSE(result.Next());
     }
@@ -184,15 +289,20 @@ TEST(ExecutorJoinTest, JoinTestNum3e3Table2) {
   std::filesystem::remove("__tmp0101");
   auto db = std::make_unique<wing::Instance>("__tmp0101", 0);
   auto NUM = 3e3;
-  // Two countries have 3e3 ports. Ports have three attributes: name, position, cost, time.
-  // Alice wants to find the shortest path from Country A to Country B within the given cost.
-  // But we don't have aggregate operators, so she only lists those paths.
-  // Cost: c_0 * ||position_0 - position_1|| ^ 2 + cost_0 + cost_1
-  // Time: ||position_0 - position_1|| ^ 2 / t_0  + time_0 + time_1
-  wing_testing::RandomTuple<std::string, double, double, double, double, double> tuple_gen(114530, 10, 20, 0.0, 10.0, 0.0, 10.0, 0.0, 10.0, 0.0,
-                                                                                           1000.0, 0.0, 1.0);
-  EXPECT_TRUE(db->Execute("create table countryA(name varchar(20), px float64, py float64, pz float64, cost float64, t float64);").Valid());
-  EXPECT_TRUE(db->Execute("create table countryB(name varchar(20), px float64, py float64, pz float64, cost float64, t float64);").Valid());
+  // Two countries have 3e3 ports. Ports have three attributes: name, position,
+  // cost, time. Alice wants to find the shortest path from Country A to Country
+  // B within the given cost. But we don't have aggregate operators, so she only
+  // lists those paths. Cost: c_0 * ||position_0 - position_1|| ^ 2 + cost_0 +
+  // cost_1 Time: ||position_0 - position_1|| ^ 2 / t_0  + time_0 + time_1
+  wing_testing::RandomTuple<std::string, double, double, double, double, double>
+      tuple_gen(114530, 10, 20, 0.0, 10.0, 0.0, 10.0, 0.0, 10.0, 0.0, 1000.0,
+          0.0, 1.0);
+  EXPECT_TRUE(db->Execute("create table countryA(name varchar(20), px float64, "
+                          "py float64, pz float64, cost float64, t float64);")
+                  .Valid());
+  EXPECT_TRUE(db->Execute("create table countryB(name varchar(20), px float64, "
+                          "py float64, pz float64, cost float64, t float64);")
+                  .Valid());
   auto [stmt_a, data_a] = tuple_gen.GenerateValuesClause(NUM);
   EXPECT_TRUE(db->Execute("insert into countryA " + stmt_a + ";").Valid());
   auto [stmt_b, data_b] = tuple_gen.GenerateValuesClause(NUM);
@@ -200,9 +310,13 @@ TEST(ExecutorJoinTest, JoinTestNum3e3Table2) {
   double c0 = 20, t0 = 5, lim_cost = 700;
   StopWatch sw;
   auto result = db->Execute(
-      fmt::format("select A.name, B.name, ((A.px-B.px)*(A.px-B.px)+(A.py-B.py)*(A.py-B.py)+(A.pz-B.pz)*(A.pz-B.pz)) / {} + A.t + B.t from countryA "
-                  "as A, countryB as B where  ((A.px-B.px)*(A.px-B.px)+(A.py-B.py)*(A.py-B.py)+(A.pz-B.pz)*(A.pz-B.pz)) * {} + A.cost + B.cost < {};",
-                  t0, c0, lim_cost));
+      fmt::format("select A.name, B.name, "
+                  "((A.px-B.px)*(A.px-B.px)+(A.py-B.py)*(A.py-B.py)+(A.pz-B.pz)"
+                  "*(A.pz-B.pz)) / {} + A.t + B.t from countryA "
+                  "as A, countryB as B where  "
+                  "((A.px-B.px)*(A.px-B.px)+(A.py-B.py)*(A.py-B.py)+(A.pz-B.pz)"
+                  "*(A.pz-B.pz)) * {} + A.cost + B.cost < {};",
+          t0, c0, lim_cost));
   DB_INFO("Use: {} s", sw.GetTimeInSeconds());
   EXPECT_TRUE(result.Valid());
   SortedVec<std::string, PVec> answer;
@@ -220,16 +334,25 @@ TEST(ExecutorJoinTest, JoinTestNum3e3Table2) {
       double bpz = data_b.Get(j, 3)->ReadFloat();
       double bc = data_b.Get(j, 4)->ReadFloat();
       double bt = data_b.Get(j, 5)->ReadFloat();
-      if (((apx - bpx) * (apx - bpx) + (apy - bpy) * (apy - bpy) + (apz - bpz) * (apz - bpz)) * c0 + ac + bc < lim_cost) {
+      if (((apx - bpx) * (apx - bpx) + (apy - bpy) * (apy - bpy) +
+              (apz - bpz) * (apz - bpz)) *
+                  c0 +
+              ac + bc <
+          lim_cost) {
         answer.Append(fmt::format("{}_{}", aname, bname),
-                      MkVec(SV::Create(aname), SV::Create(bname),
-                            FV::Create(((apx - bpx) * (apx - bpx) + (apy - bpy) * (apy - bpy) + (apz - bpz) * (apz - bpz)) / t0 + at + bt)));
+            MkVec(SV::Create(aname), SV::Create(bname),
+                FV::Create(
+                    ((apx - bpx) * (apx - bpx) + (apy - bpy) * (apy - bpy) +
+                        (apz - bpz) * (apz - bpz)) /
+                        t0 +
+                    at + bt)));
       }
     }
   }
 
   answer.Sort();
-  CHECK_ALL_ANS(answer, result, fmt::format("{}_{}", tuple.ReadString(0), tuple.ReadString(1)), 3);
+  CHECK_ALL_ANS(answer, result,
+      fmt::format("{}_{}", tuple.ReadString(0), tuple.ReadString(1)), 3);
 
   db = nullptr;
   std::filesystem::remove("__tmp0101");
@@ -240,27 +363,32 @@ TEST(ExecutorJoinTest, JoinTestTable3) {
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0102");
   auto db = std::make_unique<wing::Instance>("__tmp0102", 0);
-  // Two databases have some users and their id, now give the relations between the two user groups, print the corresponding username.
+  // Two databases have some users and their id, now give the relations between
+  // the two user groups, print the corresponding username.
   {
     auto result = db->Execute(
-        "select '1', A.name, B.name from (values('alice', 2)) as A(name, id), (values('bob', 3)) as B(name, id), (values(2, 3), (2, 4), (1, 3)) as "
+        "select '1', A.name, B.name from (values('alice', 2)) as A(name, id), "
+        "(values('bob', 3)) as B(name, id), (values(2, 3), (2, 4), (1, 3)) as "
         "AB(ida, idb) where "
         "A.id = AB.ida and AB.idb = B.id;");
     EXPECT_TRUE(result.Valid());
     AnsMap<std::string> answer;
-    answer.emplace("1", MkVec(SV::Create("1"), SV::Create("alice"), SV::Create("bob")));
+    answer.emplace(
+        "1", MkVec(SV::Create("1"), SV::Create("alice"), SV::Create("bob")));
     CHECK_ALL_ANS(answer, result, tuple.ReadString(0), 3);
   }
 
   // Shuffle the tables.
   {
     auto result = db->Execute(
-        "select '1', A.name, B.name from (values('alice', 2)) as A(name, id),  (values(2, 3), (2, 4), (1, 3)) as AB(ida, idb), (values('bob', 3)) as "
+        "select '1', A.name, B.name from (values('alice', 2)) as A(name, id),  "
+        "(values(2, 3), (2, 4), (1, 3)) as AB(ida, idb), (values('bob', 3)) as "
         "B(name, id) where "
         "A.id = AB.ida and AB.idb = B.id;");
     EXPECT_TRUE(result.Valid());
     AnsMap<std::string> answer;
-    answer.emplace("1", MkVec(SV::Create("1"), SV::Create("alice"), SV::Create("bob")));
+    answer.emplace(
+        "1", MkVec(SV::Create("1"), SV::Create("alice"), SV::Create("bob")));
     CHECK_ALL_ANS(answer, result, tuple.ReadString(0), 3);
   }
 
@@ -278,46 +406,63 @@ TEST(ExecutorJoinTest, JoinTestTable3) {
     EXPECT_TRUE(db->Execute("insert into dupB values(100000);").Valid());
     ResultSet result;
     StopWatch sw;
-    EXPECT_TRUE(test_timeout([&]() { result = db->Execute("select * from dupA as A join dupB as B on A.a = B.a + 10;"); }, 5000));
+    EXPECT_TRUE(test_timeout(
+        [&]() {
+          result = db->Execute(
+              "select * from dupA as A join dupB as B on A.a = B.a + 10;");
+        },
+        5000));
     DB_INFO("Use: {} s", sw.GetTimeInSeconds());
   }
 
   // Suppose there are two groups of users.
   // Print the user pairs that have similar values.
   {
-    EXPECT_TRUE(db->Execute("create table userA(name varchar(5), id int32 auto_increment primary key, value int32);").Valid());
-    EXPECT_TRUE(db->Execute("create table userB(name varchar(5), id int32 auto_increment primary key, value int32);").Valid());
-    EXPECT_TRUE(db->Execute("create table relation(id int32 auto_increment primary key, ida int32 foreign key references userA(id), idb int32 "
-                            "foreign key references userB(id));")
+    EXPECT_TRUE(db->Execute("create table userA(name varchar(5), id int32 "
+                            "auto_increment primary key, value int32);")
                     .Valid());
+    EXPECT_TRUE(db->Execute("create table userB(name varchar(5), id int32 "
+                            "auto_increment primary key, value int32);")
+                    .Valid());
+    EXPECT_TRUE(
+        db->Execute(
+              "create table relation(id int32 auto_increment primary key, ida "
+              "int32 foreign key references userA(id), idb int32 "
+              "foreign key references userB(id));")
+            .Valid());
     int v0 = 20;
-    wing_testing::RandomTuple<std::string, int32_t, int32_t> tuple_gen(114900, 2, 5, 0, 0, -50, 50);
+    wing_testing::RandomTuple<std::string, int32_t, int32_t> tuple_gen(
+        114900, 2, 5, 0, 0, -50, 50);
     int NUM = 3e5, SNUM = NUM * 3;
     auto [stmt_a, data_a] = tuple_gen.GenerateValuesClause(NUM);
     EXPECT_TRUE(db->Execute("insert into userA " + stmt_a + ";").Valid());
     auto [stmt_b, data_b] = tuple_gen.GenerateValuesClause(NUM);
     EXPECT_TRUE(db->Execute("insert into userB " + stmt_b + ";").Valid());
-    wing_testing::RandomTuple<int32_t, int32_t, int32_t> tuple_gen_rel(114901, 0, 0, 1, NUM, 1, NUM);
+    wing_testing::RandomTuple<int32_t, int32_t, int32_t> tuple_gen_rel(
+        114901, 0, 0, 1, NUM, 1, NUM);
     auto [stmt_r, data_r] = tuple_gen_rel.GenerateValuesClause(SNUM);
     EXPECT_TRUE(db->Execute("insert into relation " + stmt_r + ";").Valid());
     ResultSet result;
     StopWatch sw;
     EXPECT_TRUE(test_timeout(
         [&]() {
-          result = db->Execute(
-              fmt::format("select R.id, A.name, B.name from userA as A join relation as R on A.id = R.ida join userB as B on B.id = R.idb where "
-                          "A.value - B.value < {} and A.value - B.value > {};",
-                          v0, -v0));
+          result = db->Execute(fmt::format(
+              "select R.id, A.name, B.name from userA as A join relation as R "
+              "on A.id = R.ida join userB as B on B.id = R.idb where "
+              "A.value - B.value < {} and A.value - B.value > {};",
+              v0, -v0));
         },
         5000));
     DB_INFO("Use: {} s", sw.GetTimeInSeconds());
     SortedVec<uint32_t, PVec> A;
     SortedVec<uint32_t, PVec> B;
     for (int i = 0; i < NUM; i++) {
-      A.Append(i + 1, MkVec(SV::Create(data_a.Get(i, 0)->ReadString()), IV::Create(data_a.Get(i, 2)->ReadInt())));
+      A.Append(i + 1, MkVec(SV::Create(data_a.Get(i, 0)->ReadString()),
+                          IV::Create(data_a.Get(i, 2)->ReadInt())));
     }
     for (int i = 0; i < NUM; i++) {
-      B.Append(i + 1, MkVec(SV::Create(data_b.Get(i, 0)->ReadString()), IV::Create(data_b.Get(i, 2)->ReadInt())));
+      B.Append(i + 1, MkVec(SV::Create(data_b.Get(i, 0)->ReadString()),
+                          IV::Create(data_b.Get(i, 2)->ReadInt())));
     }
     HashAnsMap<uint32_t> answer;
     for (int i = 0; i < SNUM; i++) {
@@ -325,9 +470,12 @@ TEST(ExecutorJoinTest, JoinTestTable3) {
       auto y = data_r.Get(i, 2)->ReadInt();
       auto ap = A.find(x);
       auto bp = B.find(y);
-      if (!ap || !bp) continue;
+      if (!ap || !bp)
+        continue;
       if (abs((*ap)[1]->ReadInt() - (*bp)[1]->ReadInt()) < v0) {
-        answer.emplace(i + 1, MkVec(IV::Create(i + 1), SV::Create((*ap)[0]->ReadString()), SV::Create((*bp)[0]->ReadString())));
+        answer.emplace(
+            i + 1, MkVec(IV::Create(i + 1), SV::Create((*ap)[0]->ReadString()),
+                       SV::Create((*bp)[0]->ReadString())));
       }
     }
     DB_INFO("{}", answer.size());
@@ -345,13 +493,20 @@ TEST(ExecutorJoinTest, JoinTestTableN) {
   auto db = std::make_unique<wing::Instance>("__tmp0106", 0);
   {
     auto result = db->Execute(
-        "select * from (values('2', '3'), ('x', 'y')) A(a, b), (values('3', '4'), ('x', 'y')) B(a, b), (values('4', '5'), ('x', 'y')) C(a, b), "
-        "(values('5', '6'), ('x', 'y')) D(a, b), (values('6', '7'), ('x', 'y')) E(a, b), (values('7', '8'), ('x', 'y')) F(a, b), (values('8', '9'), "
-        "('x', 'y')) G(a, b) where A.b = B.a and B.b = C.a and C.b = D.a and D.b = E.a and E.b = F.a and F.b = G.a;");
+        "select * from (values('2', '3'), ('x', 'y')) A(a, b), (values('3', "
+        "'4'), ('x', 'y')) B(a, b), (values('4', '5'), ('x', 'y')) C(a, b), "
+        "(values('5', '6'), ('x', 'y')) D(a, b), (values('6', '7'), ('x', "
+        "'y')) E(a, b), (values('7', '8'), ('x', 'y')) F(a, b), (values('8', "
+        "'9'), "
+        "('x', 'y')) G(a, b) where A.b = B.a and B.b = C.a and C.b = D.a and "
+        "D.b = E.a and E.b = F.a and F.b = G.a;");
     EXPECT_TRUE(result.Valid());
     AnsMap<uint32_t> answer;
-    answer.emplace(0, MkVec(SV::Create("2"), SV::Create("3"), SV::Create("3"), SV::Create("4"), SV::Create("4"), SV::Create("5"), SV::Create("5"),
-                            SV::Create("6"), SV::Create("6"), SV::Create("7"), SV::Create("7"), SV::Create("8"), SV::Create("8"), SV::Create("9")));
+    answer.emplace(0,
+        MkVec(SV::Create("2"), SV::Create("3"), SV::Create("3"),
+            SV::Create("4"), SV::Create("4"), SV::Create("5"), SV::Create("5"),
+            SV::Create("6"), SV::Create("6"), SV::Create("7"), SV::Create("7"),
+            SV::Create("8"), SV::Create("8"), SV::Create("9")));
     CHECK_ALL_ANS(answer, result, 0, 1);
   }
 
@@ -360,8 +515,8 @@ TEST(ExecutorJoinTest, JoinTestTableN) {
   // AB: B follows A;
   // BC: C follows B;
   // CD: D is an employee in C's company;
-  // DE: D and E are in the one group. (group is calculated by group_num / 5 ^ group_num)
-  // We want to query 5 people that satisfy the relations.
+  // DE: D and E are in the one group. (group is calculated by group_num / 5 ^
+  // group_num) We want to query 5 people that satisfy the relations.
   {
     // clang-format off
     EXPECT_TRUE(db->Execute("create table A(name varchar(5), id int32 auto_increment primary key, magic_string varchar(20));").Valid());
@@ -380,7 +535,8 @@ TEST(ExecutorJoinTest, JoinTestTableN) {
     int FNUM = 6000;  // FollowsAB, FollowsBC size
     int CNUM = 80;    // Company number.
     int CONUM = 200;  // Company owner number.
-    RandomTuple<std::string, int32_t, std::string> tuple_gen(118900, 5, 5, 0, 0, 15, 20);
+    RandomTuple<std::string, int32_t, std::string> tuple_gen(
+        118900, 5, 5, 0, 0, 15, 20);
     auto [stmt_a, data_a] = tuple_gen.GenerateValuesClause(NUM);
     EXPECT_TRUE(db->Execute("insert into A " + stmt_a + ";").Valid());
     auto [stmt_b, data_b] = tuple_gen.GenerateValuesClause(NUM);
@@ -388,7 +544,8 @@ TEST(ExecutorJoinTest, JoinTestTableN) {
     auto [stmt_c, data_c] = tuple_gen.GenerateValuesClause(NUM);
     EXPECT_TRUE(db->Execute("insert into C " + stmt_c + ";").Valid());
 
-    RandomTuple<std::string, int32_t, std::string, int32_t> tuple_gen2(118901, 5, 5, 0, 0, 15, 20, 0, 100000);
+    RandomTuple<std::string, int32_t, std::string, int32_t> tuple_gen2(
+        118901, 5, 5, 0, 0, 15, 20, 0, 100000);
     auto [stmt_d, data_d] = tuple_gen2.GenerateValuesClause(DNUM);
     EXPECT_TRUE(db->Execute("insert into D " + stmt_d + ";").Valid());
     auto [stmt_e, data_e] = tuple_gen2.GenerateValuesClause(DNUM);
@@ -398,17 +555,21 @@ TEST(ExecutorJoinTest, JoinTestTableN) {
     auto [stmt_com, data_com] = tuple_com.GenerateValuesClause(CNUM);
     EXPECT_TRUE(db->Execute("insert into Company " + stmt_com + ";").Valid());
 
-    RandomTuple<int32_t, int32_t, int32_t> tuple_com_c(119456, 0, 0, 1, NUM, 1, CNUM);
+    RandomTuple<int32_t, int32_t, int32_t> tuple_com_c(
+        119456, 0, 0, 1, NUM, 1, CNUM);
     auto [stmt_comown, data_comown] = tuple_com_c.GenerateValuesClause(CONUM);
-    EXPECT_TRUE(db->Execute("insert into CompanyC " + stmt_comown + ";").Valid());
+    EXPECT_TRUE(
+        db->Execute("insert into CompanyC " + stmt_comown + ";").Valid());
 
-    RandomTuple<int32_t, int32_t, int32_t> tuple_emp(119888, 0, 0, 1, CNUM, 1, DNUM);
+    RandomTuple<int32_t, int32_t, int32_t> tuple_emp(
+        119888, 0, 0, 1, CNUM, 1, DNUM);
     auto [stmt_emp, data_emp] = tuple_emp.GenerateValuesClause(DNUM);
     EXPECT_TRUE(db->Execute("insert into Employees " + stmt_emp + ";").Valid());
 
     std::vector<std::pair<int, int>> R;
     for (int i = 1; i <= NUM; i++)
-      for (int j = 1; j <= NUM; j++) R.emplace_back(i, j);
+      for (int j = 1; j <= NUM; j++)
+        R.emplace_back(i, j);
     std::shuffle(R.begin(), R.end(), std::mt19937_64(119000));
     auto rel_AB = std::vector<std::pair<int, int>>(R.begin(), R.begin() + FNUM);
     {
@@ -475,7 +636,8 @@ TEST(ExecutorJoinTest, JoinTestTableN) {
     }
 
     int ssz = 0;
-    while (result.Next()) ssz++;
+    while (result.Next())
+      ssz++;
     EXPECT_EQ(sz, ssz);
   }
   db = nullptr;
@@ -488,57 +650,66 @@ TEST(ExecutorAggregateTest, SmallAggregateTest) {
   std::filesystem::remove("__tmp0103");
   auto db = std::make_unique<wing::Instance>("__tmp0103", 0);
   {
-    auto result =
-        db->Execute("select sum(a), max(a), count(a), count(*), count(1), min(a), avg(a) from (values(114514),(1919810),(111222333)) as A(a);");
+    auto result = db->Execute(
+        "select sum(a), max(a), count(a), count(*), count(1), min(a), avg(a) "
+        "from (values(114514),(1919810),(111222333)) as A(a);");
     AnsMap<uint32_t> answer;
-    answer.emplace(3, MkVec(IV::Create(113256657), IV::Create(111222333), IV::Create(3), IV::Create(3), IV::Create(3), IV::Create(114514),
-                            FV::Create(37752219)));
+    answer.emplace(3, MkVec(IV::Create(113256657), IV::Create(111222333),
+                          IV::Create(3), IV::Create(3), IV::Create(3),
+                          IV::Create(114514), FV::Create(37752219)));
     CHECK_ALL_ANS(answer, result, tuple.ReadInt(2), 7);
   }
   {
-    auto result = db->Execute("select sum(a) + sum(b), avg(a) * count(a) + avg(b) * count(b) from (values(2, 3), (4, 5), (6, 7), (8, 9)) A(a, b);");
+    auto result = db->Execute(
+        "select sum(a) + sum(b), avg(a) * count(a) + avg(b) * count(b) from "
+        "(values(2, 3), (4, 5), (6, 7), (8, 9)) A(a, b);");
     AnsMap<uint32_t> answer;
     answer.emplace(0, MkVec(IV::Create(44), FV::Create(44)));
     CHECK_ALL_ANS(answer, result, 0, 2);
   }
   // Now, we don't support NULL.
   // {
-  //   // Should return null, but this is not implemented now. So we only test the number of result tuples.
-  //   auto result = db->Execute("select sum(a) from (select 1 where 0) A(a);");
+  //   // Should return null, but this is not implemented now. So we only test
+  //   the number of result tuples. auto result = db->Execute("select sum(a)
+  //   from (select 1 where 0) A(a);"); EXPECT_TRUE(result.Valid());
+  //   EXPECT_TRUE(bool(result.Next()));
+  //   EXPECT_FALSE(result.Next());
+  // }
+  // {
+  //   // Should return null, but this is not implemented now. So we only test
+  //   the number of result tuples. auto result = db->Execute("select * from
+  //   (select sum(a) from (select 1 where 0) A(a));");
   //   EXPECT_TRUE(result.Valid());
   //   EXPECT_TRUE(bool(result.Next()));
   //   EXPECT_FALSE(result.Next());
   // }
   // {
-  //   // Should return null, but this is not implemented now. So we only test the number of result tuples.
-  //   auto result = db->Execute("select * from (select sum(a) from (select 1 where 0) A(a));");
-  //   EXPECT_TRUE(result.Valid());
-  //   EXPECT_TRUE(bool(result.Next()));
-  //   EXPECT_FALSE(result.Next());
-  // }
-  // {
-  //   auto result = db->Execute("select count(*) from (select 1 where 1 < 0) A(a);");
-  //   EXPECT_TRUE(result.Valid());
-  //   AnsMap<uint32_t> answer;
+  //   auto result = db->Execute("select count(*) from (select 1 where 1 < 0)
+  //   A(a);"); EXPECT_TRUE(result.Valid()); AnsMap<uint32_t> answer;
   //   answer.emplace(0, MkVec(IV::Create(0)));
   //   CHECK_ALL_ANS(answer, result, 0, 1);
   // }
   {
-    auto result = db->Execute("select sum(a) from (select 1 where 1) A(a) group by a;");
+    auto result =
+        db->Execute("select sum(a) from (select 1 where 1) A(a) group by a;");
     EXPECT_TRUE(result.Valid());
     AnsMap<uint32_t> answer;
     answer.emplace(0, MkVec(IV::Create(1)));
     CHECK_ALL_ANS(answer, result, 0, 1);
   }
   {
-    auto result = db->Execute("select sum(b) from (select 1 + a * a from (values(2), (3), (4)) V(a) where 1) A(b);");
+    auto result = db->Execute(
+        "select sum(b) from (select 1 + a * a from (values(2), (3), (4)) V(a) "
+        "where 1) A(b);");
     EXPECT_TRUE(result.Valid());
     AnsMap<uint32_t> answer;
     answer.emplace(0, MkVec(IV::Create(32)));
     CHECK_ALL_ANS(answer, result, 0, 1);
   }
   {
-    auto result = db->Execute("select a % 2, sum(b) from (select a, 1 + a * a from (values(2), (3), (4)) V(a) where 1) A(a, b) group by a % 2;");
+    auto result = db->Execute(
+        "select a % 2, sum(b) from (select a, 1 + a * a from (values(2), (3), "
+        "(4)) V(a) where 1) A(a, b) group by a % 2;");
     EXPECT_TRUE(result.Valid());
     AnsMap<uint32_t> answer;
     answer.emplace(0, MkVec(IV::Create(0), IV::Create(22)));
@@ -547,23 +718,29 @@ TEST(ExecutorAggregateTest, SmallAggregateTest) {
   }
   {
     auto result = db->Execute(
-        "select a % 2, sum(b) from (select a, 1 + a * a from (values(2), (3), (4)) V(a) where 1) A(a, b) group by a % 2 having sum(b) < 22;");
+        "select a % 2, sum(b) from (select a, 1 + a * a from (values(2), (3), "
+        "(4)) V(a) where 1) A(a, b) group by a % 2 having sum(b) < 22;");
     EXPECT_TRUE(result.Valid());
     AnsMap<uint32_t> answer;
     answer.emplace(0, MkVec(IV::Create(1), IV::Create(10)));
     CHECK_ALL_ANS(answer, result, 0, 2);
   }
   {
-    auto result = db->Execute("select a, b from (values('a', 'b'), ('a', 'c'), ('b', 'a')) A(a, b) group by b, a;");
+    auto result = db->Execute(
+        "select a, b from (values('a', 'b'), ('a', 'c'), ('b', 'a')) A(a, b) "
+        "group by b, a;");
     EXPECT_TRUE(result.Valid());
     AnsMap<std::string> answer;
     answer.emplace("a_b", PVec());
     answer.emplace("b_a", PVec());
     answer.emplace("a_c", PVec());
-    CHECK_ALL_ANS(answer, result, fmt::format("{}_{}", tuple.ReadString(0), tuple.ReadString(1)), 0);
+    CHECK_ALL_ANS(answer, result,
+        fmt::format("{}_{}", tuple.ReadString(0), tuple.ReadString(1)), 0);
   }
   {
-    auto result = db->Execute("select a <= 'a' from (values('a', 'b'), ('a', 'c'), ('b', 'a')) A(a, b) group by a <= 'a', 'm';");
+    auto result = db->Execute(
+        "select a <= 'a' from (values('a', 'b'), ('a', 'c'), ('b', 'a')) A(a, "
+        "b) group by a <= 'a', 'm';");
     EXPECT_TRUE(result.Valid());
     AnsMap<uint32_t> answer;
     answer.emplace(0, PVec());
@@ -571,7 +748,9 @@ TEST(ExecutorAggregateTest, SmallAggregateTest) {
     CHECK_ALL_ANS(answer, result, tuple.ReadInt(0), 0);
   }
   {
-    auto result = db->Execute("select a <= 'a' from (values('a', 'b'), ('a', 'c'), ('b', 'a')) A(a, b) group by 1, a <= 'a', 0;");
+    auto result = db->Execute(
+        "select a <= 'a' from (values('a', 'b'), ('a', 'c'), ('b', 'a')) A(a, "
+        "b) group by 1, a <= 'a', 0;");
     EXPECT_TRUE(result.Valid());
     AnsMap<uint32_t> answer;
     answer.emplace(0, PVec());
@@ -579,7 +758,9 @@ TEST(ExecutorAggregateTest, SmallAggregateTest) {
     CHECK_ALL_ANS(answer, result, tuple.ReadInt(0), 0);
   }
   {
-    auto result = db->Execute("select a < 'a' from (values('a', 'b'), ('a', 'c'), ('b', 'a')) A(a, b) group by a <= 'a', 'm';");
+    auto result = db->Execute(
+        "select a < 'a' from (values('a', 'b'), ('a', 'c'), ('b', 'a')) A(a, "
+        "b) group by a <= 'a', 'm';");
     EXPECT_TRUE(result.Valid());
     AnsVec answer;
     answer.emplace_back(MkVec(IV::Create(0)));
@@ -587,42 +768,75 @@ TEST(ExecutorAggregateTest, SmallAggregateTest) {
     CHECK_ALL_SORTED_ANS(answer, result, 1);
   }
   {
-    EXPECT_TRUE(db->Execute("create table FlightRecord(date varchar(20), height float64, score float64, card varchar(2), user_id int32);").Valid());
-    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-1\', 1.0, 10.0, \'x\', 1);").Valid());
-    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-2\', 10.0, 30.0, \'w\', 1);").Valid());
-    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-4\', 101.0, 40.0, \'f\', 1);").Valid());
-    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-3\', 4.0, 9.0, \'w\', 1);").Valid());
-    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-5\', 76.0, 59.0, \'f\', 1);").Valid());
-    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-3\', 100.0, 70.0, \'w\', 1);").Valid());
-    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-5\', 32.0, 59.0, \'p\', 1);").Valid());
-    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-4\', 85.0, 90.0, \'p\', 1);").Valid());
-    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-5\', 12.0, 50.0, \'p\', 1);").Valid());
-    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-10\', 90.0, 61.0, \'x\', 1);").Valid());
+    EXPECT_TRUE(
+        db->Execute("create table FlightRecord(date varchar(20), height "
+                    "float64, score float64, card varchar(2), user_id int32);")
+            .Valid());
+    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-1\', "
+                            "1.0, 10.0, \'x\', 1);")
+                    .Valid());
+    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-2\', "
+                            "10.0, 30.0, \'w\', 1);")
+                    .Valid());
+    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-4\', "
+                            "101.0, 40.0, \'f\', 1);")
+                    .Valid());
+    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-3\', "
+                            "4.0, 9.0, \'w\', 1);")
+                    .Valid());
+    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-5\', "
+                            "76.0, 59.0, \'f\', 1);")
+                    .Valid());
+    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-3\', "
+                            "100.0, 70.0, \'w\', 1);")
+                    .Valid());
+    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-5\', "
+                            "32.0, 59.0, \'p\', 1);")
+                    .Valid());
+    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-4\', "
+                            "85.0, 90.0, \'p\', 1);")
+                    .Valid());
+    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-5\', "
+                            "12.0, 50.0, \'p\', 1);")
+                    .Valid());
+    EXPECT_TRUE(db->Execute("insert into FlightRecord values(\'2022-3-10\', "
+                            "90.0, 61.0, \'x\', 1);")
+                    .Valid());
     {
-      auto result = db->Execute("select avg(score) from FlightRecord where height > 50;");
+      auto result =
+          db->Execute("select avg(score) from FlightRecord where height > 50;");
       AnsMap<uint32_t> answer;
       answer.emplace(0, MkVec(FV::Create(320.0 / 5)));
       CHECK_ALL_ANS(answer, result, 0, 1);
     }
     {
-      auto result = db->Execute("select date, avg(score) from FlightRecord group by date having avg(score) > 60;");
+      auto result = db->Execute(
+          "select date, avg(score) from FlightRecord group by date having "
+          "avg(score) > 60;");
       AnsMap<std::string> answer;
-      answer.emplace("2022-3-10", MkVec(SV::Create("2022-3-10"), FV::Create(61)));
+      answer.emplace(
+          "2022-3-10", MkVec(SV::Create("2022-3-10"), FV::Create(61)));
       answer.emplace("2022-3-4", MkVec(SV::Create("2022-3-4"), FV::Create(65)));
       CHECK_ALL_ANS(answer, result, tuple.ReadString(0), 2);
     }
     {
-      auto result = db->Execute("select date, max(score) from FlightRecord where card = 'p' group by date;");
+      auto result = db->Execute(
+          "select date, max(score) from FlightRecord where card = 'p' group by "
+          "date;");
       AnsMap<std::string> answer;
       answer.emplace("2022-3-5", MkVec(SV::Create("2022-3-5"), FV::Create(59)));
       answer.emplace("2022-3-4", MkVec(SV::Create("2022-3-4"), FV::Create(90)));
       CHECK_ALL_ANS(answer, result, tuple.ReadString(0), 2);
     }
     {
-      auto result = db->Execute("select * from (select avg(score), date, card from FlightRecord group by date, card) where card = 'p';");
+      auto result = db->Execute(
+          "select * from (select avg(score), date, card from FlightRecord "
+          "group by date, card) where card = 'p';");
       AnsMap<std::string> answer;
-      answer.emplace("2022-3-5", MkVec(FV::Create(109 / 2.), SV::Create("2022-3-5"), SV::Create("p")));
-      answer.emplace("2022-3-4", MkVec(FV::Create(90), SV::Create("2022-3-4"), SV::Create("p")));
+      answer.emplace("2022-3-5",
+          MkVec(FV::Create(109 / 2.), SV::Create("2022-3-5"), SV::Create("p")));
+      answer.emplace("2022-3-4",
+          MkVec(FV::Create(90), SV::Create("2022-3-4"), SV::Create("p")));
       CHECK_ALL_ANS(answer, result, tuple.ReadString(1), 3);
     }
   }
@@ -636,22 +850,30 @@ TEST(ExecutorAggregateTest, PolyAggregateTest) {
   std::filesystem::remove("__tmp0104");
   auto db = std::make_unique<wing::Instance>("__tmp0104", 0);
   // Now we can use our executors to calculate polynomial multiplication!
-  // We want to calculate A * B * B, where A is of degree 3000, B is of degree 4000.
+  // We want to calculate A * B * B, where A is of degree 3000, B is of degree
+  // 4000.
   {
-    EXPECT_TRUE(db->Execute("create table PolyA(id int64 primary key, a0 int64);").Valid());
-    EXPECT_TRUE(db->Execute("create table PolyB(id int64 primary key, a0 int64);").Valid());
+    EXPECT_TRUE(
+        db->Execute("create table PolyA(id int64 primary key, a0 int64);")
+            .Valid());
+    EXPECT_TRUE(
+        db->Execute("create table PolyB(id int64 primary key, a0 int64);")
+            .Valid());
     int L = 3000, R = 4000;
     int* A = new int[L];
     int* B = new int[R];
     std::mt19937_64 gen(114600);
     std::uniform_int_distribution<> dis(-1000, 1000);
-    for (int i = 0; i < L; i++) A[i] = dis(gen);
-    for (int i = 0; i < R; i++) B[i] = dis(gen);
+    for (int i = 0; i < L; i++)
+      A[i] = dis(gen);
+    for (int i = 0; i < R; i++)
+      B[i] = dis(gen);
     {
       std::string stmt = "insert into PolyA values ";
       for (int i = 0; i < L; i++) {
         stmt += fmt::format("({}, {})", i, A[i]);
-        if (i != L - 1) stmt += ",";
+        if (i != L - 1)
+          stmt += ",";
       }
       stmt += ";";
       EXPECT_TRUE(db->Execute(stmt).Valid());
@@ -660,7 +882,8 @@ TEST(ExecutorAggregateTest, PolyAggregateTest) {
       std::string stmt = "insert into PolyB values ";
       for (int i = 0; i < R; i++) {
         stmt += fmt::format("({}, {})", i, B[i]);
-        if (i != R - 1) stmt += ",";
+        if (i != R - 1)
+          stmt += ",";
       }
       stmt += ";";
       EXPECT_TRUE(db->Execute(stmt).Valid());
@@ -682,8 +905,11 @@ TEST(ExecutorAggregateTest, PolyAggregateTest) {
       EXPECT_TRUE(test_timeout(
           [&]() {
             result = db->Execute(
-                "select id2, sum(val2) from (select C.id + B.id, C.val * B.a0 from PolyB as B, (select id, sum(val) from (select A.id + B.id, A.a0 * "
-                "B.a0 from PolyA as A, PolyB as B) _(id, val) group by id) C(id, val)) _(id2, val2) group by id2;");
+                "select id2, sum(val2) from (select C.id + B.id, C.val * B.a0 "
+                "from PolyB as B, (select id, sum(val) from (select A.id + "
+                "B.id, A.a0 * "
+                "B.a0 from PolyA as A, PolyB as B) _(id, val) group by id) "
+                "C(id, val)) _(id2, val2) group by id2;");
           },
           10000));
       DB_INFO("Use: {} s", sw.GetTimeInSeconds());
@@ -713,8 +939,12 @@ TEST(ExecutorAggregateTest, StringAggregateTest) {
   std::filesystem::remove("__tmp0105");
   auto db = std::make_unique<wing::Instance>("__tmp0105", 0);
   {
-    EXPECT_TRUE(db->Execute("create table strA(name varchar(2), value float64);").Valid());
-    EXPECT_TRUE(db->Execute("create table strB(name varchar(2), value float64);").Valid());
+    EXPECT_TRUE(
+        db->Execute("create table strA(name varchar(2), value float64);")
+            .Valid());
+    EXPECT_TRUE(
+        db->Execute("create table strB(name varchar(2), value float64);")
+            .Valid());
     RandomTuple<std::string, double> tuple_gen(1919810, 2, 2, 0.0, 1.0);
     int NUM = 2e5;
     auto [stmt_a, data_a] = tuple_gen.GenerateValuesClause(NUM);
@@ -727,16 +957,21 @@ TEST(ExecutorAggregateTest, StringAggregateTest) {
     EXPECT_TRUE(test_timeout(
         [&]() {
           result = db->Execute(
-              "select name, sum(value), max(value) / (min(value) + 1.) from (select strA.name, strA.value * strB.value + 0.75 as value from strA, "
-              "strB where strA.name = strB.name) group by strA.name having sum(value) < 6e3 and sum(value) > 4e3;");
+              "select name, sum(value), max(value) / (min(value) + 1.) from "
+              "(select strA.name, strA.value * strB.value + 0.75 as value from "
+              "strA, "
+              "strB where strA.name = strB.name) group by strA.name having "
+              "sum(value) < 6e3 and sum(value) > 4e3;");
         },
         5000));
     DB_INFO("Use: {} s", sw.GetTimeInSeconds());
     EXPECT_TRUE(result.Valid());
     std::unordered_map<std::string, std::vector<double>> A, B;
     for (int i = 0; i < NUM; i++) {
-      A[std::string(data_a.Get(i, 0)->ReadString())].push_back(data_a.Get(i, 1)->ReadFloat());
-      B[std::string(data_b.Get(i, 0)->ReadString())].push_back(data_b.Get(i, 1)->ReadFloat());
+      A[std::string(data_a.Get(i, 0)->ReadString())].push_back(
+          data_a.Get(i, 1)->ReadFloat());
+      B[std::string(data_b.Get(i, 0)->ReadString())].push_back(
+          data_b.Get(i, 1)->ReadFloat());
     }
     HashAnsMap<std::string> answer;
     for (auto& [key, va] : A) {
@@ -750,7 +985,8 @@ TEST(ExecutorAggregateTest, StringAggregateTest) {
           vmn = std::min(vmn, vc);
         }
       if (vsum > 4e3 && vsum < 6e3) {
-        answer.emplace(key, MkVec(SV::Create(key), FV::Create(vsum), FV::Create(vmx / (vmn + 1))));
+        answer.emplace(key, MkVec(SV::Create(key), FV::Create(vsum),
+                                FV::Create(vmx / (vmn + 1))));
       }
     }
     DB_INFO("{}", answer.size());
@@ -772,7 +1008,9 @@ TEST(ExecutorOrderByTest, SmallTest) {
     AnsVec answer;
     for (int i = 1; i <= 3; i++)
       for (int j = 3; j >= 1; --j)
-        for (int k = 1; k <= 3; k++) answer.emplace_back(MkVec(IV::Create(i), IV::Create(j), IV::Create(k)));
+        for (int k = 1; k <= 3; k++)
+          answer.emplace_back(
+              MkVec(IV::Create(i), IV::Create(j), IV::Create(k)));
     CHECK_ALL_SORTED_ANS(answer, result, 3);
   }
   {
@@ -782,12 +1020,15 @@ TEST(ExecutorOrderByTest, SmallTest) {
     AnsVec answer;
     for (int i = 1; i <= 3; i++)
       for (int k = 3; k >= 1; k--)
-        for (char j = 'a'; j <= 'd'; ++j) answer.emplace_back(MkVec(IV::Create(i), SV::Create(std::string(&j, 1)), IV::Create(k)));
+        for (char j = 'a'; j <= 'd'; ++j)
+          answer.emplace_back(MkVec(
+              IV::Create(i), SV::Create(std::string(&j, 1)), IV::Create(k)));
     CHECK_ALL_SORTED_ANS(answer, result, 3);
   }
   // empty query
   {
-    auto result = db->Execute("select * from (select 1 where 1 < 0) _(a) order by a asc;");
+    auto result = db->Execute(
+        "select * from (select 1 where 1 < 0) _(a) order by a asc;");
     EXPECT_TRUE(result.Valid());
     EXPECT_FALSE(result.Next());
   }
@@ -802,7 +1043,8 @@ TEST(ExecuteLimitTest, SmallTest) {
   auto db = std::make_unique<wing::Instance>("__tmp0108", 0);
   // empty query
   {
-    auto result = db->Execute("select * from (select 1 where 1 < 0) _(a) order by a asc limit 10;");
+    auto result = db->Execute(
+        "select * from (select 1 where 1 < 0) _(a) order by a asc limit 10;");
     EXPECT_TRUE(result.Valid());
     EXPECT_FALSE(result.Next());
   }
@@ -822,7 +1064,8 @@ TEST(ExecuteLimitTest, SmallTest) {
     // clang-format on
     EXPECT_TRUE(result.Valid());
     AnsVec answer;
-    for (int i = 2; i <= 4; i++) answer.emplace_back(MkVec(IV::Create(i)));
+    for (int i = 2; i <= 4; i++)
+      answer.emplace_back(MkVec(IV::Create(i)));
     CHECK_ALL_SORTED_ANS(answer, result, 1);
   }
   db = nullptr;
@@ -850,7 +1093,9 @@ TEST(ExecuteDistinctTest, SmallTest) {
     AnsVec answer;
     for (int i = 1; i <= 1; i++)
       for (int j = 3; j >= 1; --j)
-        for (int k = 1; k <= 3; k++) answer.emplace_back(MkVec(IV::Create(1), IV::Create(j), IV::Create(k)));
+        for (int k = 1; k <= 3; k++)
+          answer.emplace_back(
+              MkVec(IV::Create(1), IV::Create(j), IV::Create(k)));
     CHECK_ALL_SORTED_ANS(answer, result, 3);
   }
   {
@@ -888,7 +1133,8 @@ TEST(ExecuteAllTest, OJContestTest) {
   auto [stmt_q, data_q] = tuple_gen.GenerateValuesClause(QNUM);
   EXPECT_TRUE(db->Execute("insert into Question " + stmt_q + ";").Valid());
   // In OI, the full score is 100.
-  RandomTuple<int32_t, int32_t, int32_t, int32_t> tuple_gen2(202303040123, 0, 0, 1, CNUM, 1, QNUM, 0, 100);
+  RandomTuple<int32_t, int32_t, int32_t, int32_t> tuple_gen2(
+      202303040123, 0, 0, 1, CNUM, 1, QNUM, 0, 100);
   auto [stmt_s, data_s] = tuple_gen2.GenerateValuesClause(SNUM);
   EXPECT_TRUE(db->Execute("insert into Submission " + stmt_s + ";").Valid());
 
@@ -904,7 +1150,10 @@ TEST(ExecuteAllTest, OJContestTest) {
       for (int j = 0; j < problem_num; j++) {
         auto pro = dis(gen);
         contests.back().push_back(pro);
-        EXPECT_TRUE(db->Execute(fmt::format("insert into Contest values ({}, {}, {});", i, j, pro)).Valid());
+        EXPECT_TRUE(
+            db->Execute(fmt::format("insert into Contest values ({}, {}, {});",
+                            i, j, pro))
+                .Valid());
       }
     }
   }
@@ -934,12 +1183,17 @@ TEST(ExecuteAllTest, OJContestTest) {
       AnsVec ans;
       std::vector<std::pair<int, int>> A;
       for (auto [cid, score] : men)
-        if (score > 0) A.emplace_back(cid, score);
+        if (score > 0)
+          A.emplace_back(cid, score);
       std::sort(A.begin(), A.end(), [](auto x, auto y) {
-        if (x.second == y.second) return x.first < y.first;
+        if (x.second == y.second)
+          return x.first < y.first;
         return x.second > y.second;
       });
-      for (auto [cid, score] : A) ans.push_back(MkVec(IV::Create(cid), SV::Create(data_c.Get(cid - 1, 1)->ReadString()), IV::Create(score)));
+      for (auto [cid, score] : A)
+        ans.push_back(MkVec(IV::Create(cid),
+            SV::Create(data_c.Get(cid - 1, 1)->ReadString()),
+            IV::Create(score)));
       answer.push_back(std::move(ans));
     }
     std::vector<ResultSet> result;
@@ -972,12 +1226,17 @@ TEST(ExecuteAllTest, OJContestTest) {
       scores[qid].second++;
     }
     std::vector<std::pair<double, int>> A;
-    for (auto [qid, a] : scores) A.emplace_back(a.first / (double)a.second, qid);
-    std::sort(A.begin(), A.end(), [&](auto& x, auto& y) { return x.first == y.first ? x.second < y.second : x.first > y.first; });
+    for (auto [qid, a] : scores)
+      A.emplace_back(a.first / (double)a.second, qid);
+    std::sort(A.begin(), A.end(), [&](auto& x, auto& y) {
+      return x.first == y.first ? x.second < y.second : x.first > y.first;
+    });
 
     AnsVec answer;
     for (int i = 0; i < 100; i++)
-      answer.push_back(MkVec(IV::Create(A[i].second), SV::Create(data_q.Get(A[i].second - 1, 1)->ReadString()), FV::Create(A[i].first)));
+      answer.push_back(MkVec(IV::Create(A[i].second),
+          SV::Create(data_q.Get(A[i].second - 1, 1)->ReadString()),
+          FV::Create(A[i].first)));
 
     EXPECT_TRUE(test_timeout(
         [&]() {
@@ -988,7 +1247,7 @@ TEST(ExecuteAllTest, OJContestTest) {
         1000));
     CHECK_ALL_SORTED_ANS(answer, result, 3);
   }
-  
+
   db = nullptr;
   std::filesystem::remove("__tmp0110");
 }

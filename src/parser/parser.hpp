@@ -13,8 +13,11 @@ namespace wing {
 
 class ParserResult {
  public:
-  ParserResult(std::unique_ptr<Statement>&& statement, std::unique_ptr<PlanNode> plan, std::string&& err_msg)
-      : statement_(std::move(statement)), plan_(std::move(plan)), err_msg_(std::move(err_msg)) {}
+  ParserResult(std::unique_ptr<Statement>&& statement,
+      std::unique_ptr<PlanNode> plan, std::string&& err_msg)
+    : statement_(std::move(statement)),
+      plan_(std::move(plan)),
+      err_msg_(std::move(err_msg)) {}
 
   ParserResult(std::string&& err_msg) : err_msg_(std::move(err_msg)) {}
 

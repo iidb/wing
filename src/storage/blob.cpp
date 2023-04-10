@@ -76,4 +76,4 @@ void Blob::Free(pgid_t cur) {
     cur = next;
   }
 }
-} // namespace wing
+}  // namespace wing

@@ -9,10 +9,15 @@ namespace wing {
 
 class DeleteExecutor : public Executor {
  public:
-  DeleteExecutor(std::unique_ptr<ModifyHandle>&& handle, std::unique_ptr<Executor> ch, FKChecker fk_checker, PKChecker pk_checker,
-                 const TableSchema& table_schema)
-      : handle_(std::move(handle)), ch_(std::move(ch)), fk_checker_(std::move(fk_checker)), pk_checker_(std::move(pk_checker)) {
-    pk_offset_ = Tuple::GetOffset(table_schema.GetStoragePrimaryKeyIndex(), table_schema.GetStorageColumns());
+  DeleteExecutor(std::unique_ptr<ModifyHandle>&& handle,
+      std::unique_ptr<Executor> ch, FKChecker fk_checker, PKChecker pk_checker,
+      const TableSchema& table_schema)
+    : handle_(std::move(handle)),
+      ch_(std::move(ch)),
+      fk_checker_(std::move(fk_checker)),
+      pk_checker_(std::move(pk_checker)) {
+    pk_offset_ = Tuple::GetOffset(table_schema.GetStoragePrimaryKeyIndex(),
+        table_schema.GetStorageColumns());
     pk_type_ = table_schema.GetPrimaryKeySchema().type_;
     pk_size_ = table_schema.GetPrimaryKeySchema().size_;
   }
@@ -35,12 +40,14 @@ class DeleteExecutor : public Executor {
     while (ch_ret) {
       // Check foreign keys and primary keys.
       fk_checker_.DeleteCheck(ch_ret);
-      auto pk_view = Tuple::GetFieldView(ch_ret.Data(), pk_offset_, pk_type_, pk_size_);
+      auto pk_view =
+          Tuple::GetFieldView(ch_ret.Data(), pk_offset_, pk_type_, pk_size_);
       pk_checker_.DeleteCheck(pk_view);
       // Allocate a block to store tuple.
       auto pk_data_ptr = data_.Allocate(pk_view.size());
       std::memcpy(pk_data_ptr, pk_view.data(), pk_view.size());
-      obsolete_tuple_primary_keys_.push_back({reinterpret_cast<const char*>(pk_data_ptr), pk_view.size()});
+      obsolete_tuple_primary_keys_.push_back(
+          {reinterpret_cast<const char*>(pk_data_ptr), pk_view.size()});
       delete_row_counts_.data_.int_data++;
       ch_ret = ch_->Next();
     }
