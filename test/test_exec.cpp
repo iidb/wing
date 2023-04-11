@@ -1036,7 +1036,7 @@ TEST(ExecutorOrderByTest, SmallTest) {
   std::filesystem::remove("__tmp0107");
 }
 
-TEST(ExecuteOrderByTest, BigTest) {
+TEST(ExecutorOrderByTest, BigTest) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0113");
@@ -1163,7 +1163,7 @@ TEST(ExecuteOrderByTest, BigTest) {
   std::filesystem::remove("__tmp0113");
 }
 
-TEST(ExecuteLimitTest, SmallTest) {
+TEST(ExecutorLimitTest, SmallTest) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0108");
@@ -1199,7 +1199,7 @@ TEST(ExecuteLimitTest, SmallTest) {
   std::filesystem::remove("__tmp0108");
 }
 
-TEST(ExecuteLimitTest, BigTest) {
+TEST(ExecutorLimitTest, BigTest) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0114");
@@ -1233,7 +1233,7 @@ TEST(ExecuteLimitTest, BigTest) {
   std::filesystem::remove("__tmp0114");
 }
 
-TEST(ExecuteDistinctTest, SmallTest) {
+TEST(ExecutorDistinctTest, SmallTest) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0109");
@@ -1272,7 +1272,7 @@ TEST(ExecuteDistinctTest, SmallTest) {
   std::filesystem::remove("__tmp0109");
 }
 
-TEST(ExecuteAllTest, OJContestTest) {
+TEST(ExecutorAllTest, OJContestTest) {
   // In Lecture 2
   using namespace wing;
   using namespace wing::wing_testing;
