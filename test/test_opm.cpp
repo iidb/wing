@@ -12,7 +12,7 @@ TEST(OptimizerTest, PushdownTest) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0201");
-  auto db = std::make_unique<wing::Instance>("__tmp0201", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp0201", SAKURA_USE_JIT_FLAG);
   {
     ResultSet result;
     EXPECT_TRUE(test_timeout(
@@ -90,7 +90,7 @@ TEST(OptimizerTest, ProjectFoldTest) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0202");
-  auto db = std::make_unique<wing::Instance>("__tmp0202", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp0202", SAKURA_USE_JIT_FLAG);
   {
     EXPECT_TRUE(
         db->Execute("create table A(a int64 primary key, b int64, c float64);")
@@ -158,7 +158,7 @@ TEST(OptimizerTest, JoinCommuteTest) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0203");
-  auto db = std::make_unique<wing::Instance>("__tmp0203", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp0203", SAKURA_USE_JIT_FLAG);
   {
     EXPECT_TRUE(
         db->Execute("create table A(a int64, b int64, c float64);").Valid());
@@ -213,7 +213,7 @@ TEST(OptimizerTest, JoinAssociate4Test) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0204");
-  auto db = std::make_unique<wing::Instance>("__tmp0204", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp0204", SAKURA_USE_JIT_FLAG);
   // There is a cafe called Cats'eye which has some cat employees.
   // The cat dba only stores the id of the referenced information in table Cats.
   // Now she wants to print these information for each cat.
@@ -267,7 +267,7 @@ TEST(OptimizerTest, JoinAssociate5Test) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0205");
-  auto db = std::make_unique<wing::Instance>("__tmp0205", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp0205", SAKURA_USE_JIT_FLAG);
   // There is a cafe called Cats'eye which has some cat employees.
   // The cat dba only stores the id of the referenced information in table Cats.
   // Now she wants to print these information for each cat.
@@ -328,7 +328,7 @@ TEST(OptimizerTest, SimpleRangeScanTest) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0205");
-  auto db = std::make_unique<wing::Instance>("__tmp0205", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp0205", SAKURA_USE_JIT_FLAG);
   // Insert key-value data
   // Read the corresponding value of a random key while inserting.
   {

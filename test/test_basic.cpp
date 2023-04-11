@@ -253,7 +253,7 @@ TEST(BasicTest, ConstantExprTest) {
 TEST(BasicTest, Project) {
   using namespace wing;
   std::filesystem::remove("__tmp1");
-  auto db = std::make_unique<wing::Instance>("__tmp1", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp1", SAKURA_USE_JIT_FLAG);
   db->Execute(
       "create table A (a1 int64, a2 int32, a3 float64, a4 varchar(30), a5 "
       "int32, a6 int32, a7 varchar(1), a8 varchar(2), a9 float64, a10 int64, "

@@ -10,7 +10,7 @@ TEST(ExecutorJoinTest, JoinTestNum10Table2) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0100");
-  auto db = std::make_unique<wing::Instance>("__tmp0100", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp0100", SAKURA_USE_JIT_FLAG);
 
   // Do joins on values.
   {
@@ -287,7 +287,7 @@ TEST(ExecutorJoinTest, JoinTestNum3e3Table2) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0101");
-  auto db = std::make_unique<wing::Instance>("__tmp0101", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp0101", SAKURA_USE_JIT_FLAG);
   auto NUM = 3e3;
   // Two countries have 3e3 ports. Ports have three attributes: name, position,
   // cost, time. Alice wants to find the shortest path from Country A to Country
@@ -362,7 +362,7 @@ TEST(ExecutorJoinTest, JoinTestTable3) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0102");
-  auto db = std::make_unique<wing::Instance>("__tmp0102", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp0102", SAKURA_USE_JIT_FLAG);
   // Two databases have some users and their id, now give the relations between
   // the two user groups, print the corresponding username.
   {
@@ -490,7 +490,7 @@ TEST(ExecutorJoinTest, JoinTestTableN) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0106");
-  auto db = std::make_unique<wing::Instance>("__tmp0106", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp0106", SAKURA_USE_JIT_FLAG);
   {
     auto result = db->Execute(
         "select * from (values('2', '3'), ('x', 'y')) A(a, b), (values('3', "
@@ -648,7 +648,7 @@ TEST(ExecutorAggregateTest, SmallAggregateTest) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0103");
-  auto db = std::make_unique<wing::Instance>("__tmp0103", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp0103", SAKURA_USE_JIT_FLAG);
   {
     auto result = db->Execute(
         "select sum(a), max(a), count(a), count(*), count(1), min(a), avg(a) "
@@ -848,7 +848,7 @@ TEST(ExecutorAggregateTest, PolyAggregateTest) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0104");
-  auto db = std::make_unique<wing::Instance>("__tmp0104", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp0104", SAKURA_USE_JIT_FLAG);
   // Now we can use our executors to calculate polynomial multiplication!
   // We want to calculate A * B * B, where A is of degree 3000, B is of degree
   // 4000.
@@ -937,7 +937,7 @@ TEST(ExecutorAggregateTest, StringAggregateTest) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0105");
-  auto db = std::make_unique<wing::Instance>("__tmp0105", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp0105", SAKURA_USE_JIT_FLAG);
   {
     EXPECT_TRUE(
         db->Execute("create table strA(name varchar(2), value float64);")
@@ -1000,7 +1000,7 @@ TEST(ExecutorOrderByTest, SmallTest) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0107");
-  auto db = std::make_unique<wing::Instance>("__tmp0107", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp0107", SAKURA_USE_JIT_FLAG);
   {
     // clang-format off
     auto result = db->Execute("select a, b, c from (values(1), (2), (3)) _(a), (values(1), (2), (3)) _(b), (values(1), (2), (3)) _(c) order by a asc, b desc, c asc;");
@@ -1040,7 +1040,7 @@ TEST(ExecuteLimitTest, SmallTest) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0108");
-  auto db = std::make_unique<wing::Instance>("__tmp0108", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp0108", SAKURA_USE_JIT_FLAG);
   // empty query
   {
     auto result = db->Execute(
@@ -1076,7 +1076,7 @@ TEST(ExecuteDistinctTest, SmallTest) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0109");
-  auto db = std::make_unique<wing::Instance>("__tmp0109", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp0109", SAKURA_USE_JIT_FLAG);
   // empty return set
   {
     // clang-format off
@@ -1116,7 +1116,7 @@ TEST(ExecuteAllTest, OJContestTest) {
   using namespace wing;
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0110");
-  auto db = std::make_unique<wing::Instance>("__tmp0110", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp0110", SAKURA_USE_JIT_FLAG);
   // clang-format off
   EXPECT_TRUE(db->Execute("create table Contestant(id int32 auto_increment primary key, name varchar(8));").Valid());
   EXPECT_TRUE(db->Execute("create table Question(id int32 auto_increment primary key, name varchar(8));").Valid());

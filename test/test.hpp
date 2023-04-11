@@ -13,6 +13,8 @@
 
 #include "instance/instance.hpp"
 
+#define SAKURA_USE_JIT_FLAG 0
+
 namespace wing::wing_testing {
 bool test_timeout(std::function<void()> function, size_t timeout_in_ms) {
   std::promise<bool> promisedFinished;
