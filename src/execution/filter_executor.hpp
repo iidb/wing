@@ -14,7 +14,7 @@ class FilterExecutor : public Executor {
   InputTuplePtr Next() override {
     auto ch_ret = ch_->Next();
     while (
-        ch_ret && (!predicate_ || predicate_.Evaluate(ch_ret).ReadInt() == 0))
+        ch_ret && (predicate_ && predicate_.Evaluate(ch_ret).ReadInt() == 0))
       ch_ret = ch_->Next();
     return ch_ret;
   }
