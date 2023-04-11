@@ -1036,6 +1036,133 @@ TEST(ExecutorOrderByTest, SmallTest) {
   std::filesystem::remove("__tmp0107");
 }
 
+TEST(ExecuteOrderByTest, BigTest) {
+  using namespace wing;
+  using namespace wing::wing_testing;
+  std::filesystem::remove("__tmp0113");
+  auto db = std::make_unique<wing::Instance>("__tmp0113", SAKURA_USE_JIT_FLAG);
+  // A student called Alice wants to do her C++ homework, quicksort.
+  // She needs a magical mirror that reflects the correct answer.
+  // You, wing, represents the freedom, i.e. possibility, i.e. to-be, should
+  // have the ability. String, double, integer 1e6 sorting.
+  {
+    EXPECT_TRUE(db->Execute("create table Mirror(name varchar(20), value "
+                            "float64, age int64);")
+                    .Valid());
+    int NUM = 1e6;
+    RandomTuple<std::string, double, int64_t> tuple_gen(
+        202303040114ull, 0, 20, -100.0, 100.0, INT64_MIN, INT64_MAX);
+    auto [stmt_m, data_m] = tuple_gen.GenerateValuesClause(NUM);
+    EXPECT_TRUE(db->Execute("insert into Mirror " + stmt_m + ";").Valid());
+
+    AnsVec answer;
+    for (int i = 0; i < NUM; i++) {
+      answer.emplace_back(MkVec(std::move(data_m.Get(i, 0)),
+          std::move(data_m.Get(i, 1)), std::move(data_m.Get(i, 2))));
+    }
+
+    std::sort(answer.begin(), answer.end(), [](auto& x, auto& y) {
+      if (x[0]->ReadString() != y[0]->ReadString()) {
+        return x[0]->ReadString() < y[0]->ReadString();
+      }
+      if (x[2]->ReadInt() != y[2]->ReadInt())
+        return x[2]->ReadInt() > y[2]->ReadInt();
+      return x[1]->ReadFloat() < y[1]->ReadFloat();
+    });
+
+    {
+      StopWatch sw;
+      ResultSet result;
+      EXPECT_TRUE(test_timeout(
+          [&]() {
+            result = db->Execute(
+                "select * from Mirror order by name asc, age desc, value asc;");
+          },
+          3000));
+      CHECK_ALL_SORTED_ANS(answer, result, 3);
+      DB_INFO("Use: {} s", sw.GetTimeInSeconds());
+    }
+
+    std::sort(answer.begin(), answer.end(), [](auto& x, auto& y) {
+      if (x[2]->ReadInt() % 1919 != y[2]->ReadInt() % 1919)
+        return x[2]->ReadInt() % 1919 < y[2]->ReadInt() % 1919;
+      if (x[0]->ReadString() != y[0]->ReadString()) {
+        return x[0]->ReadString() > y[0]->ReadString();
+      }
+      return x[1]->ReadFloat() < y[1]->ReadFloat();
+    });
+
+    // Note that age is signed.
+    // i.e., -1 % 1919 = -1.
+    {
+      StopWatch sw;
+      ResultSet result;
+      EXPECT_TRUE(test_timeout(
+          [&]() {
+            result = db->Execute(
+                "select * from Mirror order by age % 1919 asc, name desc, "
+                "value asc;");
+          },
+          3000));
+      CHECK_ALL_SORTED_ANS(answer, result, 3);
+      DB_INFO("Use: {} s", sw.GetTimeInSeconds());
+    }
+
+    std::sort(answer.begin(), answer.end(), [](auto& x, auto& y) {
+      if (x[1]->ReadFloat() * x[1]->ReadFloat() !=
+          y[1]->ReadFloat() * y[1]->ReadFloat())
+        return x[1]->ReadFloat() * x[1]->ReadFloat() <
+               y[1]->ReadFloat() * y[1]->ReadFloat();
+      if (x[2]->ReadInt() != y[2]->ReadInt())
+        return x[2]->ReadInt() > y[2]->ReadInt();
+      return x[0]->ReadString() < y[0]->ReadString();
+    });
+
+    {
+      StopWatch sw;
+      ResultSet result;
+      EXPECT_TRUE(test_timeout(
+          [&]() {
+            result = db->Execute(
+                "select * from Mirror order by value * value asc, age desc, "
+                "name asc;");
+          },
+          3000));
+      CHECK_ALL_SORTED_ANS(answer, result, 3);
+      DB_INFO("Use: {} s", sw.GetTimeInSeconds());
+    }
+
+    std::sort(answer.begin(), answer.end(), [](auto& x, auto& y) {
+      if (x[2]->ReadInt() % 2 != y[2]->ReadInt() % 2)
+        return x[2]->ReadInt() % 2 < y[2]->ReadInt() % 2;
+      if (x[2]->ReadInt() % 5 != y[2]->ReadInt() % 5)
+        return x[2]->ReadInt() % 5 < y[2]->ReadInt() % 5;
+      if ((x[2]->ReadInt() ^ 114) % 9 != (y[2]->ReadInt() ^ 114) % 9)
+        return (x[2]->ReadInt() ^ 114) % 9 < (y[2]->ReadInt() ^ 114) % 9;
+      if (x[0]->ReadString() != y[0]->ReadString()) {
+        return x[0]->ReadString() > y[0]->ReadString();
+      }
+      return x[1]->ReadFloat() < y[1]->ReadFloat();
+    });
+
+    {
+      StopWatch sw;
+      ResultSet result;
+      EXPECT_TRUE(test_timeout(
+          [&]() {
+            result = db->Execute(
+                "select * from Mirror order by age % 2 asc, age % 5 asc, (age "
+                "^ 114) % 9 asc, name desc, value asc;");
+          },
+          3000));
+      CHECK_ALL_SORTED_ANS(answer, result, 3);
+      DB_INFO("Use: {} s", sw.GetTimeInSeconds());
+    }
+  }
+  db = nullptr;
+  std::filesystem::remove("__tmp0113");
+}
+
 TEST(ExecuteLimitTest, SmallTest) {
   using namespace wing;
   using namespace wing::wing_testing;
@@ -1070,6 +1197,40 @@ TEST(ExecuteLimitTest, SmallTest) {
   }
   db = nullptr;
   std::filesystem::remove("__tmp0108");
+}
+
+TEST(ExecuteLimitTest, BigTest) {
+  using namespace wing;
+  using namespace wing::wing_testing;
+  std::filesystem::remove("__tmp0114");
+  auto db = std::make_unique<wing::Instance>("__tmp0114", SAKURA_USE_JIT_FLAG);
+  // Solve the equation -x^3 + 17x + 1 = 0.
+  {
+    EXPECT_TRUE(db->Execute("create table A(x float64);").Valid());
+    EXPECT_TRUE(
+        db->Execute(
+              "insert into A values (5.0), (4.0), (3.0), (2.0), (1.0), (0.0);")
+            .Valid());
+    EXPECT_TRUE(
+        db->Execute(
+              "insert into A values (-5.0), (-4.0), (-3.0), (-2.0), (-1.0);")
+            .Valid());
+    for (int i = 1; i <= 16; i++) {
+      EXPECT_TRUE(db->Execute(fmt::format("insert into A select x + {} from A;",
+                                  pow(0.5, i)))
+                      .Valid());
+    }
+    // clang-format off
+    auto result = db->Execute("select * from (select x as x0 from A where -x * x * x + 17 * x + 1 >= 0 order by -x * x * x + 17 * x + 1 asc limit 3) order by x0 asc;");
+    // clang-format on
+    EXPECT_TRUE(result.Valid());
+    EXPECT_TRUE(fabs(result.Next().ReadFloat(0) - -4.0934) < 0.0001);
+    EXPECT_TRUE(fabs(result.Next().ReadFloat(0) - -0.0588) < 0.0001);
+    EXPECT_TRUE(fabs(result.Next().ReadFloat(0) - 4.1522) < 0.0001);
+    EXPECT_FALSE(result.Next());
+  }
+  db = nullptr;
+  std::filesystem::remove("__tmp0114");
 }
 
 TEST(ExecuteDistinctTest, SmallTest) {

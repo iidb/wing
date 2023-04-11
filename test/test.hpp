@@ -291,18 +291,28 @@ class ValueVector {
   ValueVector(
       size_t num_per_tuple, std::vector<std::unique_ptr<Value>>&& values)
     : num_per_tuple_(num_per_tuple), values_(std::move(values)) {}
+  
+  /* The id-th tuple, the i-th field. */
   std::unique_ptr<Value>& Get(size_t id, size_t i) {
     return values_[num_per_tuple_ * id + i];
   }
+  
+  /* Get the id-th tuple. */
   std::span<std::unique_ptr<Value>> GetTuple(size_t id) {
     return {values_.begin() + id * num_per_tuple_,
         values_.begin() + (id + 1) * num_per_tuple_};
   }
+
+  /* Get all tuples. */
   std::vector<std::unique_ptr<Value>>& GetVector() { return values_; }
   const std::vector<std::unique_ptr<Value>>& GetVector() const {
     return values_;
   }
+
+  /* Get the number of fields of tuples. */
   size_t GetTupleSize() { return num_per_tuple_; }
+
+  /* Get the number of tuples. */
   size_t GetSize() { return values_.size() / num_per_tuple_; }
 
  private:
