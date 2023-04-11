@@ -1268,8 +1268,95 @@ TEST(ExecutorDistinctTest, SmallTest) {
     answer.emplace_back(MkVec(IV::Create(1), IV::Create(2), SV::Create("a")));
     CHECK_ALL_SORTED_ANS(answer, result, 3);
   }
+  // empty string.
+  {
+    // clang-format off
+    auto result = db->Execute("select distinct * from (values(''), (''), ('a')) _(a);");
+    // clang-format on
+    EXPECT_TRUE(result.Valid());
+    AnsVec answer;
+    answer.emplace_back(MkVec(SV::Create("")));
+    answer.emplace_back(MkVec(SV::Create("a")));
+    CHECK_ALL_SORTED_ANS(answer, result, 1);
+  }
   db = nullptr;
   std::filesystem::remove("__tmp0109");
+}
+
+TEST(ExecutorDistinctTest, BigTest) {
+  using namespace wing;
+  using namespace wing::wing_testing;
+  std::filesystem::remove("__tmp0115");
+  auto db = std::make_unique<wing::Instance>("__tmp0115", SAKURA_USE_JIT_FLAG);
+  // Get distinct code lines from a big code base.
+  // Clearly there are many duplicate codes.
+  {
+    EXPECT_TRUE(db->Execute("create table CodeBase(code varchar(80), line "
+                            "int64, file_name varchar(20));")
+                    .Valid());
+    int NUM = 2e5, DISTINCT_NUM = 1e4;
+    std::vector<std::string> codelines;
+    std::mt19937_64 rgen(0x202304111547ll);
+    for (int i = 0; i < DISTINCT_NUM; i++) {
+      int len = rgen() % 80;
+      char char_set[] =
+          "abcdefghijklmnopqrstuvwxyzQWERTYUIOPLKJHGFDSANMZXCVB?:{[1234567890-="
+          "/.,!@#$%^&*()]}";
+      std::string new_code(len, 0);
+      for (int j = 0; j < len; j++) {
+        new_code[j] = char_set[rgen() % sizeof(char_set)];
+      }
+      codelines.push_back(std::move(new_code));
+    }
+    std::sort(codelines.begin(), codelines.end());
+    codelines.erase(
+        std::unique(codelines.begin(), codelines.end()), codelines.end());
+    {
+      std::string stmt = "insert into CodeBase values ";
+      size_t line = 0;
+      for (int i = 0; i < NUM; i++) {
+        stmt += fmt::format("('{}', {}, 'a.cpp')",
+            codelines[rgen() % codelines.size()], ++line);
+        if (i != NUM - 1)
+          stmt += ",";
+      }
+      stmt += ";";
+      EXPECT_TRUE(db->Execute(stmt).Valid());
+    }
+    {
+      ResultSet result;
+      StopWatch sw;
+      EXPECT_TRUE(test_timeout(
+          [&]() {
+            result = db->Execute(
+                "select distinct * from (select code from CodeBase) order by "
+                "code asc;");
+          },
+          3000));
+      DB_INFO("Use: {} s", sw.GetTimeInSeconds());
+
+      AnsVec answer;
+      for (auto& a : codelines)
+        answer.emplace_back(MkVec(SV::Create(a)));
+      CHECK_ALL_SORTED_ANS(answer, result, 1);
+    }
+
+    {
+      ResultSet result;
+      StopWatch sw;
+      EXPECT_TRUE(test_timeout(
+          [&]() {
+            result = db->Execute("select distinct file_name from CodeBase;");
+          },
+          1000));
+      DB_INFO("Use: {} s", sw.GetTimeInSeconds());
+      AnsVec answer;
+      answer.emplace_back(MkVec(SV::Create("a.cpp")));
+      CHECK_ALL_SORTED_ANS(answer, result, 1);
+    }
+  }
+  db = nullptr;
+  std::filesystem::remove("__tmp0115");
 }
 
 TEST(ExecutorAllTest, OJContestTest) {
