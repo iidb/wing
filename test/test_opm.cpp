@@ -86,33 +86,42 @@ TEST(OptimizerTest, PushdownTest) {
   std::filesystem::remove("__tmp0201");
 }
 
-TEST(OptimizerTest, ProjectFoldTest) {
-  using namespace wing;
-  using namespace wing::wing_testing;
-  std::filesystem::remove("__tmp0202");
-  auto db = std::make_unique<wing::Instance>("__tmp0202", SAKURA_USE_JIT_FLAG);
-  {
-    EXPECT_TRUE(
-        db->Execute("create table A(a int64 primary key, b int64, c float64);")
-            .Valid());
-    RandomTuple<int64_t, int64_t, double> tuple_gen(
-        202303051133ull, INT64_MIN, INT64_MAX, 0, 100, 0.0, 1.0);
-    int NUM = 5e3;
-    auto [stmt_a, data_a] = tuple_gen.GenerateValuesClause(NUM);
-    EXPECT_TRUE(db->Execute("insert into A " + stmt_a + ";").Valid());
-    StopWatch sw;
-    EXPECT_TRUE(test_timeout(
-        [&]() {
-          // clang-format off
-          db->Execute("select b0, b3, sum(b2), sum(b1), sum(b4), avg(b5) from (select * from (select a0 * a0 +a3 as b0, a1 * a1 as b1, a2 * a2 as b2, a3 * a3 + a0 as b3, a4 * a1 as b4, a5 * a2-1 as b5 from (select LA.a as a0, LA.b as a1, LA.c as a2, RA.a as a3, RA.b as a4, RA.c as a5 from (select LA.a, RA.a, LA.b, RA.b, LA.c, RA.c from(select * from(select * from(select * from(select * from (select * from (select * from A as LA, A as RA)))))))))) group by b0 & 7, b3 & 7 order by b0 & 7 asc, b3 & 7 asc;");
-          // clang-format on
-        },
-        4000));
-    DB_INFO("Use: {} s", sw.GetTimeInSeconds());
-  }
-  db = nullptr;
-  std::filesystem::remove("__tmp0202");
-}
+// TEST(OptimizerTest, ProjectFoldTest) {
+//   using namespace wing;
+//   using namespace wing::wing_testing;
+//   std::filesystem::remove("__tmp0202");
+//   auto db = std::make_unique<wing::Instance>("__tmp0202",
+//   SAKURA_USE_JIT_FLAG);
+//   {
+//     EXPECT_TRUE(
+//         db->Execute("create table A(a int64 primary key, b int64, c
+//         float64);")
+//             .Valid());
+//     RandomTuple<int64_t, int64_t, double> tuple_gen(
+//         202303051133ull, INT64_MIN, INT64_MAX, 0, 100, 0.0, 1.0);
+//     int NUM = 5e3;
+//     auto [stmt_a, data_a] = tuple_gen.GenerateValuesClause(NUM);
+//     EXPECT_TRUE(db->Execute("insert into A " + stmt_a + ";").Valid());
+//     StopWatch sw;
+//     EXPECT_TRUE(test_timeout(
+//         [&]() {
+//           // clang-format off
+//           db->Execute("select b0, b3, sum(b2), sum(b1), sum(b4), avg(b5) from
+//           (select * from (select a0 * a0 +a3 as b0, a1 * a1 as b1, a2 * a2 as
+//           b2, a3 * a3 + a0 as b3, a4 * a1 as b4, a5 * a2-1 as b5 from (select
+//           LA.a as a0, LA.b as a1, LA.c as a2, RA.a as a3, RA.b as a4, RA.c as
+//           a5 from (select LA.a, RA.a, LA.b, RA.b, LA.c, RA.c from(select *
+//           from(select * from(select * from(select * from (select * from
+//           (select * from A as LA, A as RA)))))))))) group by b0 & 7, b3 & 7
+//           order by b0 & 7 asc, b3 & 7 asc;");
+//           // clang-format on
+//         },
+//         4000));
+//     DB_INFO("Use: {} s", sw.GetTimeInSeconds());
+//   }
+//   db = nullptr;
+//   std::filesystem::remove("__tmp0202");
+// }
 
 TEST(StatsTest, HyperLLTest) {
   using namespace wing;
@@ -160,28 +169,34 @@ TEST(OptimizerTest, JoinCommuteTest) {
   std::filesystem::remove("__tmp0203");
   auto db = std::make_unique<wing::Instance>("__tmp0203", SAKURA_USE_JIT_FLAG);
   {
-    EXPECT_TRUE(
-        db->Execute("create table A(a int64, b int64, c float64);").Valid());
     EXPECT_TRUE(db->Execute("create table B(a int64 auto_increment primary "
                             "key, data varchar(20));")
+                    .Valid());
+    EXPECT_TRUE(db->Execute("create table A(a int64 foreign key references "
+                            "B(a), b int64, c float64);")
                     .Valid());
     int NUMA = 1e7, NUMB = 1e3;
     RandomTuple<int64_t, int64_t, double> tuple_gen(
         202303051627ull, 1, NUMB, 0, 10000, 0.0, 1.0);
     DB_INFO("Generating data...");
-    auto stmt_a = tuple_gen.GenerateValuesClauseStmt(NUMA);
     StopWatch _sw;
-    EXPECT_TRUE(db->Execute("insert into A " + stmt_a + ";").Valid());
-    DB_INFO("{}", _sw.GetTimeInSeconds());
-    stmt_a.clear();
     RandomTuple<int64_t, std::string> tuple_gen2(
         20230305162702ull, 0, 0, 15, 20);
     auto stmt_b = tuple_gen2.GenerateValuesClauseStmt(NUMB);
     EXPECT_TRUE(db->Execute("insert into B " + stmt_b + ";").Valid());
     stmt_b.clear();
+    DB_INFO("Insert into B uses {} s.", _sw.GetTimeInSeconds());
+    _sw.Reset();
+
+    auto stmt_a = tuple_gen.GenerateValuesClauseStmt(NUMA);
+    EXPECT_TRUE(db->Execute("insert into A " + stmt_a + ";").Valid());
+    DB_INFO("Insert into A uses {} s.", _sw.GetTimeInSeconds());
+    stmt_a.clear();
+
     DB_INFO("Data generation completed.");
     db->Analyze("A");
     db->Analyze("B");
+    DB_INFO("Database analyzed.");
     StopWatch sw;
     // You should swap A, B. because B is much smaller than A.
     EXPECT_TRUE(test_timeout(
@@ -310,62 +325,68 @@ TEST(OptimizerTest, JoinAssociate5Test) {
     db->Analyze("Cats");
     db->Analyze("Maidname");
 
+    int test_round = 10;
+
     StopWatch sw;
     EXPECT_TRUE(test_timeout(
         [&]() {
+          std::mt19937_64 rgen(0x202304172253);
+          std::vector<std::string> tables = {
+              "Employee", " Username", "Catname", " Maidname", "Cats"};
           // clang-format off
-          db->Execute("select * from Employee, Username, Catname, Maidname, Cats where Cats.emp_id = Employee.id and Cats.username_id = Username.id and Cats.cat_id = Catname.id and Cats.maid_id = Maidname.id;");
+          std::string predicate = "Cats.emp_id = Employee.id and Cats.username_id = Username.id and Cats.cat_id = Catname.id and Cats.maid_id = Maidname.id";
           // clang-format on
+          for (int i = 0; i < test_round; i++) {
+            std::shuffle(tables.begin(), tables.end(), rgen);
+            db->Execute(fmt::format(
+                "select * from {}, {}, {}, {}, {} where {};", tables[0],
+                tables[1], tables[2], tables[3], tables[4], predicate));
+          }
         },
-        3000));
+        10000));
     DB_INFO("Use: {} s", sw.GetTimeInSeconds());
   }
   db = nullptr;
   std::filesystem::remove("__tmp0205");
 }
 
-TEST(OptimizerTest, SimpleRangeScanTest) {
-  using namespace wing;
-  using namespace wing::wing_testing;
-  std::filesystem::remove("__tmp0205");
-  auto db = std::make_unique<wing::Instance>("__tmp0205", SAKURA_USE_JIT_FLAG);
-  // Insert key-value data
-  // Read the corresponding value of a random key while inserting.
-  {
-    EXPECT_TRUE(
-        db->Execute("create table A(a int64 primary key, b float64);").Valid());
-    int NUM = 1e6, round = 2e5, short_range_round = 5e4, short_range_len = 100;
-    int long_range_round = 10;
-    RandomTuple<int64_t, double> tuple_gen(
-        0x202304041203ll, INT64_MIN, INT64_MAX, 0.0, 1.0);
+template<typename PKType, typename T, T(wing::wing_testing::Value::*ReadPKMethod)() const, typename GenRandomKeyFunc, typename RTGenType, typename DBType, typename GenValueClauseFunc>
+void TestPKRangeScan(int NUM, int round, int short_range_round, int short_range_len, int long_range_round, 
+RTGenType&& tuple_gen, DBType* db, GenRandomKeyFunc&& rgen_func, GenValueClauseFunc&& vc_func) {
+    using namespace wing;
+    using namespace wing::wing_testing;
     std::vector<std::pair<std::string, ValueVector>> stmt_data;
     for (int i = 0; i < round; i++)
       stmt_data.push_back(tuple_gen.GenerateValuesClause(NUM / round));
-
-    std::map<int64_t, double> mp;
-    std::mt19937_64 rgen(0x202304041223);
+    std::map<PKType, double> mp;
+    // Used to generate op. Not data.
+    // For example, op_rgen() % 2 ? Insert(key, value) : Read(key).
+    std::mt19937_64 op_rgen(0x202304172350);
 
     StopWatch sw;
     EXPECT_TRUE(test_timeout(
         [&]() {
+          // Test point lookup.
           for (int i = 0; i < round; i++) {
+            // Insert data.
             EXPECT_TRUE(db->Execute("insert into A " + stmt_data[i].first + ";")
                             .Valid());
+            // Insert data into mp.
             for (int j = 0; j < NUM / round; j++) {
-              auto key = stmt_data[i].second.Get(j, 0)->ReadInt();
+              auto key = PKType((stmt_data[i].second.Get(j, 0).get()->*ReadPKMethod)());
               auto value = stmt_data[i].second.Get(j, 1)->ReadFloat();
               if (!mp.count(key))
                 mp[key] = value;
             }
-            int64_t random_key = rgen();
-            if (rgen() % 2) {
+            PKType random_key = rgen_func();
+            if (op_rgen() % 2) {
               auto it = mp.lower_bound(random_key);
               if (it != mp.end()) {
                 random_key = it->first;
               }
             }
             auto result = db->Execute(
-                fmt::format("select * from A where a = {};", random_key));
+                fmt::format("select * from A where a = {};", vc_func(random_key)));
             EXPECT_TRUE(result.Valid());
             auto tuple = result.Next();
             if (mp.count(random_key)) {
@@ -382,9 +403,10 @@ TEST(OptimizerTest, SimpleRangeScanTest) {
     sw.Reset();
     EXPECT_TRUE(test_timeout(
         [&]() {
+          // Test short range scan. short range length is short_range_len (100).
           for (int i = 0; i < short_range_round; i++) {
-            int64_t L = rgen();
-            int64_t R = L;
+            PKType L = rgen_func();
+            PKType R = L;
             auto it = mp.lower_bound(L);
             for (int j = 0; j < short_range_len && it != mp.end(); j++) {
               it++;
@@ -392,9 +414,9 @@ TEST(OptimizerTest, SimpleRangeScanTest) {
             if (it != mp.end())
               R = it->first;
             auto result = db->Execute(
-                fmt::format("select * from A where a >= {} and a < {};", L, R));
+                fmt::format("select * from A where a >= {} and a < {};", vc_func(L), vc_func(R)));
             it = mp.lower_bound(L);
-            while (it->first < R) {
+            while (it != mp.end() && it->first < R) {
               auto tuple = result.Next();
               EXPECT_TRUE(tuple);
               EXPECT_EQ(tuple.ReadFloat(1), it->second);
@@ -402,13 +424,15 @@ TEST(OptimizerTest, SimpleRangeScanTest) {
             }
             EXPECT_FALSE(result.Next());
           }
+          // Test long range scan. The range is either (a, inf) or (-inf, a) or
+          // [a, inf) or (-inf, a].
           std::string ops[] = {">", "<", ">=", "<="};
           for (int j = 0; j < 4; ++j) {
             for (int i = 0; i < long_range_round; i++) {
-              int64_t L = rgen();
+              PKType L = rgen_func();
               auto result = db->Execute(
-                  fmt::format("select * from A where a {} {};", ops[j], L));
-              std::map<int64_t, double>::iterator it;
+                  fmt::format("select * from A where a {} {};", ops[j], vc_func(L)));
+              typename std::map<PKType, double>::iterator it;
               if (ops[j] == ">") {
                 it = mp.upper_bound(L);
                 while (it != mp.end()) {
@@ -429,7 +453,7 @@ TEST(OptimizerTest, SimpleRangeScanTest) {
                 EXPECT_FALSE(result.Next());
               } else if (ops[j] == "<") {
                 it = mp.begin();
-                while (it->first < L) {
+                while (it != mp.end() && it->first < L) {
                   auto tuple = result.Next();
                   EXPECT_TRUE(tuple);
                   EXPECT_EQ(tuple.ReadFloat(1), it->second);
@@ -438,7 +462,7 @@ TEST(OptimizerTest, SimpleRangeScanTest) {
                 EXPECT_FALSE(result.Next());
               } else {
                 it = mp.begin();
-                while (it->first <= L) {
+                while (it != mp.end() && it->first <= L) {
                   auto tuple = result.Next();
                   EXPECT_TRUE(tuple);
                   EXPECT_EQ(tuple.ReadFloat(1), it->second);
@@ -451,7 +475,92 @@ TEST(OptimizerTest, SimpleRangeScanTest) {
         },
         10000));
     DB_INFO("Use: {} s", sw.GetTimeInSeconds());
+    sw.Reset();
+
+    // Test empty range.
+    EXPECT_TRUE(test_timeout([&]() {
+      for (int i = 0; i < 100; i++) {
+        PKType x = rgen_func();
+        while (mp.count(x))
+          x = rgen_func();
+        auto result =
+            db->Execute(fmt::format("select * from A where a > {} and a < {}; ", vc_func(x), vc_func(x)));
+        EXPECT_TRUE(result.Valid());
+        EXPECT_FALSE(result.Next());
+      }
+    }, 3000));
+    DB_INFO("Use: {} s", sw.GetTimeInSeconds());
+}
+
+TEST(OptimizerTest, IntegerRangeScanTest) {
+  using namespace wing;
+  using namespace wing::wing_testing;
+  std::filesystem::remove("__tmp0205");
+  auto db = std::make_unique<wing::Instance>("__tmp0205", SAKURA_USE_JIT_FLAG);
+  // Insert key-value data
+  // Read the corresponding value of a random key while inserting.
+  {
+    EXPECT_TRUE(
+        db->Execute("create table A(a int64 primary key, b float64);").Valid());
+    int NUM = 1e6, round = 2e5, short_range_round = 5e4, short_range_len = 100;
+    int long_range_round = 10;
+    std::mt19937_64 rgen(0x202304041223);
+    TestPKRangeScan<int64_t, int64_t, &Value::ReadInt>(NUM, round, short_range_round, short_range_len, long_range_round, 
+    RandomTuple<int64_t, double>(0x202304041203ll, INT64_MIN, INT64_MAX, 0.0, 1.0), db.get(), 
+    [&rgen](){return rgen();}, [](int64_t x) { return x; });
   }
   db = nullptr;
   std::filesystem::remove("__tmp0205");
 }
+
+TEST(OptimizerTest, StringRangeScanTest) {
+  using namespace wing;
+  using namespace wing::wing_testing;
+  std::filesystem::remove("__tmp0206");
+  auto db = std::make_unique<wing::Instance>("__tmp0206", SAKURA_USE_JIT_FLAG);
+  {
+    EXPECT_TRUE(
+        db->Execute("create table A(a varchar(20) primary key, b float64);").Valid());
+    int NUM = 2e5, round = 2e4, short_range_round = 1e4, short_range_len = 100;
+    int long_range_round = 10;
+    std::mt19937_64 rgen(0x20230418033);
+    TestPKRangeScan<std::string, std::string_view, &Value::ReadString>(NUM, round, short_range_round, short_range_len, long_range_round, 
+    RandomTuple<std::string, double>(0x202304041203ll, 10, 20, 0.0, 1.0), db.get(), 
+    [&rgen]() -> std::string {
+      std::string ret(rgen() % 20 + 10, 0);
+      char char_set[] =
+          "abcdefghijklmnopqrstuvwxyzQWERTYUIOPLKJHGFDSANMZXCVB?:{[1234567890-="
+          "/.,!@#$%^&*()]}";
+      for (auto& c : ret) c = char_set[rgen() % sizeof(char_set)];
+      return ret;
+    }, [](std::string x) { return "'" + x + "'"; });
+  }
+  db = nullptr;
+  std::filesystem::remove("__tmp0206");
+}
+
+TEST(OptimizerTest, FloatRangeScanTest) {
+  using namespace wing;
+  using namespace wing::wing_testing;
+  std::filesystem::remove("__tmp0205");
+  auto db = std::make_unique<wing::Instance>("__tmp0205", SAKURA_USE_JIT_FLAG);
+  // Insert key-value data
+  // Read the corresponding value of a random key while inserting.
+  {
+    EXPECT_TRUE(
+        db->Execute("create table A(a float64 primary key, b float64);").Valid());
+    int NUM = 5e5, round = 1e5, short_range_round = 1e4, short_range_len = 100;
+    int long_range_round = 10;
+    std::mt19937_64 rgen(0x202304041223);
+    TestPKRangeScan<double, double, &Value::ReadFloat>(NUM, round, short_range_round, short_range_len, long_range_round, 
+    RandomTuple<double, double>(0x202304041203ll, 0.0, 1e4, 0.0, 1.0), db.get(), 
+    [&rgen]() -> double {
+      std::uniform_real_distribution<> dis(0.0, 1e4);
+      return std::floor(dis(rgen) * 1e4) / 1e4;
+      }, [](double x) -> std::string { return fmt::format("{:.10f}", x); });
+  }
+  db = nullptr;
+  std::filesystem::remove("__tmp0205");
+}
+
+TEST(OptimizerTest, Benchmark1) {}
