@@ -973,6 +973,7 @@ std::string OrderByPlanNode::ToString() const {
                 std::make_unique<ColumnExpr>(ch_->output_schema_[i].table_name_,
                     ch_->output_schema_[i].column_name_);
             expr->id_in_column_name_table_ = ch_->output_schema_[i].id_;
+            expr->ret_type_ = x.first;
             i++;
             return fmt::format(
                 "{} {}", expr->ToString(), x.second ? "asc" : "desc");
