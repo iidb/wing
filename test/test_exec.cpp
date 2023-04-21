@@ -1311,6 +1311,7 @@ TEST(ExecutorDistinctTest, BigTest) {
     std::sort(codelines.begin(), codelines.end());
     codelines.erase(
         std::unique(codelines.begin(), codelines.end()), codelines.end());
+    std::shuffle(codelines.begin(), codelines.end(), rgen);
     {
       std::string stmt = "insert into CodeBase values ";
       size_t line = 0;
@@ -1323,6 +1324,7 @@ TEST(ExecutorDistinctTest, BigTest) {
       stmt += ";";
       EXPECT_TRUE(db->Execute(stmt).Valid());
     }
+    std::sort(codelines.begin(), codelines.end());
     {
       ResultSet result;
       StopWatch sw;

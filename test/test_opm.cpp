@@ -542,8 +542,8 @@ TEST(OptimizerTest, StringRangeScanTest) {
 TEST(OptimizerTest, FloatRangeScanTest) {
   using namespace wing;
   using namespace wing::wing_testing;
-  std::filesystem::remove("__tmp0205");
-  auto db = std::make_unique<wing::Instance>("__tmp0205", SAKURA_USE_JIT_FLAG);
+  std::filesystem::remove("__tmp0207");
+  auto db = std::make_unique<wing::Instance>("__tmp0207", SAKURA_USE_JIT_FLAG);
   // Insert key-value data
   // Read the corresponding value of a random key while inserting.
   {
@@ -557,10 +557,8 @@ TEST(OptimizerTest, FloatRangeScanTest) {
     [&rgen]() -> double {
       std::uniform_real_distribution<> dis(0.0, 1e4);
       return std::floor(dis(rgen) * 1e4) / 1e4;
-      }, [](double x) -> std::string { return fmt::format("{:.10f}", x); });
+    }, [](double x) -> std::string { return fmt::format("{:.10f}", x); });
   }
   db = nullptr;
-  std::filesystem::remove("__tmp0205");
+  std::filesystem::remove("__tmp0207");
 }
-
-TEST(OptimizerTest, Benchmark1) {}
