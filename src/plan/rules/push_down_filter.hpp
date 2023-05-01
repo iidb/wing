@@ -47,7 +47,9 @@ class PushDownFilterRule : public OptRule {
           t_node->ch_->type_ == PlanType::Distinct ||
           t_node->ch_->type_ == PlanType::Filter ||
           t_node->ch_->type_ == PlanType::Join ||
-          t_node->ch_->type_ == PlanType::SeqScan) {
+          t_node->ch_->type_ == PlanType::SeqScan || 
+          t_node->ch_->type_ == PlanType::HashJoin || 
+          t_node->ch_->type_ == PlanType::RangeScan) {
         return true;
       }
     }
@@ -90,7 +92,17 @@ class PushDownFilterRule : public OptRule {
       auto t_seq = static_cast<SeqScanPlanNode*>(seq.get());
       t_seq->predicate_.Append(std::move(t_node->predicate_));
       return seq;
-    }
+    } else if (t_node->ch_->type_ == PlanType::RangeScan) {
+      auto rseq = std::move(t_node->ch_);
+      auto t_rseq = static_cast<RangeScanPlanNode*>(rseq.get());
+      t_rseq->predicate_.Append(std::move(t_node->predicate_));
+      return rseq;
+    } else if (t_node->ch_->type_ == PlanType::HashJoin) {
+      auto A = static_cast<FilterPlanNode*>(node.get());
+      auto B = static_cast<HashJoinPlanNode*>(A->ch_.get());
+      B->predicate_.Append(std::move(A->predicate_));
+      return std::move(A->ch_);
+    } 
     DB_ERR("Invalid node.");
   }
 };

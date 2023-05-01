@@ -468,9 +468,12 @@ class Instance::Impl {
         lengths[i] = std::max(lengths[i], (uint32_t)str.length());
       }
       lengths[i] += 2;
+      if (lengths[i] < 4) {
+        lengths[i] = 4;
+      }
     }
     std::string ret;
-    for (auto& L : lengths) {
+    for (auto L : lengths) {
       ret += '+' + std::string(L, '-');
     }
     ret += "+\n";
@@ -480,7 +483,7 @@ class Instance::Impl {
              schema[j].column_name_;
     }
     ret += "|\n";
-    for (auto& L : lengths) {
+    for (auto L : lengths) {
       ret += '+' + std::string(L, '-');
     }
     ret += "+\n";
@@ -495,12 +498,12 @@ class Instance::Impl {
       for (uint32_t j = 0; j < schema.Size(); j++) {
         auto str = InputTuplePtr(vec[i])
                        .Read<StaticFieldRef>(j * sizeof(StaticFieldRef))
-                       .ToString(schema[j].type_, schema[i].size_);
+                       .ToString(schema[j].type_, schema[j].size_);
         ret += "|" + std::string(lengths[j] - str.length(), ' ') + str;
       }
       ret += "|\n";
     }
-    for (auto& L : lengths) {
+    for (auto L : lengths) {
       ret += '+' + std::string(L, '-');
     }
     ret += "+\n";

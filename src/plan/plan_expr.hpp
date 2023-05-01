@@ -18,8 +18,30 @@ class PredicateElement {
   std::unique_ptr<BinaryConditionExpr> expr_;
   BitVector left_bits_;
   BitVector right_bits_;
+
   bool CheckLeft(const BitVector& v) const { return left_bits_.Check(v); }
   bool CheckRight(const BitVector& v) const { return right_bits_.Check(v); }
+  bool IsEq() const {
+    return expr_->op_ == OpType::EQ;
+  }
+  std::optional<uint32_t> GetLeftColId() const {
+    if(expr_->ch0_->type_ == ExprType::COLUMN) {
+      return static_cast<const ColumnExpr*>(expr_->ch0_.get())->id_in_column_name_table_;
+    }
+    return {};
+  }
+  std::optional<uint32_t> GetRightColId() const {
+    if(expr_->ch1_->type_ == ExprType::COLUMN) {
+      return static_cast<const ColumnExpr*>(expr_->ch1_.get())->id_in_column_name_table_;
+    }
+    return {};
+  }
+  RetType GetLeftType() const {
+    return expr_->ch0_->ret_type_;
+  }
+  RetType GetRightType() const {
+    return expr_->ch1_->ret_type_;
+  }
 };
 
 class PredicateVec {

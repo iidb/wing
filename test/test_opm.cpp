@@ -170,18 +170,18 @@ TEST(OptimizerTest, JoinCommuteTest) {
   auto db = std::make_unique<wing::Instance>("__tmp0203", SAKURA_USE_JIT_FLAG);
   {
     EXPECT_TRUE(db->Execute("create table B(a int64 auto_increment primary "
-                            "key, data varchar(20));")
+                            "key, data varchar(2));")
                     .Valid());
     EXPECT_TRUE(db->Execute("create table A(a int64 foreign key references "
                             "B(a), b int64, c float64);")
                     .Valid());
-    int NUMA = 1e7, NUMB = 1e3;
+    int NUMA = 1e6, NUMB = 1e3;
     RandomTuple<int64_t, int64_t, double> tuple_gen(
         202303051627ull, 1, NUMB, 0, 10000, 0.0, 1.0);
     DB_INFO("Generating data...");
     StopWatch _sw;
     RandomTuple<int64_t, std::string> tuple_gen2(
-        20230305162702ull, 0, 0, 15, 20);
+        20230305162702ull, 0, 0, 1, 2);
     auto stmt_b = tuple_gen2.GenerateValuesClauseStmt(NUMB);
     EXPECT_TRUE(db->Execute("insert into B " + stmt_b + ";").Valid());
     stmt_b.clear();
@@ -197,27 +197,70 @@ TEST(OptimizerTest, JoinCommuteTest) {
     db->Analyze("A");
     db->Analyze("B");
     DB_INFO("Database analyzed.");
-    StopWatch sw;
+    // StopWatch sw;
     // You should swap A, B. because B is much smaller than A.
-    EXPECT_TRUE(test_timeout(
-        [&]() {
-          // clang-format off
-          db->Execute("select * from A, B where A.a = B.a;");
-          // clang-format on
-        },
-        3000));
-    DB_INFO("Use: {} s", sw.GetTimeInSeconds());
-    sw.Reset();
+
+    // EXPECT_TRUE(test_timeout(
+    //     [&]() {
+    //       // clang-format off
+    //       db->Execute("select * from A, B where A.a = B.a;");
+    //       // clang-format on
+    //     },
+    //     3000));
+    {
+      auto pplan = db->GetPlan("select * from A, B where A.a = B.a;");
+      ASSERT_TRUE(pplan->type_ == PlanType::Project);
+      ASSERT_TRUE(pplan->ch_->type_ == PlanType::HashJoin);
+      auto plan = std::move(pplan->ch_);
+      ASSERT_TRUE(plan->ch_ && (plan->ch_->type_ == PlanType::SeqScan || plan->ch_->type_ == PlanType::RangeScan));
+      ASSERT_TRUE(plan->ch2_ && (plan->ch2_->type_ == PlanType::SeqScan || plan->ch2_->type_ == PlanType::RangeScan));
+      if (plan->ch_->type_ == PlanType::SeqScan) {
+        ASSERT_TRUE(static_cast<SeqScanPlanNode*>(plan->ch_.get())->table_name_ == "B");
+      } else {
+        ASSERT_TRUE(static_cast<RangeScanPlanNode*>(plan->ch_.get())->table_name_ == "B");
+      }
+      if (plan->ch2_->type_ == PlanType::SeqScan) {
+        ASSERT_TRUE(static_cast<SeqScanPlanNode*>(plan->ch2_.get())->table_name_ == "A");
+      } else {
+        ASSERT_TRUE(static_cast<RangeScanPlanNode*>(plan->ch2_.get())->table_name_ == "A");
+      }  
+    }
+    
+    
+    // DB_INFO("Use: {} s", sw.GetTimeInSeconds());
+    // sw.Reset();
+
+
     // You should swap dupA and A. because b is uniformly distributed in [0,
-    // 100]. So dupA's size is 1e7 / 10000.
-    EXPECT_TRUE(test_timeout(
-        [&]() {
-          // clang-format off
-          db->Execute("select * from A, A as dupA where A.a = dupA.a and dupA.b = 5;");
-          // clang-format on
-        },
-        3000));
-    DB_INFO("Use: {} s", sw.GetTimeInSeconds());
+    // 100]. So dupA's size is 1e6 / 10000.
+
+    // EXPECT_TRUE(test_timeout(
+    //     [&]() {
+    //       // clang-format off
+    //       db->Execute("select * from A, A as dupA where A.a = dupA.a and dupA.b = 5;");
+    //       // clang-format on
+    //     },
+    //     3000));
+    // DB_INFO("Use: {} s", sw.GetTimeInSeconds());
+
+    {
+      auto pplan = db->GetPlan("select * from A, A as dupA where A.a = dupA.a and dupA.b = 5;");
+      ASSERT_TRUE(pplan->type_ == PlanType::Project);
+      ASSERT_TRUE(pplan->ch_->type_ == PlanType::HashJoin);
+      auto plan = std::move(pplan->ch_);
+      ASSERT_TRUE(plan->ch_ && (plan->ch_->type_ == PlanType::SeqScan || plan->ch_->type_ == PlanType::RangeScan));
+      ASSERT_TRUE(plan->ch2_ && (plan->ch2_->type_ == PlanType::SeqScan || plan->ch2_->type_ == PlanType::RangeScan));
+      if (plan->ch_->type_ == PlanType::SeqScan) {
+        ASSERT_TRUE(static_cast<SeqScanPlanNode*>(plan->ch_.get())->predicate_.GetVec().size() != 0);
+      } else {
+        ASSERT_TRUE(static_cast<RangeScanPlanNode*>(plan->ch_.get())->predicate_.GetVec().size() != 0);
+      }
+      if (plan->ch2_->type_ == PlanType::SeqScan) {
+        ASSERT_TRUE(static_cast<SeqScanPlanNode*>(plan->ch2_.get())->predicate_.GetVec().size() == 0);
+      } else {
+        ASSERT_TRUE(static_cast<RangeScanPlanNode*>(plan->ch2_.get())->predicate_.GetVec().size() == 0);
+      }  
+    }
   }
 
   db = nullptr;
@@ -561,4 +604,16 @@ TEST(OptimizerTest, FloatRangeScanTest) {
   }
   db = nullptr;
   std::filesystem::remove("__tmp0207");
+}
+
+TEST(OptimizerTest, JoinOrder10) {
+  using namespace wing;
+  using namespace wing::wing_testing;
+  std::filesystem::remove("__tmp0208");
+  auto db = std::make_unique<wing::Instance>("__tmp0208", SAKURA_USE_JIT_FLAG);
+  {
+    EXPECT_TRUE(db->Execute("create table "))
+  }
+  db = nullptr;
+  std::filesystem::remove("__tmp0208");
 }

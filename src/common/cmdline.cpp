@@ -55,6 +55,7 @@ class SQLCmdLine::Impl {
         if (input.substr(pos, cmd.length()) == cmd) {
           if (!func(input.substr(
                   pos + cmd.length(), input.length() - pos - cmd.length()))) {
+            // exiting.
             return;
           } else {
             flag = true;
