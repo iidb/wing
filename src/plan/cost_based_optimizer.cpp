@@ -80,7 +80,7 @@ bool CheckHasStat(const PlanNode* plan, const DB& db) {
 */
 bool CheckCondition(const PlanNode* plan, const DB& db) {
   if (GetTableNum(plan) > 10) return false;
-  if (plan->type_ != PlanType::Project) return false;
+  if (plan->type_ != PlanType::Project && plan->type_ != PlanType::Aggregate) return false;
   if (!CheckIsAllJoin(plan->ch_.get())) return false;
   return CheckHasStat(plan->ch_.get(), db);
 }

@@ -261,6 +261,25 @@ TEST(OptimizerTest, JoinCommuteTest) {
         ASSERT_TRUE(static_cast<RangeScanPlanNode*>(plan->ch2_.get())->predicate_.GetVec().size() == 0);
       }  
     }
+
+    {
+      auto pplan = db->GetPlan("select * from A as dupA, A where A.a = dupA.a and dupA.b = 5;");
+      ASSERT_TRUE(pplan->type_ == PlanType::Project);
+      ASSERT_TRUE(pplan->ch_->type_ == PlanType::HashJoin);
+      auto plan = std::move(pplan->ch_);
+      ASSERT_TRUE(plan->ch_ && (plan->ch_->type_ == PlanType::SeqScan || plan->ch_->type_ == PlanType::RangeScan));
+      ASSERT_TRUE(plan->ch2_ && (plan->ch2_->type_ == PlanType::SeqScan || plan->ch2_->type_ == PlanType::RangeScan));
+      if (plan->ch_->type_ == PlanType::SeqScan) {
+        ASSERT_TRUE(static_cast<SeqScanPlanNode*>(plan->ch_.get())->predicate_.GetVec().size() != 0);
+      } else {
+        ASSERT_TRUE(static_cast<RangeScanPlanNode*>(plan->ch_.get())->predicate_.GetVec().size() != 0);
+      }
+      if (plan->ch2_->type_ == PlanType::SeqScan) {
+        ASSERT_TRUE(static_cast<SeqScanPlanNode*>(plan->ch2_.get())->predicate_.GetVec().size() == 0);
+      } else {
+        ASSERT_TRUE(static_cast<RangeScanPlanNode*>(plan->ch2_.get())->predicate_.GetVec().size() == 0);
+      }  
+    }
   }
 
   db = nullptr;
@@ -386,8 +405,28 @@ TEST(OptimizerTest, JoinAssociate5Test) {
                 tables[1], tables[2], tables[3], tables[4], predicate));
           }
         },
-        10000));
+        6000));
     DB_INFO("Use: {} s", sw.GetTimeInSeconds());
+    {
+      ResultSet result;
+
+      StopWatch sw;
+      EXPECT_TRUE(test_timeout(
+        [&]() {
+          result = db->Execute("select count(*) from Cats as B, Cats as C, Cats as D, Cats as E,  Cats as A where "
+                      "A.cat_id = B.cat_id and A.emp_id = B.emp_id and A.username_id = B.username_id "
+                      "and B.cat_id = C.cat_id and B.maid_id = C.maid_id and B.username_id = C.username_id "
+                      "and B.maid_id = E.maid_id and B.emp_id = E.emp_id and B.username_id = E.username_id "
+                      "and E.cat_id = D.cat_id and D.emp_id = B.emp_id and D.username_id = B.username_id; ");
+        },
+        2000));
+      DB_INFO("Use: {} s", sw.GetTimeInSeconds());
+      EXPECT_TRUE(result.Valid());
+      auto tuple = result.Next();
+      EXPECT_TRUE(tuple);
+      EXPECT_EQ(tuple.ReadInt(0), CATNUM);  
+    }
+    
   }
   db = nullptr;
   std::filesystem::remove("__tmp0205");
@@ -604,14 +643,4 @@ TEST(OptimizerTest, FloatRangeScanTest) {
   }
   db = nullptr;
   std::filesystem::remove("__tmp0207");
-}
-
-TEST(OptimizerTest, JoinOrder10) {
-  using namespace wing;
-  using namespace wing::wing_testing;
-  std::filesystem::remove("__tmp0208");
-  auto db = std::make_unique<wing::Instance>("__tmp0208", SAKURA_USE_JIT_FLAG);
-  
-  db = nullptr;
-  std::filesystem::remove("__tmp0208");
 }

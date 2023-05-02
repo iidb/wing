@@ -22,10 +22,17 @@ add_executable(
   test_opm.cpp
 )
 
+add_executable(
+  test_job
+  test_main.cpp
+  test_job.cpp
+)
+
 target_include_directories(test_basic PRIVATE ../src ../third_party/fmt)
 target_include_directories(test_btree PRIVATE ../src ../third_party/fmt)
 target_include_directories(test_exec PRIVATE ../src ../third_party/fmt)
 target_include_directories(test_opm PRIVATE ../src ../third_party/fmt)
+target_include_directories(test_job PRIVATE ../src ../third_party/fmt)
 
 find_library(GTEST_LIB gtest)
 if (NOT GTEST_LIB)
@@ -55,11 +62,13 @@ if (NOT GTEST_LIB)
   target_link_libraries(test_btree wing_lib GTest::gmock fmt)
   target_link_libraries(test_exec wing_lib GTest::gmock fmt)
   target_link_libraries(test_opm wing_lib GTest::gmock fmt)
+  target_link_libraries(test_job wing_lib GTest::gmock fmt)
 else()
   target_link_libraries(test_basic wing_lib fmt gtest)
   target_link_libraries(test_btree wing_lib fmt gtest)
   target_link_libraries(test_exec wing_lib fmt gtest)
   target_link_libraries(test_opm wing_lib fmt gtest)
+  target_link_libraries(test_job wing_lib fmt gtest)
 endif()
 
 include(GoogleTest)
@@ -67,3 +76,11 @@ gtest_discover_tests(test_basic)
 gtest_discover_tests(test_btree)
 gtest_discover_tests(test_exec)
 gtest_discover_tests(test_opm)
+gtest_discover_tests(test_job)
+
+# Configure other files
+configure_file(imdb_job/create_table.sql imdb_job/create_table.sql COPYONLY)
+configure_file(imdb_job/q1.sql imdb_job/q1.sql COPYONLY)
+configure_file(imdb_job/q2.sql imdb_job/q2.sql COPYONLY)
+configure_file(imdb_job/q3.sql imdb_job/q3.sql COPYONLY)
+configure_file(imdb_job/q4.sql imdb_job/q4.sql COPYONLY)
