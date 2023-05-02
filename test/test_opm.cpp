@@ -611,9 +611,7 @@ TEST(OptimizerTest, JoinOrder10) {
   using namespace wing::wing_testing;
   std::filesystem::remove("__tmp0208");
   auto db = std::make_unique<wing::Instance>("__tmp0208", SAKURA_USE_JIT_FLAG);
-  {
-    EXPECT_TRUE(db->Execute("create table "))
-  }
+  
   db = nullptr;
   std::filesystem::remove("__tmp0208");
 }

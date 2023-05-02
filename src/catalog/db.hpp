@@ -32,7 +32,9 @@ class DB {
   /** Get the range iterator. It returns an iterator pointing to the leftmost
    * element in the interval [L, R] or (L, R) or (L, R] or [L, R) or [L, inf) or
    * (L, inf) or (-inf, R) or (-inf, R] or (-inf, inf) The iterator ensures that
-   * it only returns elements within this interval. L, R: key, is_empty, is_eq.
+   * it only returns elements within this interval. 
+   * 
+   * Parameter L, R: the tuple of (key, is_empty, is_eq).
    * If is_empty is true, then it doesn't have limit in one direction. If is_eq
    * is true. then the endpoint of the interval is closed.
    */

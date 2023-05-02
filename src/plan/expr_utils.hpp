@@ -10,6 +10,8 @@
 namespace wing {
 class ExprUtils {
  public:
+  // Decompose the expression by AND operator.
+  // Store result expressions in std::vector<std::unique_ptr<Expr>> result. 
   static void DivideIntoPredicateList(
       std::unique_ptr<Expr> expr, std::vector<std::unique_ptr<Expr>>& result) {
     if (expr->type_ == ExprType::BINCONDOP &&
@@ -30,6 +32,7 @@ class ExprUtils {
     return ret;
   }
 
+  // Get all ids of table in the expression.
   static void GetExprIds(const Expr* expr, std::vector<uint32_t>& result) {
     if (expr->type_ == ExprType::COLUMN) {
       result.push_back(
@@ -42,6 +45,8 @@ class ExprUtils {
     }
   }
 
+  // First get all table ids.
+  // Then pack them into a BitVector.
   static BitVector GetExprBitVector(const Expr* expr) {
     std::vector<uint32_t> list;
     GetExprIds(expr, list);
@@ -54,6 +59,12 @@ class ExprUtils {
     return ret;
   }
 
+  // For an expression F(expr), given a set of input expressions (input_exprs)
+  // and a correspondence (input_schema).
+  // Return F(S)
+  // For example, if the expression is 'a + b'
+  // Then the set of input expression can be {'a': 2, 'b': c + 3}
+  // Then the new expression is 2 + c + 3.
   // Should ensure that there is no nested aggregate functions.
   static std::unique_ptr<Expr> ApplyExprOnExpr(const Expr* expr,
       const std::vector<std::unique_ptr<Expr>>& input_exprs,

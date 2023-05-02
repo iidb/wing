@@ -225,6 +225,8 @@ class RangeScanPlanNode : public PlanNode {
   std::string ToString() const override;
   std::unique_ptr<PlanNode> clone() const override;
   std::string table_name_;
+  /* Field is the key */
+  /* The boolean represents whether the endpoint of the interval is closed.*/
   std::pair<Field, bool> range_l_;
   std::pair<Field, bool> range_r_;
   PredicateVec predicate_;

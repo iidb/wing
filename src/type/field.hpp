@@ -175,7 +175,7 @@ class Field {
     double double_data;
   } data_;
 
-  Field() : type_(FieldType::EMPTY) {}
+  Field() : type_(FieldType::EMPTY), size_(0) { data_.int_data = 0; }
 
   static Field CreateInt(FieldType type, uint32_t size, int64_t int_data) {
     DB_ASSERT(type == FieldType::INT32 || type == FieldType::INT64);

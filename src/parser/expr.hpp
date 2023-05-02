@@ -13,16 +13,20 @@ namespace wing {
  * Expressions.
  *
  *         +- BinaryConditionExpr: Two child exprs and AND (and) or OR (or),
+ *         |                       or LEQ (<=) or REQ (>=) or EQ (=) or NEQ (<>) 
  *         |                       Children exprs of types FLOAT or STRING is
- * not allowed for all operands. |                       Return type is INT.
+ *         |                       not allowed for all operands. 
+ *         |                       Return type is INT.
  *         |
  * Expr  --+- BinaryExpr: Two child exprs and ADD (+) or SUB (-) or MUL (*) or
- * DIV (/) or MOD (%) or BITAND (&) or BITXOR (^) or BITOR (|) | BITLSH (<<) or
- * BITRSH (>>) or LT (<) or RT (>) or LEQ (<=) or REQ (>=) |              or EQ
- * (=) or NEQ (<>) |              Child exprs of types STRING is not allowed for
- * all operands. |              Child exprs of types FLOAT is not allowed for
- * bitwise operands and MOD, i.e. BITLSH, BITRSH, BITAND, BITXOR, BITOR, MOD |
- * Return type is the maximum return type within the two child exprs.
+ * DIV (/) or MOD (%) or BITAND (&) or BITXOR (^) or BITOR (|) 
+ *         | BITLSH (<<) or BITRSH (>>) or LT (<) or RT (>) 
+ *         | 
+ *         | Child exprs of types STRING is not allowed for all operands. 
+ *         | Child exprs of types FLOAT is not allowed for 
+ *         | bitwise operands and MOD, 
+ *         | i.e. BITLSH, BITRSH, BITAND, BITXOR, BITOR, MOD 
+ *         | Return type is the maximum return type within the two child exprs.
  *         |
  *         +- UnaryExpr: NEG (-) or NOT (not) and a child Expr.
  *         |             Child expr of type STRING is not allowed.
@@ -68,19 +72,25 @@ enum class OpType {
   NEG
 };
 
+/** 
+ * RetType can be converted to FieldType:
+ *  RetType::INT - FieldType::INT64
+ *  RetType::FLOAT - FieldType::FLOAT64
+ *  RetType::STRING - FieldType::VARCHAR
+ */
 enum class RetType { INT = 0, FLOAT, STRING };
 
 enum class ExprType {
-  LITERAL_STRING = 0,
-  LITERAL_INTEGER,
-  LITERAL_FLOAT,
-  BINOP,
-  BINCONDOP,
-  UNARYOP,
-  UNARYCONDOP,
-  COLUMN,
-  CAST,
-  AGGR,
+  LITERAL_STRING = 0, // LiteralStringExpr
+  LITERAL_INTEGER,    // LiteralIntegerExpr
+  LITERAL_FLOAT,      // LiteralFloatExpr
+  BINOP,              // BinaryExpr
+  BINCONDOP,          // BinaryConditionExpr
+  UNARYOP,            // UnaryExpr
+  UNARYCONDOP,        // UnaryConditionExpr
+  COLUMN,             // ColumnExpr
+  CAST,               // CastExpr
+  AGGR,               // AggregateFunctionExpr
 };
 
 struct Expr {
@@ -93,7 +103,9 @@ struct Expr {
   Expr(ExprType type, std::unique_ptr<Expr>&& ch0, std::unique_ptr<Expr>&& ch1)
     : type_(type), ch0_(std::move(ch0)), ch1_(std::move(ch1)) {}
   virtual ~Expr() = default;
+  /* Print the expr. */
   virtual std::string ToString() const = 0;
+  /* Clone an expr. */
   virtual std::unique_ptr<Expr> clone() const = 0;
 };
 
@@ -158,7 +170,9 @@ struct LiteralFloatExpr : public Expr {
 struct ColumnExpr : public Expr {
   std::string table_name_;
   std::string column_name_;
+  /* Unique id. */
   uint32_t id_in_column_name_table_;
+  /* The id of table. */
   uint32_t id_table_in_planner_;
   ColumnExpr(std::string table_name, std::string column_name)
     : Expr(ExprType::COLUMN),
