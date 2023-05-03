@@ -359,9 +359,24 @@ class Field {
     return std::string(reinterpret_cast<char*>(data_.str_data), size_);
   }
 
+  /* Get std::string_view of string Field. If Field is integer/float then don't use it. */
   std::string_view ReadStringView() const {
     return std::string_view(
         reinterpret_cast<const char*>(data_.str_data), size_);
+  }
+
+  /* Get std::string_view of Field */
+  std::string_view GetView() const {
+    if (type_ == FieldType::CHAR || type_ == FieldType::VARCHAR) {
+      // TODO: CHAR type uses another way.
+      return ReadStringView();
+    } else {
+      // If the CPU is big-endian and type is int32, we use the last 4 bytes.
+      if (std::endian::native == std::endian::big && type_ == FieldType::INT32) {
+        return {reinterpret_cast<const char*>(&data_.int_data) + 4, 4};
+      }
+      return {reinterpret_cast<const char*>(&data_.int_data), 8};
+    }
   }
 
   std::string ToString() const {
