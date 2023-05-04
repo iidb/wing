@@ -46,11 +46,12 @@ static void CreateTables(wing::Instance& db) {
   }
 }
 
-static double GetExecutionTime(wing::Instance& db, const std::string& file_name) {
+static std::pair<size_t, double> GetExecutionTime(wing::Instance& db, const std::string& file_name) {
   using namespace wing;
   using namespace wing::wing_testing;
   StopWatch sw;
   auto sqls = ReadSQLFromFile(file_name);
+  size_t tuple_counts = 0;
   EXPECT_TRUE(test_timeout(
     [&]() {
       for (auto sql : sqls) {
@@ -59,13 +60,14 @@ static double GetExecutionTime(wing::Instance& db, const std::string& file_name)
         EXPECT_TRUE(result.Valid());
         auto tuple = result.Next();
         EXPECT_TRUE(tuple);
+        tuple_counts = tuple.ReadInt(0);
         // if (tuple) {
         //   DB_INFO("{}", tuple.ReadInt(0));
         // }
       }
     }, 10000
   ));
-  return sw.GetTimeInSeconds();
+  return {tuple_counts, sw.GetTimeInSeconds()};
 }
 
 static bool CheckData(wing::Instance& db, int movieN, int movieRoleN, int movieCompanyN, int castN, int personN, int akaN) {
@@ -258,9 +260,9 @@ TEST(Benchmark, JoinOrder10Q1) {
 
   AnalyzeAllTable(*db);
   std::ofstream out("__job_benchmark_result1");
-  auto result = GetExecutionTime(*db, test_sql1);
+  auto [tuple_counts, result] = GetExecutionTime(*db, test_sql1);
   DB_INFO("Use {}s", result);
-  out << result;
+  out << tuple_counts << " " << result;
 }
 
 TEST(Benchmark, JoinOrder10Q2) {
@@ -273,9 +275,9 @@ TEST(Benchmark, JoinOrder10Q2) {
 
   AnalyzeAllTable(*db);
   std::ofstream out("__job_benchmark_result2");
-  auto result = GetExecutionTime(*db, test_sql2);
+  auto [tuple_counts, result] = GetExecutionTime(*db, test_sql2);
   DB_INFO("Use {}s", result);
-  out << result;
+  out << tuple_counts << " " << result;
 }
 
 TEST(Benchmark, JoinOrder10Q3) {
@@ -288,9 +290,9 @@ TEST(Benchmark, JoinOrder10Q3) {
 
   AnalyzeAllTable(*db);
   std::ofstream out("__job_benchmark_result3");
-  auto result = GetExecutionTime(*db, test_sql3);
+  auto [tuple_counts, result] = GetExecutionTime(*db, test_sql3);
   DB_INFO("Use {}s", result);
-  out << result;
+  out << tuple_counts << " " << result;
 }
 
 
@@ -304,7 +306,7 @@ TEST(Benchmark, JoinOrder10Q4) {
 
   AnalyzeAllTable(*db);
   std::ofstream out("__job_benchmark_result4");
-  auto result = GetExecutionTime(*db, test_sql4);
+  auto [tuple_counts, result] = GetExecutionTime(*db, test_sql4);
   DB_INFO("Use {}s", result);
-  out << result;
+  out << tuple_counts << " " << result;
 }
