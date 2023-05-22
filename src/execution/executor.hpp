@@ -8,6 +8,7 @@
 #include "parser/expr.hpp"
 #include "plan/plan.hpp"
 #include "storage/storage.hpp"
+#include "transaction/txn.hpp"
 
 namespace wing {
 
@@ -33,7 +34,7 @@ class Executor {
 class ExecutorGenerator {
  public:
   static std::unique_ptr<Executor> Generate(
-      const PlanNode* plan, DB& db, size_t txn_id);
+      const PlanNode* plan, DB& db, txn_id_t txn_id);
 
  private:
 };

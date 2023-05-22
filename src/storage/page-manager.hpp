@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <list>
+#include <mutex>
 #include <optional>
 #include <string_view>
 #include <unordered_map>
@@ -506,6 +507,7 @@ public:
   // Regard the page as PlainPage and return a handle that references its
   // buffer.
   PlainPage GetPlainPage(pgid_t pgid) {
+    std::lock_guard l(latch_);
     return PlainPage(GetPage(pgid));
   }
   // Regard the page as SortedPage and return a handle that references its
@@ -514,18 +516,20 @@ public:
   auto GetSortedPage(pgid_t pgid, const SlotKeyCompare& slot_key_comp,
     const SlotCompare& slot_comp
   ) -> SortedPage<SlotKeyCompare, SlotCompare> {
+    std::lock_guard l(latch_);
     return SortedPage<SlotKeyCompare, SlotCompare>(
       GetPage(pgid), slot_key_comp, slot_comp);
   }
 
   // Allocate a page ID, allocate a page buffer for it, and return a
   // PlainPage handle that references the buffer.
+  [[maybe_unused]]
   PlainPage AllocPlainPage() { return GetPlainPage(Allocate()); }
-  template <typename SlotKeyCompare, typename SlotCompare>
   /* Allocate a page ID, allocate a page buffer for it, and return the
    * SortedPage handle. The user should call SortedPage::Init before using
    * it for the first time.
    */
+  template <typename SlotKeyCompare, typename SlotCompare>
   auto AllocSortedPage(
     const SlotKeyCompare& slot_key_comp, const SlotCompare& slot_comp
   ) -> SortedPage<SlotKeyCompare, SlotCompare> {
@@ -595,6 +599,8 @@ private:
 
   // For debugging
   std::vector<bool> is_free_;
+  
+  std::mutex latch_;
 
   friend class Page;
 };

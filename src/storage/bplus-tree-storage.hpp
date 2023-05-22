@@ -2,25 +2,27 @@
 #define BPLUS_TREE_STORAGE_H_
 
 #include <compare>
+#include <memory>
+#include <optional>
 
 #include "blob.hpp"
 #include "bplus-tree.hpp"
 #include "catalog/schema.hpp"
 #include "common/logging.hpp"
 #include "storage.hpp"
+#include "transaction/lock_manager.hpp"
+#include "transaction/lock_mode.hpp"
+#include "transaction/txn_manager.hpp"
 
 namespace wing {
 
-/* The Base class of all B+trees containing only deconstructor.*/
 class AbstractBPlusTreeTable {
  public:
   virtual ~AbstractBPlusTreeTable() = default;
 };
 
-/* Compare function for string (CHAR or VARCHAR). */
 using StringKeyCompare = std::compare_three_way;
 
-/* Compare function for integer key (INT32 or INT64). */
 struct IntegerKeyCompare {
   std::weak_ordering operator()(std::string_view L, std::string_view R) const {
     // Compare integers.
@@ -33,7 +35,6 @@ struct IntegerKeyCompare {
   }
 };
 
-/* Compare function for integer key (FLOAT64). */
 struct FloatKeyCompare {
   std::weak_ordering operator()(std::string_view L, std::string_view R) const {
     double l = *reinterpret_cast<const double*>(L.data());
@@ -123,25 +124,35 @@ class BPlusTreeTable : public AbstractBPlusTreeTable {
   };
   class ModifyHandle : public wing::ModifyHandle {
    public:
-    ModifyHandle(BPlusTreeTable& table) : table_(table) {}
+    ModifyHandle(BPlusTreeTable& table, std::unique_ptr<TxnExecCtx> ctx)
+      : table_(table), ctx_(std::move(ctx)) {}
     void Init() override {}
-    bool Delete(std::string_view key) override { return table_.Delete(key); }
+    bool Delete(std::string_view key) override {
+      // P4 TODO
+      return table_.Delete(key);
+      ;
+    }
     bool Insert(std::string_view key, std::string_view value) override {
+      // P4 TODO
       return table_.Insert(key, value);
     }
     bool Update(std::string_view key, std::string_view value) override {
+      // P4 TODO
       return table_.Update(key, value);
     }
 
    private:
     BPlusTreeTable& table_;
+    std::unique_ptr<TxnExecCtx> ctx_;
     friend class BPlusTreeTable<KeyCompare>;
   };
   class SearchHandle : public wing::SearchHandle {
    public:
-    SearchHandle(tree_t& tree) : tree_(tree) {}
+    SearchHandle(tree_t& tree, std::unique_ptr<TxnExecCtx> ctx)
+      : tree_(tree), ctx_(std::move(ctx)) {}
     void Init() override {}
     const uint8_t* Search(std::string_view key) override {
+      // P4 TODO
       auto ret = tree_.Get(key);
       if (!ret.has_value())
         return nullptr;
@@ -151,6 +162,7 @@ class BPlusTreeTable : public AbstractBPlusTreeTable {
 
    private:
     tree_t& tree_;
+    std::unique_ptr<TxnExecCtx> ctx_;
     std::string last_;
     friend class BPlusTreeTable<KeyCompare>;
   };
@@ -191,6 +203,9 @@ class BPlusTreeTable : public AbstractBPlusTreeTable {
   }
 
   bool Delete(std::string_view key) { return tree_.Delete(key); }
+  std::optional<std::string> Get(std::string_view key) {
+    return tree_.Get(key);
+  }
   bool Insert(std::string_view key, std::string_view value) {
     bool succeed = tree_.Insert(key, value);
     if (succeed)
@@ -201,11 +216,13 @@ class BPlusTreeTable : public AbstractBPlusTreeTable {
     auto exists = tree_.Update(key, value);
     return exists;
   }
-  std::unique_ptr<wing::ModifyHandle> GetModifyHandle() {
-    return std::make_unique<ModifyHandle>(*this);
+  std::unique_ptr<wing::ModifyHandle> GetModifyHandle(
+      std::unique_ptr<TxnExecCtx> ctx) {
+    return std::make_unique<ModifyHandle>(*this, std::move(ctx));
   }
-  std::unique_ptr<wing::SearchHandle> GetSearchHandle() {
-    return std::make_unique<SearchHandle>(tree_);
+  std::unique_ptr<wing::SearchHandle> GetSearchHandle(
+      std::unique_ptr<TxnExecCtx> ctx) {
+    return std::make_unique<SearchHandle>(tree_, std::move(ctx));
   }
   size_t TupleNum() { return tree_.TupleNum(); }
   std::optional<std::string_view> GetMaxKey() { return tree_.MaxKey(); }
@@ -217,7 +234,7 @@ class BPlusTreeTable : public AbstractBPlusTreeTable {
  private:
   TableSchema schema_;
   tree_t tree_;
-  size_t ticks_;
+  std::atomic<size_t> ticks_;
   friend class BPlusTreeStorage;
 };
 
@@ -281,16 +298,16 @@ class BPlusTreeStorage {
   }
 
   std::unique_ptr<wing::ModifyHandle> GetModifyHandle(
-      std::string_view table_name) {
+      std::unique_ptr<TxnExecCtx> ctx) {
     return ApplyFuncOnTable<std::unique_ptr<wing::ModifyHandle>>(
-        GetPKType(table_name), GetTable(table_name),
-        [](auto a) { return a->GetModifyHandle(); });
+        GetPKType(ctx->table_name_), GetTable(ctx->table_name_),
+        [&ctx](auto a) { return a->GetModifyHandle(std::move(ctx)); });
   }
   std::unique_ptr<wing::SearchHandle> GetSearchHandle(
-      std::string_view table_name) {
+      std::unique_ptr<TxnExecCtx> ctx) {
     return ApplyFuncOnTable<std::unique_ptr<wing::SearchHandle>>(
-        GetPKType(table_name), GetTable(table_name),
-        [](auto a) { return a->GetSearchHandle(); });
+        GetPKType(ctx->table_name_), GetTable(ctx->table_name_),
+        [&ctx](auto a) { return a->GetSearchHandle(std::move(ctx)); });
   }
   std::optional<io::Error> Create(const TableSchema& schema) {
     auto table_name = schema.GetName();

@@ -28,6 +28,7 @@ file(GLOB DB_SOURCE
   src/storage/*
   src/type/*
   src/plan/*
+  src/transaction/*
 )
 
 # Configure LLVM
@@ -57,16 +58,19 @@ endif()
 
 add_compile_options("-Wall" "-march=native")
 
-# Address Sanitizer can only be enabled in Debug mode
-option(ASAN "Use Address Sanitizer" OFF)
-if (ASAN)
+if (NOT WING_SANITIZER)
+    set(WING_SANITIZER address)
+endif ()
+# Sanitizer can only be enabled in Debug mode
+option(SAN "Use Sanitizer" OFF)
+if (SAN)
   string( TOLOWER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_LOWER )
   if (CMAKE_BUILD_TYPE_LOWER STREQUAL "debug")
-    add_compile_options("-fsanitize=address" "-fno-omit-frame-pointer")
-    add_link_options("-fsanitize=address" "-fno-omit-frame-pointer")
-    message(STATUS "asan is enabled.")
+    add_compile_options("-fsanitize=${WING_SANITIZER}" "-fno-omit-frame-pointer")
+    add_link_options("-fsanitize=${WING_SANITIZER}" "-fno-omit-frame-pointer")
+    message(STATUS "sanitizer is enabled.")
   else()
-    message(STATUS "asan will not be enabled in modes other than Debug.")
+    message(STATUS "sanitizer will not be enabled in modes other than Debug.")
   endif()
 endif()
 

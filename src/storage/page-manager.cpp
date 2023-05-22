@@ -1,6 +1,7 @@
 #include "page-manager.hpp"
 #include "common/logging.hpp"
 #include <memory>
+#include <mutex>
 
 namespace wing {
 
@@ -105,6 +106,7 @@ pgid_t PageManager::__Allocate() {
   }
 }
 pgid_t PageManager::Allocate() {
+  std::lock_guard l(latch_);
   pgid_t ret = __Allocate();
   assert(ret <= is_free_.size());
   if (ret == is_free_.size()) {
@@ -117,6 +119,7 @@ pgid_t PageManager::Allocate() {
 }
 
 void PageManager::Free(pgid_t pgid) {
+  std::lock_guard l(latch_);
   if (is_free_[pgid])
     DB_ERR("Internal error: Double free of page {}\n", pgid);
   is_free_[pgid] = true;
@@ -294,6 +297,7 @@ Page PageManager::GetPage(pgid_t pgid) {
   return Page(pgid, addr, *this, false);
 }
 void PageManager::DropPage(pgid_t pgid, bool dirty) {
+  std::lock_guard l(latch_);
   assert(pgid != 0);
   auto it = buf_.find(pgid);
   assert(it != buf_.end());

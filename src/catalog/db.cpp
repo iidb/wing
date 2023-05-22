@@ -8,13 +8,16 @@
 #include "common/logging.hpp"
 #include "storage/bplus-tree-storage.hpp"
 #include "storage/memory_storage.hpp"
+#include "transaction/lock_manager.hpp"
+#include "transaction/lock_mode.hpp"
+#include "transaction/txn_manager.hpp"
 
 namespace wing {
 
 class DB::Impl {
  private:
-  // using StorageBackend = BPlusTreeStorage;
-  using StorageBackend = MemoryTableStorage;
+  using StorageBackend = BPlusTreeStorage;
+  // using StorageBackend = MemoryTableStorage;
 
  public:
   static auto Open(std::filesystem::path path, bool create_if_missing,
@@ -24,42 +27,53 @@ class DB::Impl {
     return std::unique_ptr<DB::Impl>(new DB::Impl(std::move(table_storage)));
   }
 
-  void CreateTable(const TableSchema& schema) {
+  void CreateTable(txn_id_t txn_id, const TableSchema& schema) {
+    // It is safe to directly acquire X lock since it is the highest level.
+    txn_manager_.GetLockManager().AcquireTableLock(
+
+        schema.GetName(), LockMode::X, TxnManager::GetTxn(txn_id).value());
     table_storage_.Create(schema);
     tick_table_[std::string(schema.GetName())] = 1;
   }
 
-  void DropTable(std::string_view table_name) {
+  void DropTable(txn_id_t txn_id, std::string_view table_name) {
+    // It is safe to directly acquire X lock since it is the highest level.
+    txn_manager_.GetLockManager().AcquireTableLock(
+        table_name, LockMode::X, TxnManager::GetTxn(txn_id).value());
     table_storage_.Drop(table_name);
     tick_table_.erase(tick_table_.find(table_name));
   }
 
   std::unique_ptr<Iterator<const uint8_t*>> GetIterator(
-      size_t txn_id, std::string_view table_name) {
-    (void)txn_id;
+      txn_id_t txn_id, std::string_view table_name) {
+    // P4 TODO
     return table_storage_.GetIterator(table_name);
   }
 
-  std::unique_ptr<Iterator<const uint8_t*>> GetRangeIterator(size_t txn_id,
+  // For simplicity, range iterator holds the S lock on the whole table.
+  std::unique_ptr<Iterator<const uint8_t*>> GetRangeIterator(txn_id_t txn_id,
       std::string_view table_name, std::tuple<std::string_view, bool, bool> L,
       std::tuple<std::string_view, bool, bool> R) {
-    (void)txn_id;
+    // P4 TODO
     return table_storage_.GetRangeIterator(table_name, L, R);
   }
 
   std::unique_ptr<ModifyHandle> GetModifyHandle(
-      size_t txn_id, std::string_view table_name) {
-    (void)txn_id;
-    return table_storage_.GetModifyHandle(table_name);
+      txn_id_t txn_id, std::string_view table_name) {
+    // P4 TODO
+    return table_storage_.GetModifyHandle(std::make_unique<TxnExecCtx>(
+        txn_id, std::string(table_name), &txn_manager_.GetLockManager()));
   }
 
   std::unique_ptr<SearchHandle> GetSearchHandle(
-      size_t txn_id, std::string_view table_name) {
-    (void)txn_id;
-    return table_storage_.GetSearchHandle(table_name);
+      txn_id_t txn_id, std::string_view table_name) {
+    // P4 TODO
+    return table_storage_.GetSearchHandle(std::make_unique<TxnExecCtx>(
+        txn_id, std::string(table_name), &txn_manager_.GetLockManager()));
   }
 
-  GenPKHandle GetGenPKHandle(size_t txn_id, std::string_view table_name) {
+  // No need to handle txn logic.
+  GenPKHandle GetGenPKHandle(txn_id_t txn_id, std::string_view table_name) {
     (void)txn_id;
     return GenPKHandle(&tick_table_.find(table_name)->second);
   }
@@ -78,39 +92,7 @@ class DB::Impl {
     return *reinterpret_cast<const size_t*>(max_key.data()) + 1;
   }
 
-  void Rollback(size_t txn_id) {}
-
-  void Commit(size_t txn_id) {}
-
-  size_t GenerateTxnID() {
-    auto ret = ++txn_id_;
-    metadata_mu_.lock_shared();
-    std::unique_lock lck(txn_metadata_lock_table_mu_);
-    txn_metadata_lock_table_[ret] = 0;
-    return ret;
-  }
-
-  void AcquireMetadataWLock(size_t txn_id) {
-    metadata_mu_.unlock_shared();
-    metadata_mu_.lock();
-    std::unique_lock lck(txn_metadata_lock_table_mu_);
-    txn_metadata_lock_table_[txn_id] = 1;
-  }
-
-  void ReleaseMetadataLock(size_t txn_id) {
-    size_t flag;
-    {
-      std::unique_lock lck(txn_metadata_lock_table_mu_);
-      flag = txn_metadata_lock_table_[txn_id];
-      txn_metadata_lock_table_.erase(txn_id);
-    }
-
-    if (flag == 0) {
-      metadata_mu_.unlock_shared();
-    } else {
-      metadata_mu_.unlock();
-    }
-  }
+  TxnManager& GetTxnManager() { return txn_manager_; }
 
   void UpdateStats(std::string_view table_name, TableStatistics&& stat) {
     table_stats_[std::string(table_name)] =
@@ -127,7 +109,7 @@ class DB::Impl {
 
  private:
   Impl(StorageBackend&& table_storage)
-    : table_storage_(std::move(table_storage)) {
+    : table_storage_(std::move(table_storage)), txn_manager_(table_storage_) {
     for (auto& a : table_storage_.GetDBSchema().GetTables()) {
       std::string name(a.GetName());
       size_t tick = table_storage_.GetTicks(a.GetName());
@@ -138,14 +120,10 @@ class DB::Impl {
   std::map<std::string, std::unique_ptr<TableStatistics>, std::less<>>
       table_stats_;
 
-  // txn_id 0 is for default transaction in shell.
-  std::atomic<size_t> txn_id_{1};
-
-  std::shared_mutex metadata_mu_;
-  std::map<size_t, size_t> txn_metadata_lock_table_;
-  std::mutex txn_metadata_lock_table_mu_;
-
   std::map<std::string, std::atomic<int64_t>, std::less<>> tick_table_;
+
+  // global txn manager and lock manager (inside txn_manager_).
+  TxnManager txn_manager_;
 };
 
 DB::DB(std::string_view file_name) {
@@ -159,52 +137,38 @@ DB::DB(std::string_view file_name) {
 
 DB::~DB() {}
 
-void DB::CreateTable(const TableSchema& schema) {
-  return ptr_->CreateTable(schema);
+void DB::CreateTable(txn_id_t txn_id, const TableSchema& schema) {
+  return ptr_->CreateTable(txn_id, schema);
 }
 
-void DB::DropTable(std::string_view table_name) {
-  return ptr_->DropTable(table_name);
+void DB::DropTable(txn_id_t txn_id, std::string_view table_name) {
+  return ptr_->DropTable(txn_id, table_name);
 }
 
 std::unique_ptr<Iterator<const uint8_t*>> DB::GetIterator(
-    size_t txn_id, std::string_view table_name) {
+    txn_id_t txn_id, std::string_view table_name) {
   return ptr_->GetIterator(txn_id, table_name);
 }
 
-std::unique_ptr<Iterator<const uint8_t*>> DB::GetRangeIterator(size_t txn_id,
+std::unique_ptr<Iterator<const uint8_t*>> DB::GetRangeIterator(txn_id_t txn_id,
     std::string_view table_name, std::tuple<std::string_view, bool, bool> L,
     std::tuple<std::string_view, bool, bool> R) {
   return ptr_->GetRangeIterator(txn_id, table_name, L, R);
 }
 
 std::unique_ptr<ModifyHandle> DB::GetModifyHandle(
-    size_t txn_id, std::string_view table_name) {
+    txn_id_t txn_id, std::string_view table_name) {
   return ptr_->GetModifyHandle(txn_id, table_name);
 }
 
-GenPKHandle DB::GetGenPKHandle(size_t txn_id, std::string_view table_name) {
+GenPKHandle DB::GetGenPKHandle(txn_id_t txn_id, std::string_view table_name) {
   return ptr_->GetGenPKHandle(txn_id, table_name);
 }
 
 const DBSchema& DB::GetDBSchema() const { return ptr_->GetDBSchema(); }
 
-void DB::Rollback(size_t txn_id) {}
-
-void DB::Commit(size_t txn_id) {}
-
-size_t DB::GenerateTxnID() { return ptr_->GenerateTxnID(); }
-
-void DB::AcquireMetadataWLock(size_t txn_id) {
-  ptr_->AcquireMetadataWLock(txn_id);
-}
-
-void DB::ReleaseMetadataLock(size_t txn_id) {
-  ptr_->ReleaseMetadataLock(txn_id);
-}
-
 std::unique_ptr<SearchHandle> DB::GetSearchHandle(
-    size_t txn_id, std::string_view table_name) {
+    txn_id_t txn_id, std::string_view table_name) {
   return ptr_->GetSearchHandle(txn_id, table_name);
 }
 
@@ -215,5 +179,7 @@ void DB::UpdateStats(std::string_view table_name, TableStatistics&& stat) {
 const TableStatistics* DB::GetTableStat(std::string_view table_name) const {
   return ptr_->GetTableStat(table_name);
 }
+
+TxnManager& DB::GetTxnManager() { return ptr_->GetTxnManager(); }
 
 }  // namespace wing

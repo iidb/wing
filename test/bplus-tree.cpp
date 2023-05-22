@@ -696,25 +696,31 @@ TEST(BPlusTreeTest, Scan1) {
   {
     auto pgm = wing::PageManager::Create(name, MAX_BUF_PAGES);
     auto tree = wing::BPlusTree<std::compare_three_way>::Create(*pgm);
-    auto it = tree.Begin();
-    ASSERT_FALSE(it.Cur().has_value());
+    {
+      auto it = tree.Begin();
+      ASSERT_FALSE(it.Cur().has_value());
+    }
 
     ASSERT_TRUE(tree.Insert("123", "456"));
-    it = tree.Begin();
-    ASSERT_EQ(it.Cur(),
-        std::make_pair(std::string_view("123"), std::string_view("456")));
-    it.Next();
-    ASSERT_FALSE(it.Cur().has_value());
+    {
+      auto it = tree.Begin();
+      ASSERT_EQ(it.Cur(),
+          std::make_pair(std::string_view("123"), std::string_view("456")));
+      it.Next();
+      ASSERT_FALSE(it.Cur().has_value());
+    }
 
     ASSERT_TRUE(tree.Insert("233", "332"));
-    it = tree.Begin();
-    ASSERT_EQ(it.Cur(),
-        std::make_pair(std::string_view("123"), std::string_view("456")));
-    it.Next();
-    ASSERT_EQ(it.Cur(),
-        std::make_pair(std::string_view("233"), std::string_view("332")));
-    it.Next();
-    ASSERT_FALSE(it.Cur().has_value());
+    {
+      auto it = tree.Begin();
+      ASSERT_EQ(it.Cur(),
+          std::make_pair(std::string_view("123"), std::string_view("456")));
+      it.Next();
+      ASSERT_EQ(it.Cur(),
+          std::make_pair(std::string_view("233"), std::string_view("332")));
+      it.Next();
+      ASSERT_FALSE(it.Cur().has_value());
+    }
   }
   ASSERT_TRUE(fs::remove_all(name) > 0);
 }
@@ -854,25 +860,33 @@ TEST(BPlusTreeTest, LowerBound1) {
   std::string name = test_name();
   auto pgm = wing::PageManager::Create(name, MAX_BUF_PAGES);
   auto tree = wing::BPlusTree<std::compare_three_way>::Create(*pgm);
-  auto it = tree.LowerBound("123");
-  ASSERT_FALSE(it.Cur().has_value());
+  {
+    auto it = tree.LowerBound("123");
+    ASSERT_FALSE(it.Cur().has_value());
+  }
 
   ASSERT_TRUE(tree.Insert("123", "456"));
-  it = tree.LowerBound("123");
-  ASSERT_EQ(it.Cur(),
-      std::make_pair(std::string_view("123"), std::string_view("456")));
-  it.Next();
-  ASSERT_FALSE(it.Cur().has_value());
+  {
+    auto it = tree.LowerBound("123");
+    ASSERT_EQ(it.Cur(),
+        std::make_pair(std::string_view("123"), std::string_view("456")));
+    it.Next();
+    ASSERT_FALSE(it.Cur().has_value());
+  }
 
   ASSERT_TRUE(tree.Insert("234", "567"));
-  it = tree.LowerBound("200");
-  ASSERT_EQ(it.Cur(),
-      std::make_pair(std::string_view("234"), std::string_view("567")));
-  it.Next();
-  ASSERT_FALSE(it.Cur().has_value());
+  {
+    auto it = tree.LowerBound("200");
+    ASSERT_EQ(it.Cur(),
+        std::make_pair(std::string_view("234"), std::string_view("567")));
+    it.Next();
+    ASSERT_FALSE(it.Cur().has_value());
+  }
 
-  it = tree.LowerBound("300");
-  ASSERT_FALSE(it.Cur().has_value());
+  {
+    auto it = tree.LowerBound("300");
+    ASSERT_FALSE(it.Cur().has_value());
+  }
 
   ASSERT_TRUE(fs::remove(name));
 }
@@ -910,27 +924,35 @@ TEST(BPlusTreeTest, UpperBound1) {
   {
     auto pgm = wing::PageManager::Create(name, MAX_BUF_PAGES);
     auto tree = wing::BPlusTree<std::compare_three_way>::Create(*pgm);
-    auto it = tree.UpperBound("123");
-    ASSERT_FALSE(it.Cur().has_value());
+    {
+      auto it = tree.UpperBound("123");
+      ASSERT_FALSE(it.Cur().has_value());
+    }
 
     ASSERT_TRUE(tree.Insert("123", "456"));
-    it = tree.UpperBound("123");
-    ASSERT_FALSE(it.Cur().has_value());
-    it = tree.UpperBound("122");
-    ASSERT_EQ(it.Cur(),
-        std::make_pair(std::string_view("123"), std::string_view("456")));
-    it.Next();
-    ASSERT_FALSE(it.Cur().has_value());
+    {
+      auto it = tree.UpperBound("123");
+      ASSERT_FALSE(it.Cur().has_value());
+      it = tree.UpperBound("122");
+      ASSERT_EQ(it.Cur(),
+          std::make_pair(std::string_view("123"), std::string_view("456")));
+      it.Next();
+      ASSERT_FALSE(it.Cur().has_value());
+    }
 
     ASSERT_TRUE(tree.Insert("234", "567"));
-    it = tree.UpperBound("123");
-    ASSERT_EQ(it.Cur(),
-        std::make_pair(std::string_view("234"), std::string_view("567")));
-    it.Next();
-    ASSERT_FALSE(it.Cur().has_value());
+    {
+      auto it = tree.UpperBound("123");
+      ASSERT_EQ(it.Cur(),
+          std::make_pair(std::string_view("234"), std::string_view("567")));
+      it.Next();
+      ASSERT_FALSE(it.Cur().has_value());
+    }
 
-    it = tree.UpperBound("234");
-    ASSERT_FALSE(it.Cur().has_value());
+    {
+      auto it = tree.UpperBound("234");
+      ASSERT_FALSE(it.Cur().has_value());
+    }
   }
   ASSERT_TRUE(fs::remove(name));
 }
@@ -1192,23 +1214,25 @@ static void rand_insert_blob_close_open_scan_destroy(
     if (ret.index() == 1)
       FAIL() << std::get<1>(ret);
     auto [pgm, tree] = std::move(std::get<0>(ret));
-    auto it = tree.Begin();
-    auto std_it = m.begin();
-    while (true) {
-      auto ret = it.Cur();
-      if (!ret.has_value())
-        break;
-      auto kv = ret.value();
-      ASSERT_EQ(kv.first, std_it->first);
-      ASSERT_EQ(kv.second.size(), sizeof(wing::pgid_t));
-      auto page_id = *(wing::pgid_t*)kv.second.data();
-      auto blob = wing::Blob::Open(*pgm, page_id);
-      ASSERT_EQ(blob.Read(), std_it->second);
-      blob.Destroy();
-      it.Next();
-      ++std_it;
+    {
+      auto it = tree.Begin();
+      auto std_it = m.begin();
+      while (true) {
+        auto ret = it.Cur();
+        if (!ret.has_value())
+          break;
+        auto kv = ret.value();
+        ASSERT_EQ(kv.first, std_it->first);
+        ASSERT_EQ(kv.second.size(), sizeof(wing::pgid_t));
+        auto page_id = *(wing::pgid_t*)kv.second.data();
+        auto blob = wing::Blob::Open(*pgm, page_id);
+        ASSERT_EQ(blob.Read(), std_it->second);
+        blob.Destroy();
+        it.Next();
+        ++std_it;
+      }
+      ASSERT_EQ(std_it, m.end());
     }
-    ASSERT_EQ(std_it, m.end());
     tree.Destroy();
     pgm->ShrinkToFit();
     ASSERT_EQ(pgm->PageNum(), pgm->SuperPageID() + 1);
