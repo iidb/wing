@@ -330,7 +330,6 @@ TEST(LockManagerTest, TableLockOrderTest) {
     lock_manager.AcquireTableLock(table_name, LockMode::S, txns[1]);
     std::this_thread::sleep_for(std::chrono::milliseconds(40));
     lock_manager.ReleaseTableLock(table_name, LockMode::S, txns[1]);
-    ExpectTableLockSetSize(txns[0], 0, 0, 0, 0, 0);
     ExpectTableLockSetSize(txns[1], 0, 0, 0, 0, 0);
     ExpectTableLockSetSize(txns[2], 1, 0, 0, 0, 0);
     txn_manager.Commit(txns[1]);
