@@ -1048,6 +1048,17 @@ TEST(ConcurrentQueryTest, TransferMoneyTest2_R50T100) {
 
 constexpr int THREAD_CNT = 4;       // 4 CPUs on Autolab's machine
 constexpr int BENCH_DURATION = 15;  // in seconds
+constexpr double READ_WRITE_RATIO = 0.99;
+std::mt19937_64 rw_gen(0x202306031900);
+std::uniform_int_distribution<int> rw_uniform(1, 100);
+
+enum class AccessType { READ = 0, WRITE };
+AccessType GetNextOp() {
+  if (rw_uniform(rw_gen) > 100 * READ_WRITE_RATIO) {
+    return AccessType::WRITE;
+  }
+  return AccessType::READ;
+}
 
 TEST(TxnBenchmark, BenchmarkTable) {
   constexpr int TOTAL_TABLE_CNT = 10000;
@@ -1055,7 +1066,7 @@ TEST(TxnBenchmark, BenchmarkTable) {
   const char *pk_value = "v";
 
   std::mt19937_64 gen(0x202305152105);
-  zipf_distribution<> zipf(TOTAL_TABLE_CNT);
+  zipf_distribution<> zipf(TOTAL_TABLE_CNT, 5, 2);
 
   std::uniform_int_distribution<int> uniform_dist(0, TOTAL_TABLE_CNT - 1);
 
@@ -1082,8 +1093,16 @@ TEST(TxnBenchmark, BenchmarkTable) {
       while (true) {
         auto txn = txn_manager.Begin();
         try {
-          ExecUpdate(db.get(), format("t{}", zipf(gen) - 1), pk_name, pk_value,
-              format("{}", uniform_dist(gen)), txn->txn_id_);
+          if (GetNextOp() == AccessType::READ) {
+            EXPECT_TRUE(db->Execute(format("select * from {} where {}='{}';",
+                                        format("t{}", zipf(gen) - 1), pk_name,
+                                        pk_value),
+                              txn->txn_id_)
+                            .Valid());
+          } else {
+            ExecUpdate(db.get(), format("t{}", zipf(gen) - 1), pk_name,
+                pk_value, format("{}", uniform_dist(gen)), txn->txn_id_);
+          }
           txn_manager.Commit(txn);
           local_commit_cnt++;
         } catch (TxnDLAbortException &e) {
@@ -1126,7 +1145,7 @@ TEST(TxnBenchmark, BenchmarkTuple) {
   const char *pk_name = "a";
 
   std::mt19937_64 gen(0x202305152135);
-  zipf_distribution<> zipf(TOTAL_TUPLE_CNT);
+  zipf_distribution<> zipf(TOTAL_TUPLE_CNT, 3);
 
   std::uniform_int_distribution<int> uniform_dist(0, TOTAL_TUPLE_CNT - 1);
 
@@ -1152,9 +1171,17 @@ TEST(TxnBenchmark, BenchmarkTuple) {
       while (true) {
         auto txn = txn_manager.Begin();
         try {
-          ExecUpdate<false>(db.get(), tab_name, pk_name,
-              format("{}", zipf(gen) - 1), format("{}", uniform_dist(gen)),
-              txn->txn_id_);
+          if (GetNextOp() == AccessType::READ) {
+            EXPECT_TRUE(
+                db->Execute(format("select * from {} where {}={};", tab_name,
+                                pk_name, format("{}", zipf(gen) - 1)),
+                      txn->txn_id_)
+                    .Valid());
+          } else {
+            ExecUpdate<false>(db.get(), tab_name, pk_name,
+                format("{}", zipf(gen) - 1), format("{}", uniform_dist(gen)),
+                txn->txn_id_);
+          }
           txn_manager.Commit(txn);
           local_commit_cnt++;
         } catch (TxnDLAbortException &e) {
