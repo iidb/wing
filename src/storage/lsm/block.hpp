@@ -59,10 +59,12 @@ class BlockIterator final : public Iterator {
  public:
   BlockIterator() = default;
 
+  /* data is a pointer to the beginning of the block. */
   BlockIterator(const char* data, BlockHandle handle) : data_(data) {
     DB_ERR("Not implemented!");
   }
 
+  /* Find the first record >= (user_key, seq) */
   void Seek(Slice user_key, seq_t seq);
 
   Slice key() override;

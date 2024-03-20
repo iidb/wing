@@ -120,16 +120,6 @@ class SSTableBuilder {
   SSTableBuilder(std::unique_ptr<FileWriter> writer, size_t block_size)
     : writer_(std::move(writer)), block_builder_(block_size, writer_.get()) {}
 
-  SSTableBuilder(SSTableBuilder&& A)
-    : block_builder_(std::move(A.block_builder_)) {
-    DB_ERR("Not implemented!");
-  }
-
-  SSTableBuilder& operator=(SSTableBuilder&& A) {
-    DB_ERR("Not implemented!");
-    return *this;
-  }
-
   ~SSTableBuilder() = default;
 
   void Append(ParsedKey key, Slice value);
