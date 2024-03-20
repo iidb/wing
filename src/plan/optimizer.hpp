@@ -1,5 +1,4 @@
-#ifndef SAKURA_OPTIMIZER_H__
-#define SAKURA_OPTIMIZER_H__
+#pragma once
 
 #include "catalog/db.hpp"
 #include "plan/plan.hpp"
@@ -26,5 +25,3 @@ class CostBasedOptimizer {
 };
 
 }  // namespace wing
-
-#endif

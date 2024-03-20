@@ -3,15 +3,18 @@
 #include <memory>
 #include <string>
 
+#include "catalog/options.hpp"
 #include "common/logging.hpp"
 #include "instance/instance.hpp"
 
 int main(int argc, char** argv) {
-  bool use_jit_flag_ = false;
+  wing::WingOptions options;
   for (int i = 2; i < argc; i++) {
     // Use JIT.
     if (strcmp(argv[i], "--jit") == 0) {
-      use_jit_flag_ = true;
+      options.enable_jit_exec = true;
+    } else if (strcmp(argv[i], "--vec") == 0) {
+      options.enable_vec_exec = true;
     }
     // Create a new empty DB.
     else if (strcmp(argv[i], "--new") == 0) {
@@ -29,6 +32,6 @@ int main(int argc, char** argv) {
     std::cerr << "Warning: please check your file name." << std::endl;
     std::cerr << fmt::format("Your file name is {}", argv[1]) << std::endl;
   }
-  auto db = std::make_unique<wing::Instance>(argv[1], use_jit_flag_);
+  auto db = std::make_unique<wing::Instance>(argv[1], options);
   db->ExecuteShell();
 }

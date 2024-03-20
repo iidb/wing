@@ -1,5 +1,4 @@
-#ifndef SAKURA_TXN_MANAGER_H__
-#define SAKURA_TXN_MANAGER_H__
+#pragma once
 
 #include <memory>
 #include <shared_mutex>
@@ -9,7 +8,7 @@
 #include "txn.hpp"
 
 namespace wing {
-class BPlusTreeStorage;
+class Storage;
 // Unique txn manager per instance.
 class TxnManager {
  public:
@@ -18,8 +17,8 @@ class TxnManager {
   // latch to protect concurrent access to txn_table.
   static std::shared_mutex rw_latch_;
 
-  TxnManager(BPlusTreeStorage& storage, LockManager::DL_Algorithm dl_algorithm =
-                                            LockManager::DL_Algorithm::WAIT_DIE)
+  TxnManager(Storage& storage, LockManager::DL_Algorithm dl_algorithm =
+                                   LockManager::DL_Algorithm::WAIT_DIE)
     : lock_manager_(dl_algorithm), storage_(storage) {}
   TxnManager(const TxnManager&) = delete;
   TxnManager& operator=(const TxnManager&) = delete;
@@ -47,9 +46,8 @@ class TxnManager {
   // Unique lock manager per instance.
   LockManager lock_manager_;
   // The storage of the db instance. Used for rollback during abort.
-  BPlusTreeStorage& storage_;
+  Storage& storage_;
 
   void ReleaseAllLocks(Txn* txn);
 };
 }  // namespace wing
-#endif

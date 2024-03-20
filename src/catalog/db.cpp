@@ -6,7 +6,7 @@
 #include <unordered_map>
 
 #include "common/logging.hpp"
-#include "storage/bplus-tree-storage.hpp"
+#include "storage/bplus_tree/bplus-tree-storage.hpp"
 #include "storage/memory_storage.hpp"
 #include "transaction/lock_manager.hpp"
 #include "transaction/lock_mode.hpp"
@@ -16,8 +16,8 @@ namespace wing {
 
 class DB::Impl {
  private:
-  using StorageBackend = BPlusTreeStorage;
-  // using StorageBackend = MemoryTableStorage;
+  // using StorageBackend = BPlusTreeStorage;
+  using StorageBackend = MemoryTableStorage;
 
  public:
   static auto Open(std::filesystem::path path, bool create_if_missing,

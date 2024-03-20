@@ -2,13 +2,14 @@
 
 #include <filesystem>
 
+#include "common/threadpool.hpp"
 #include "instance/instance.hpp"
 #include "test.hpp"
 
 TEST(BasicTest, ParserTest) {
   using namespace wing;
   std::filesystem::remove("__tmp-1");
-  auto db = std::make_unique<wing::Instance>("__tmp-1", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp-1", wing_test_options);
   // SELECT
   EXPECT_FALSE(db->Execute("select").ParseValid());
   EXPECT_FALSE(db->Execute("select 1").ParseValid());
@@ -123,7 +124,7 @@ TEST(BasicTest, ParserTest) {
 TEST(BasicTest, ConstantExprTest) {
   using namespace wing;
   std::filesystem::remove("__tmp0");
-  auto db = std::make_unique<wing::Instance>("__tmp0", 0);
+  auto db = std::make_unique<wing::Instance>("__tmp0", wing_test_options);
   auto test_func_int = [&](auto&& stmt, int64_t expect) {
     auto result = db->Execute(stmt);
     if (!result.Valid()) {
@@ -252,19 +253,28 @@ TEST(BasicTest, ConstantExprTest) {
 
 TEST(BasicTest, Project) {
   using namespace wing;
+  using namespace wing::wing_testing;
   std::filesystem::remove("__tmp1");
-  auto db = std::make_unique<wing::Instance>("__tmp1", SAKURA_USE_JIT_FLAG);
+  auto db = std::make_unique<wing::Instance>("__tmp1", wing_test_options);
   db->Execute(
       "create table A (a1 int64, a2 int32, a3 float64, a4 varchar(30), a5 "
       "int32, a6 int32, a7 varchar(1), a8 varchar(2), a9 float64, a10 int64, "
       "a11 "
       "varchar(255), a12 varchar(1), a13 varchar(255));");
-  wing_testing::RandomTuple<int64_t, int32_t, double, std::string, int32_t,
-      int32_t, std::string, std::string, double, int64_t, std::string,
-      std::string, std::string>
-      tuple_gen(114514, INT64_MIN, INT64_MAX, INT32_MIN, INT32_MAX, -1.0, 1.0,
-          0, 30, 1, 100, INT32_MIN, INT32_MAX, 0, 1, 0, 2, 0.0, 1e20, 0, 10,
-          255, 255, 0, 0, 255, 255);
+  wing_testing::RandomTupleGen tuple_gen(114514);
+  tuple_gen.AddInt()
+      .AddInt32()
+      .AddFloat(-1, 1)
+      .AddString(0, 30)
+      .AddInt(1, 100)
+      .AddInt32()
+      .AddString(0, 1)
+      .AddString(0, 2)
+      .AddFloat(0, 1e20)
+      .AddInt(0, 10)
+      .AddString(255, 255)
+      .AddString(0, 0)
+      .AddString(255, 255);
   size_t PAIR_NUM = 1e4;
   auto data = tuple_gen.GenerateValuesClause(PAIR_NUM);
 
@@ -284,7 +294,7 @@ TEST(BasicTest, Project) {
   std::iota(sorted_id.begin(), sorted_id.end(), 0);
 
   std::sort(sorted_id.begin(), sorted_id.end(), [&](auto x, auto y) {
-    return data.second.Get(x, 0)->ReadInt() < data.second.Get(y, 0)->ReadInt();
+    return data.second.Get(x, 0).ReadInt() < data.second.Get(y, 0).ReadInt();
   });
 
   {
@@ -298,18 +308,17 @@ TEST(BasicTest, Project) {
       uint32_t id = 0;
       for (uint32_t j = (1u << 30); j >= 1; j >>= 1) {
         if (j + id < PAIR_NUM &&
-            tuple.ReadInt(1) >=
-                data.second.Get(sorted_id[j + id], 0)->ReadInt())
+            tuple.ReadInt(1) >= data.second.Get(sorted_id[j + id], 0).ReadInt())
           id += j;
       }
       auto pair = data.second.GetTuple(sorted_id[id]);
-      EXPECT_EQ(tuple.ReadString(0), pair[11]->ReadString());
-      EXPECT_EQ(tuple.ReadInt(1), pair[0]->ReadInt());
-      EXPECT_EQ(tuple.ReadString(2), pair[3]->ReadString());
-      EXPECT_EQ(tuple.ReadString(3), pair[10]->ReadString());
-      EXPECT_EQ(tuple.ReadString(4), pair[6]->ReadString());
-      EXPECT_EQ(tuple.ReadFloat(5), pair[2]->ReadFloat());
-      EXPECT_EQ(tuple.ReadInt(6), pair[1]->ReadInt());
+      EXPECT_EQ(tuple.ReadString(0), pair[11].ReadString());
+      EXPECT_EQ(tuple.ReadInt(1), pair[0].ReadInt());
+      EXPECT_EQ(tuple.ReadString(2), pair[3].ReadString());
+      EXPECT_EQ(tuple.ReadString(3), pair[10].ReadString());
+      EXPECT_EQ(tuple.ReadString(4), pair[6].ReadString());
+      EXPECT_EQ(tuple.ReadFloat(5), pair[2].ReadFloat());
+      EXPECT_EQ(tuple.ReadInt(6), pair[1].ReadInt());
     }
     auto tuple = result.Next();
     EXPECT_FALSE(bool(tuple));
@@ -333,45 +342,44 @@ TEST(BasicTest, Project) {
         "b1%10<>b2%10, b1%10=b2%10, b1%10>b2%10, b1%10<b2%10, b1%10>=b2%10, "
         "b1%5<=b2%5, b3, (b3 < 'bp')+ (b3=b3), b3 from B where b1 % 100 < 90;");
     EXPECT_TRUE(result.Valid());
-    std::vector<std::vector<std::unique_ptr<wing_testing::Value>>> answer;
+    std::vector<std::vector<Value>> answer;
     for (size_t i = 0; i < PAIR_NUM; i++) {
       auto a = data.second.GetTuple(i);
-      if (a[0]->ReadInt() % 2 == 0 && a[1]->ReadInt() % 2 == 0 &&
-          a[0]->ReadInt() % 100 < 90) {
-        auto b1 = a[0]->ReadInt();
-        auto b2 = a[1]->ReadInt();
-        auto b3 = a[3]->ReadString();
-        auto b4 = a[2]->ReadFloat();
-        std::vector<std::unique_ptr<wing_testing::Value>> T;
-        T.push_back(wing_testing::IntValue::Create(b1));
-        T.push_back(wing_testing::IntValue::Create(
+      if (a[0].ReadInt() % 2 == 0 && a[1].ReadInt() % 2 == 0 &&
+          a[0].ReadInt() % 100 < 90) {
+        auto b1 = a[0].ReadInt();
+        auto b2 = a[1].ReadInt();
+        auto b3 = a[3].ReadString();
+        auto b4 = a[2].ReadFloat();
+        std::vector<Value> T;
+        T.push_back(Value::CreateInt(b1));
+        T.push_back(Value::CreateInt(
             (b2 - b1) | ((1 / 3 * 2 % 998244353 + b1 * b1 / -(b1 + -b2)) ^
                             (94832 - (-b2 - b1)) ^ 99)));
-        T.push_back(
-            wing_testing::IntValue::Create(b1 % 20 < b1 % 20 + b2 % 20));
-        T.push_back(wing_testing::IntValue::Create(b1 * 2 / 5));
-        T.push_back(wing_testing::FloatValue::Create(b1 + b4));
-        T.push_back(wing_testing::FloatValue::Create(double(b1) * b4));
-        T.push_back(wing_testing::FloatValue::Create(b2 - (b1 + b4)));
-        T.push_back(wing_testing::IntValue::Create((b1 % 10 | 2) < b2 % 10));
-        T.push_back(wing_testing::IntValue::Create(b1 % 10 >= (b2 & 3) % 10));
-        T.push_back(wing_testing::IntValue::Create(b1 - (b2 % 5 <= b1 % -5)));
-        T.push_back(wing_testing::IntValue::Create(
+        T.push_back(Value::CreateInt(b1 % 20 < b1 % 20 + b2 % 20));
+        T.push_back(Value::CreateInt(b1 * 2 / 5));
+        T.push_back(Value::CreateFloat(b1 + b4));
+        T.push_back(Value::CreateFloat(double(b1) * b4));
+        T.push_back(Value::CreateFloat(b2 - (b1 + b4)));
+        T.push_back(Value::CreateInt((b1 % 10 | 2) < b2 % 10));
+        T.push_back(Value::CreateInt(b1 % 10 >= (b2 & 3) % 10));
+        T.push_back(Value::CreateInt(b1 - (b2 % 5 <= b1 % -5)));
+        T.push_back(Value::CreateInt(
             (0 < b1 % 2) + ((b2 % 6 < 3 && b1 % 3 < b2 % 3) || b1 % 4 < 2)));
-        T.push_back(wing_testing::IntValue::Create(b1 % 10 != b2 % 10));
-        T.push_back(wing_testing::IntValue::Create(b1 % 10 == b2 % 10));
-        T.push_back(wing_testing::IntValue::Create(b1 % 10 > b2 % 10));
-        T.push_back(wing_testing::IntValue::Create(b1 % 10 < b2 % 10));
-        T.push_back(wing_testing::IntValue::Create(b1 % 10 >= b2 % 10));
-        T.push_back(wing_testing::IntValue::Create(b1 % 5 <= b2 % 5));
-        T.push_back(wing_testing::StringValue::Create(b3));
-        T.push_back(wing_testing::IntValue::Create((b3 < "bp") + (b3 == b3)));
-        T.push_back(wing_testing::StringValue::Create(b3));
+        T.push_back(Value::CreateInt(b1 % 10 != b2 % 10));
+        T.push_back(Value::CreateInt(b1 % 10 == b2 % 10));
+        T.push_back(Value::CreateInt(b1 % 10 > b2 % 10));
+        T.push_back(Value::CreateInt(b1 % 10 < b2 % 10));
+        T.push_back(Value::CreateInt(b1 % 10 >= b2 % 10));
+        T.push_back(Value::CreateInt(b1 % 5 <= b2 % 5));
+        T.push_back(Value::CreateString(b3));
+        T.push_back(Value::CreateInt((b3 < "bp") + (b3 == b3)));
+        T.push_back(Value::CreateString(b3));
         answer.push_back(std::move(T));
       }
     }
     std::sort(answer.begin(), answer.end(), [&](const auto& x, const auto& y) {
-      return x[0]->ReadInt() < y[0]->ReadInt();
+      return x[0].ReadInt() < y[0].ReadInt();
     });
 
     for (uint32_t i = 0; i < answer.size(); i++) {
@@ -381,11 +389,11 @@ TEST(BasicTest, Project) {
       uint32_t id = 0;
       for (uint32_t j = (1u << 30); j >= 1; j >>= 1) {
         if (j + id < answer.size() &&
-            tuple.ReadInt(0) >= answer[j + id][0]->ReadInt())
+            tuple.ReadInt(0) >= answer[j + id][0].ReadInt())
           id += j;
       }
       for (uint32_t j = 0; j < answer[id].size(); j++) {
-        EXPECT_TRUE(wing_testing::TestEQ(tuple, j, answer[id][j].get()));
+        EXPECT_TRUE(wing_testing::TestEQ(tuple, j, answer[id][j]));
       }
     }
     auto tuple = result.Next();
@@ -400,13 +408,13 @@ TEST(BasicTest, Save) {
   std::filesystem::remove("__tmp2");
   {
     // Empty DB
-    auto db = std::make_unique<wing::Instance>("__tmp2", 0);
+    auto db = std::make_unique<wing::Instance>("__tmp2", wing_test_options);
     db = nullptr;
-    db = std::make_unique<wing::Instance>("__tmp2", 0);
+    db = std::make_unique<wing::Instance>("__tmp2", wing_test_options);
   }
   {
     // Empty Tables
-    auto db = std::make_unique<wing::Instance>("__tmp2", 0);
+    auto db = std::make_unique<wing::Instance>("__tmp2", wing_test_options);
     EXPECT_TRUE(db->Execute("create table A(a int64, b float64, c varchar(1));")
                     .Valid());
     EXPECT_TRUE(db->Execute("create table B(a float64, b int64, c varchar(1));")
@@ -418,7 +426,7 @@ TEST(BasicTest, Save) {
               "create table \" \"(a varchar(1), \"\" float64, \" \" int64);")
             .Valid());
     db = nullptr;
-    db = std::make_unique<wing::Instance>("__tmp2", 0);
+    db = std::make_unique<wing::Instance>("__tmp2", wing_test_options);
     // All tables are empty.
     EXPECT_FALSE(bool(db->Execute("select * from A;").Next()));
     EXPECT_FALSE(bool(db->Execute("select * from B;").Next()));
@@ -430,7 +438,7 @@ TEST(BasicTest, Save) {
     EXPECT_TRUE(db->Execute("drop table \" \";").Valid());
     db = nullptr;
     // Dropped table cannot be found.
-    db = std::make_unique<wing::Instance>("__tmp2", 0);
+    db = std::make_unique<wing::Instance>("__tmp2", wing_test_options);
     EXPECT_FALSE(db->Execute("drop table A;").Valid());
     EXPECT_FALSE(db->Execute("drop table B;").Valid());
     EXPECT_FALSE(db->Execute("drop table _;").Valid());
@@ -438,7 +446,7 @@ TEST(BasicTest, Save) {
   }
   {
     // Tables
-    auto db = std::make_unique<wing::Instance>("__tmp2", 0);
+    auto db = std::make_unique<wing::Instance>("__tmp2", wing_test_options);
     EXPECT_TRUE(
         db->Execute("create table \"\"(a0 int64, \"\" varchar(1), a1 float64, "
                     "\"<<>\" int64, c varchar(255), d float64);")
@@ -448,13 +456,15 @@ TEST(BasicTest, Save) {
             .Valid());
     auto PAIR_NUM = 1e4;
     {
-      wing_testing::RandomTuple<int64_t, std::string, double, int64_t,
-          std::string, double>
-          tuple_gen(114515, INT64_MIN, INT64_MAX, 0, 1, -1e300, 1e300,
-              INT64_MIN, INT64_MAX, 254, 255, 0.0, 0.0);
-
-      wing_testing::RandomTuple<int64_t, std::string, int32_t> tuple_gen2(
-          114516, INT64_MIN, INT64_MAX, 1, 2, INT32_MIN, INT32_MAX);
+      wing_testing::RandomTupleGen tuple_gen(114515);
+      tuple_gen.AddInt()
+          .AddString(0, 1)
+          .AddFloat(-1e200, 1e200)
+          .AddInt()
+          .AddString(254, 255)
+          .AddFloat(0, 0);
+      wing_testing::RandomTupleGen tuple_gen2(114516);
+      tuple_gen2.AddInt().AddString(1, 2).AddInt32();
       auto [stmt, value_1] = tuple_gen.GenerateValuesClause(PAIR_NUM);
       {
         auto result = db->Execute("insert into \"\" " + stmt + ";");
@@ -477,14 +487,14 @@ TEST(BasicTest, Save) {
                 .Valid());
       }
       db = nullptr;
-      auto db = std::make_unique<wing::Instance>("__tmp2", 0);
+      auto db = std::make_unique<wing::Instance>("__tmp2", wing_test_options);
       {
         auto result =
             db->Execute("select a0, \"\", a1, \"<<>\", c, d from \"\";");
         EXPECT_TRUE(result.Valid());
         std::map<size_t, size_t> st;
         for (size_t i = 0; i < PAIR_NUM; i++) {
-          auto id = value_1.Get(i, 0)->ReadInt();
+          auto id = value_1.Get(i, 0).ReadInt();
           if (st.find(id) != st.end()) {
             DB_INFO("fuck");
           }
@@ -495,8 +505,7 @@ TEST(BasicTest, Save) {
           EXPECT_TRUE(bool(tuple));
           auto id = st[tuple.ReadInt(0)];
           for (uint32_t j = 0; j < value_1.GetTupleSize(); j++) {
-            EXPECT_TRUE(
-                wing_testing::TestEQ(tuple, j, value_1.Get(id, j).get()));
+            EXPECT_TRUE(wing_testing::TestEQ(tuple, j, value_1.Get(id, j)));
           }
         }
         EXPECT_FALSE(bool(result.Next()));
@@ -507,7 +516,7 @@ TEST(BasicTest, Save) {
         EXPECT_TRUE(result.Valid());
         std::map<size_t, size_t> st;
         for (size_t i = 0; i < PAIR_NUM; i++) {
-          auto id = value_2.Get(i, 0)->ReadInt();
+          auto id = value_2.Get(i, 0).ReadInt();
           if (st.find(id) != st.end()) {
             DB_INFO("fuck");
           }
@@ -518,8 +527,7 @@ TEST(BasicTest, Save) {
           EXPECT_TRUE(bool(tuple));
           auto id = st[tuple.ReadInt(0)];
           for (uint32_t j = 0; j < value_2.GetTupleSize(); j++) {
-            EXPECT_TRUE(
-                wing_testing::TestEQ(tuple, j, value_2.Get(id, j).get()));
+            EXPECT_TRUE(wing_testing::TestEQ(tuple, j, value_2.Get(id, j)));
           }
         }
         EXPECT_FALSE(bool(result.Next()));
@@ -538,7 +546,7 @@ TEST(BasicTest, ForeignKey) {
 #define CHECKT(str) EXPECT_TRUE(db->Execute(str).Valid());
 #define CHECKF(str) EXPECT_FALSE(db->Execute(str).Valid());
   {
-    auto db = std::make_unique<wing::Instance>("__tmp3", 0);
+    auto db = std::make_unique<wing::Instance>("__tmp3", wing_test_options);
     // Auto_increment fields can only be integers.
     CHECKF("create table A(a varchar(20) auto_increment primary key);");
     CHECKF("create table A(a float64 auto_increment primary key);");
@@ -589,7 +597,7 @@ TEST(BasicTest, ForeignKey) {
   }
 
   {
-    auto db = std::make_unique<wing::Instance>("__tmp3", 0);
+    auto db = std::make_unique<wing::Instance>("__tmp3", wing_test_options);
 
     // There are some keys are referred in C.
     CHECKF("drop table B;");
@@ -629,4 +637,19 @@ TEST(BasicTest, ForeignKey) {
 #undef CHECKT
 #undef CHECKF
   std::filesystem::remove("__tmp3");
+}
+
+TEST(ConcurrencyToolTest, ThreadPool) {
+  wing::ThreadPool pool(16);
+  std::atomic<double> sum = 0;
+  for (int i = 0; i < 1000; i++) {
+    pool.Push([&, l = i * 10000 + 1, r = i * 10000 + 10001]() {
+      double A = 0;
+      for (int i = l; i < r; i++)
+        A += 1.0 / pow(i, 0.5);
+      sum += A;
+    });
+  }
+  pool.WaitForAllTasks();
+  EXPECT_TRUE(fabs(6323.09512394 - sum.load()) < 1e-7);
 }

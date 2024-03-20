@@ -5,7 +5,7 @@
 #include <shared_mutex>
 #include <unordered_map>
 
-#include "storage/bplus-tree-storage.hpp"
+#include "storage/bplus_tree/bplus-tree-storage.hpp"
 #include "storage/storage.hpp"
 #include "transaction/lock_manager.hpp"
 namespace wing {

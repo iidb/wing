@@ -1,0 +1,28 @@
+repos:
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v13.0.1
+    hooks:
+      - id: clang-format
+        files: '\.(glsl|frag|vert|cc|cpp|hpp|h|c|cxx|hxx|rchit|rgen|rmiss|comp|proto)$'
+        types_or: ['text']
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.1.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+
+# For python codes:
+  - repo: https://github.com/psf/black
+    rev: 21.12b0
+    hooks:
+      - id: black
+        additional_dependencies: ['click==8.0.4']
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+        name: isort (python)
+        # https://github.com/PyCQA/isort/issues/1518#issuecomment-703056188
+        args: ["--profile", "black"]

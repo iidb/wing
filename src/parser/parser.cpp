@@ -7,7 +7,7 @@
 #include <numeric>
 #include <optional>
 
-#include "execution/exprdata.hpp"
+#include "execution/volcano/expr_executor.hpp"
 #include "fmt/format.h"
 #include "parser/ast.hpp"
 #include "plan/plan.hpp"
@@ -959,7 +959,7 @@ class Parser::Impl {
     // TODO: std::unique_ptr<LiteralStringExpr> takes too much memory.
     // 1e7 std::unique_ptr<LiteralStringExpr>. Memory usage: 800M vs 300M.
     // Maybe we have to store the results of expressions.
-    // StaticFieldVector vec;
+    // StaticFieldArray vec;
     // std::vector<Field> vecs;
     while (true) {
       _match_token("(", TokenType::_LEFTQ);
@@ -1530,39 +1530,33 @@ concept IsString = std::convertible_to<T, std::string>;
 
 template <typename T>
 concept CanPointerToString = requires(T v) {
-                               {
-                                 v->ToString()
-                                 } -> std::convertible_to<std::string>;
-                             };
+  { v->ToString() } -> std::convertible_to<std::string>;
+};
 template <typename T>
 concept HasStringMethod = requires(T v) {
-                            {
-                              v.ToString()
-                              } -> std::convertible_to<std::string>;
-                          };
+  { v.ToString() } -> std::convertible_to<std::string>;
+};
 
 template <typename Ta, typename Tb, typename... T>
-std::string SetToString(Ta&& first, Tb&& second, T&&... args)
-  requires IsString<Ta> && fmt::is_formattable<Tb>::value;
+std::string SetToString(Ta&& first, Tb&& second,
+    T&&... args) requires IsString<Ta> && fmt::is_formattable<Tb>::value;
 template <typename Ta, typename Tb, typename... T>
-std::string SetToString(Ta&& first, const std::vector<Tb>& second, T&&... args)
-  requires IsString<Ta> && CanPointerToString<Tb>;
+std::string SetToString(Ta&& first, const std::vector<Tb>& second,
+    T&&... args) requires IsString<Ta> && CanPointerToString<Tb>;
 
 template <typename Ta, typename Tb, typename... T>
-std::string SetToString(Ta&& first, const std::vector<Tb>& second, T&&... args)
-  requires IsString<Ta> && HasStringMethod<Tb>;
+std::string SetToString(Ta&& first, const std::vector<Tb>& second,
+    T&&... args) requires IsString<Ta> && HasStringMethod<Tb>;
 template <typename Ta, typename Tb, typename... T>
-std::string SetToString(Ta&& first, const std::vector<Tb>& second, T&&... args)
-  requires IsString<Ta> && fmt::is_formattable<Tb>::value;
+std::string SetToString(Ta&& first, const std::vector<Tb>& second,
+    T&&... args) requires IsString<Ta> && fmt::is_formattable<Tb>::value;
 template <typename Ta, typename Tb, typename... T>
-std::string SetToString(
-    Ta&& first, const std::unique_ptr<Tb>& second, T&&... args)
-  requires IsString<Ta>;
+std::string SetToString(Ta&& first, const std::unique_ptr<Tb>& second,
+    T&&... args) requires IsString<Ta>;
 
 template <typename Ta, typename Tb, typename... T>
-std::string SetToString(Ta&& first, Tb&& second, T&&... args)
-  requires IsString<Ta> && fmt::is_formattable<Tb>::value
-{
+std::string SetToString(Ta&& first, Tb&& second,
+    T&&... args) requires IsString<Ta> && fmt::is_formattable<Tb>::value {
   auto func = [](auto&& first, auto&& second, bool is_last) {
     return is_last ? fmt::format("{}: {}", first, second)
                    : fmt::format("{}: {}, ", first, second);
@@ -1575,9 +1569,8 @@ std::string SetToString(Ta&& first, Tb&& second, T&&... args)
 }
 
 template <typename Ta, typename Tb, typename... T>
-std::string SetToString(Ta&& first, const std::vector<Tb>& second, T&&... args)
-  requires IsString<Ta> && CanPointerToString<Tb>
-{
+std::string SetToString(Ta&& first, const std::vector<Tb>& second,
+    T&&... args) requires IsString<Ta> && CanPointerToString<Tb> {
   std::string ret = fmt::format("{}: {{ ", first);
   for (uint32_t i = 0; i < second.size(); i++)
     ret += fmt::format(
@@ -1590,9 +1583,8 @@ std::string SetToString(Ta&& first, const std::vector<Tb>& second, T&&... args)
 }
 
 template <typename Ta, typename Tb, typename... T>
-std::string SetToString(Ta&& first, const std::vector<Tb>& second, T&&... args)
-  requires IsString<Ta> && HasStringMethod<Tb>
-{
+std::string SetToString(Ta&& first, const std::vector<Tb>& second,
+    T&&... args) requires IsString<Ta> && HasStringMethod<Tb> {
   std::string ret = fmt::format("{}: {{ ", first);
   for (uint32_t i = 0; i < second.size(); i++)
     ret += fmt::format(
@@ -1605,9 +1597,8 @@ std::string SetToString(Ta&& first, const std::vector<Tb>& second, T&&... args)
 }
 
 template <typename Ta, typename Tb, typename... T>
-std::string SetToString(Ta&& first, const std::vector<Tb>& second, T&&... args)
-  requires IsString<Ta> && fmt::is_formattable<Tb>::value
-{
+std::string SetToString(Ta&& first, const std::vector<Tb>& second,
+    T&&... args) requires IsString<Ta> && fmt::is_formattable<Tb>::value {
   std::string ret = fmt::format("{}: {{ ", first);
   for (uint32_t i = 0; i < second.size(); i++)
     ret += fmt::format("{}{}", second[i], i + 1 < second.size() ? ", " : "");
@@ -1619,10 +1610,8 @@ std::string SetToString(Ta&& first, const std::vector<Tb>& second, T&&... args)
 }
 
 template <typename Ta, typename Tb, typename... T>
-std::string SetToString(
-    Ta&& first, const std::unique_ptr<Tb>& second, T&&... args)
-  requires IsString<Ta>
-{
+std::string SetToString(Ta&& first, const std::unique_ptr<Tb>& second,
+    T&&... args) requires IsString<Ta> {
   return impl::SetToString(std::forward<Ta>(first),
       second == nullptr ? "" : second->ToString(), std::forward<T>(args)...);
 }
@@ -1646,9 +1635,6 @@ static const char* op_str[] = {"+", "-", "*", "/", "%", "&", "^", "|", "<<",
     ">>", "<", ">", "<=", ">=", "=", "<>", "and", "or", "not", "-"};
 
 static const char* return_type_str[] = {"int", "float", "string", "null"};
-
-static const char* field_type_str[] = {
-    "int32", "int64", "float64", "char", "varchar", "empty"};
 
 std::string BinaryExpr::ToString() const {
   return fmt::format("({}){}({})", ch0_->ToString(),

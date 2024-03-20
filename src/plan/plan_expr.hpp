@@ -1,5 +1,4 @@
-#ifndef SAKURA_PLAN_EXPR_H__
-#define SAKURA_PLAN_EXPR_H__
+#pragma once
 
 #include "common/bitvector.hpp"
 #include "parser/expr.hpp"
@@ -10,9 +9,9 @@ namespace wing {
 /**
  * expr_: Expressions from predicate. For example, for predicate (a = 0) and (b
  * = 0 or c = 0) and (d > 0). The expressions are a = 0, (b = 0 or c = 0) != 0,
- * d > 0. 
- * 
- * left_bits_: The table bitset (bitvector) of left expression. 
+ * d > 0.
+ *
+ * left_bits_: The table bitset (bitvector) of left expression.
  * right_bits_: The table bitset (bitvector) of right expression.
  */
 class PredicateElement {
@@ -28,35 +27,31 @@ class PredicateElement {
   bool CheckRight(const BitVector& v) const { return right_bits_.Check(v); }
 
   /* Check if the operator is Eq. */
-  bool IsEq() const {
-    return expr_->op_ == OpType::EQ;
-  }
+  bool IsEq() const { return expr_->op_ == OpType::EQ; }
 
   /* If the left operand is a ColumnExpr, then return its unique id. */
   std::optional<uint32_t> GetLeftColId() const {
-    if(expr_->ch0_->type_ == ExprType::COLUMN) {
-      return static_cast<const ColumnExpr*>(expr_->ch0_.get())->id_in_column_name_table_;
+    if (expr_->ch0_->type_ == ExprType::COLUMN) {
+      return static_cast<const ColumnExpr*>(expr_->ch0_.get())
+          ->id_in_column_name_table_;
     }
     return {};
   }
-  
+
   /* If the right operand is a ColumnExpr, then return its unique id. */
   std::optional<uint32_t> GetRightColId() const {
-    if(expr_->ch1_->type_ == ExprType::COLUMN) {
-      return static_cast<const ColumnExpr*>(expr_->ch1_.get())->id_in_column_name_table_;
+    if (expr_->ch1_->type_ == ExprType::COLUMN) {
+      return static_cast<const ColumnExpr*>(expr_->ch1_.get())
+          ->id_in_column_name_table_;
     }
     return {};
   }
 
   /* Return the type of left operand. */
-  RetType GetLeftType() const {
-    return expr_->ch0_->ret_type_;
-  }
+  LogicalType GetLeftType() const { return expr_->ch0_->ret_type_; }
 
   /* Return the type of left operand. */
-  RetType GetRightType() const {
-    return expr_->ch1_->ret_type_;
-  }
+  LogicalType GetRightType() const { return expr_->ch1_->ret_type_; }
 };
 
 class PredicateVec {
@@ -77,7 +72,7 @@ class PredicateVec {
       } else {
         auto expr = std::make_unique<BinaryConditionExpr>(
             OpType::NEQ, std::move(a), std::make_unique<LiteralIntegerExpr>(0));
-        expr->ret_type_ = RetType::INT;
+        expr->ret_type_ = LogicalType::INT;
         auto left_bits_ = ExprUtils::GetExprBitVector(expr->ch0_.get());
         ret.vec_.push_back(
             PredicateElement{std::move(expr), left_bits_, BitVector()});
@@ -87,7 +82,7 @@ class PredicateVec {
   }
 
   /**
-   *  Get Expr from std::vector<PredicateElement> 
+   *  Get Expr from std::vector<PredicateElement>
    *  It concatenates PredicateElement::expr_ by AND.
    */
   std::unique_ptr<Expr> GenExpr() const {
@@ -99,15 +94,15 @@ class PredicateVec {
     for (uint32_t i = 1; i < vec_.size(); i++) {
       ret = std::make_unique<BinaryConditionExpr>(
           OpType::AND, std::move(ret), vec_[i].expr_->clone());
-      ret->ret_type_ = RetType::INT;
+      ret->ret_type_ = LogicalType::INT;
     }
     return ret;
   }
 
   /**
-   * Get PredicateElement::expr_->ch0_ of all elements in 
-   * std::vector<PredicateElement> 
-  */
+   * Get PredicateElement::expr_->ch0_ of all elements in
+   * std::vector<PredicateElement>
+   */
   std::vector<std::unique_ptr<Expr>> GenLeftExprList() const {
     std::vector<std::unique_ptr<Expr>> ret;
     for (auto& a : vec_)
@@ -116,9 +111,9 @@ class PredicateVec {
   }
 
   /**
-   * Get PredicateElement::expr_->ch1_ of all elements in 
-   * std::vector<PredicateElement> 
-  */
+   * Get PredicateElement::expr_->ch1_ of all elements in
+   * std::vector<PredicateElement>
+   */
   std::vector<std::unique_ptr<Expr>> GenRightExprList() const {
     std::vector<std::unique_ptr<Expr>> ret;
     for (auto& a : vec_)
@@ -199,5 +194,3 @@ class PredicateVec {
 };
 
 }  // namespace wing
-
-#endif

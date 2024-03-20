@@ -1,5 +1,4 @@
-#ifndef SAKURA_Plan_H__
-#define SAKURA_Plan_H__
+#pragma once
 
 #include <string>
 #include <vector>
@@ -10,7 +9,7 @@
 #include "parser/expr.hpp"
 #include "plan/output_schema.hpp"
 #include "plan/plan_expr.hpp"
-#include "type/vector.hpp"
+#include "type/array.hpp"
 
 namespace wing {
 
@@ -136,10 +135,10 @@ class OrderByPlanNode : public PlanNode {
   OrderByPlanNode() : PlanNode(PlanType::Order) {}
   std::string ToString() const override;
   std::unique_ptr<PlanNode> clone() const override;
-  // std::pair<RetType, bool>
+  // std::pair<LogicalType, bool>
   // The first field is the type of the expression for sorting.
   // The second field denotes the direction, i.e. asc or desc. True is asc.
-  std::vector<std::pair<RetType, bool>> order_by_exprs_;
+  std::vector<std::pair<LogicalType, bool>> order_by_exprs_;
   size_t order_by_offset_;
 };
 
@@ -185,7 +184,7 @@ class PrintPlanNode : public PlanNode {
   PrintPlanNode() : PlanNode(PlanType::Print) {}
   std::string ToString() const override;
   std::unique_ptr<PlanNode> clone() const override;
-  std::shared_ptr<StaticFieldVector> values_;
+  std::shared_ptr<StaticFieldArray> values_;
   // The number of fields in a tuple.
   size_t num_fields_per_tuple_{0};
 };
@@ -245,5 +244,3 @@ class BasicPlanGenerator {
 };
 
 }  // namespace wing
-
-#endif

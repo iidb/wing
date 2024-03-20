@@ -1,5 +1,4 @@
-#ifndef SAKURA_TYPE_H__
-#define SAKURA_TYPE_H__
+#pragma once
 
 #include <cstring>
 #include <memory>
@@ -78,7 +77,7 @@ class FieldRef {
         type, str.size(), reinterpret_cast<const uint8_t*>(str.data()));
   }
 
-  uint32_t Size() { return size_; }
+  uint32_t size() { return size_; }
 
   static FieldRef Read(FieldType type, size_t size, const uint8_t* a) {
     FieldRef ret;
@@ -285,7 +284,7 @@ class Field {
       delete[] data_.str_data;
   }
 
-  uint32_t Size() { return size_; }
+  uint32_t size() { return size_; }
 
   FieldRef Ref() const {
     if (type_ == FieldType::INT32 || type_ == FieldType::INT64)
@@ -359,7 +358,8 @@ class Field {
     return std::string(reinterpret_cast<char*>(data_.str_data), size_);
   }
 
-  /* Get std::string_view of string Field. If Field is integer/float then don't use it. */
+  /* Get std::string_view of string Field. If Field is integer/float then don't
+   * use it. */
   std::string_view ReadStringView() const {
     return std::string_view(
         reinterpret_cast<const char*>(data_.str_data), size_);
@@ -372,7 +372,8 @@ class Field {
       return ReadStringView();
     } else {
       // If the CPU is big-endian and type is int32, we use the last 4 bytes.
-      if (std::endian::native == std::endian::big && type_ == FieldType::INT32) {
+      if (std::endian::native == std::endian::big &&
+          type_ == FieldType::INT32) {
         return {reinterpret_cast<const char*>(&data_.int_data) + 4, 4};
       }
       return {reinterpret_cast<const char*>(&data_.int_data), 8};
@@ -409,5 +410,3 @@ class Field {
 };
 
 }  // namespace wing
-
-#endif

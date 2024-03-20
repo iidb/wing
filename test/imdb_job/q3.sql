@@ -1,11 +1,11 @@
-SELECT count(*) 
+SELECT count(*)
 FROM cast_info AS ci,
      info_type AS it1,
      info_type AS it2,
      movie_info AS mi,
      movie_info AS mi_idx,
      name AS n,
-     title AS t 
+     title AS t
 WHERE ci.note < 'a'
   and it1.info < 'c'
   and it2.info < 'c'

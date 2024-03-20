@@ -1,16 +1,13 @@
-#ifndef SAKURA_ALLOCATOR_H__
-#define SAKURA_ALLOCATOR_H__
+#pragma once
 
 #include <memory>
 #include <vector>
 
 namespace wing {
 
-// An allocator providing invariant memory address.
-// Used in TupleVector. You can modify it to store on the disk.
-template <const size_t BlockSize>
-class BlockAllocator {
+class ArenaAllocator {
  public:
+  constexpr static size_t BlockSize = 8192;
   uint8_t* Allocate(size_t size) {
     if (offset_ + size > BlockSize) {
       ptrs_.push_back(
@@ -32,5 +29,3 @@ class BlockAllocator {
 };
 
 }  // namespace wing
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef SAKURA_LOCK_MODE_H__
-#define SAKURA_LOCK_MODE_H__
+#pragma once
 #include <fmt/format.h>
 
 namespace wing {
@@ -34,5 +33,3 @@ struct fmt::formatter<wing::LockMode> : formatter<std::string> {
     }
   }
 };
-
-#endif

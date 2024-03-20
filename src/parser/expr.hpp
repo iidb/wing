@@ -1,5 +1,4 @@
-#ifndef SAKURA_EXPR_H__
-#define SAKURA_EXPR_H__
+#pragma once
 
 #include <functional>
 #include <memory>
@@ -13,19 +12,19 @@ namespace wing {
  * Expressions.
  *
  *         +- BinaryConditionExpr: Two child exprs and AND (and) or OR (or),
- *         |                       or LEQ (<=) or REQ (>=) or EQ (=) or NEQ (<>) 
+ *         |                       or LEQ (<=) or REQ (>=) or EQ (=) or NEQ (<>)
  *         |                       Children exprs of types FLOAT or STRING is
- *         |                       not allowed for all operands. 
+ *         |                       not allowed for all operands.
  *         |                       Return type is INT.
  *         |
  * Expr  --+- BinaryExpr: Two child exprs and ADD (+) or SUB (-) or MUL (*) or
- * DIV (/) or MOD (%) or BITAND (&) or BITXOR (^) or BITOR (|) 
- *         | BITLSH (<<) or BITRSH (>>) or LT (<) or RT (>) 
- *         | 
- *         | Child exprs of types STRING is not allowed for all operands. 
- *         | Child exprs of types FLOAT is not allowed for 
- *         | bitwise operands and MOD, 
- *         | i.e. BITLSH, BITRSH, BITAND, BITXOR, BITOR, MOD 
+ * DIV (/) or MOD (%) or BITAND (&) or BITXOR (^) or BITOR (|)
+ *         | BITLSH (<<) or BITRSH (>>) or LT (<) or RT (>)
+ *         |
+ *         | Child exprs of types STRING is not allowed for all operands.
+ *         | Child exprs of types FLOAT is not allowed for
+ *         | bitwise operands and MOD,
+ *         | i.e. BITLSH, BITRSH, BITAND, BITXOR, BITOR, MOD
  *         | Return type is the maximum return type within the two child exprs.
  *         |
  *         +- UnaryExpr: NEG (-) or NOT (not) and a child Expr.
@@ -72,30 +71,22 @@ enum class OpType {
   NEG
 };
 
-/** 
- * RetType can be converted to FieldType:
- *  RetType::INT - FieldType::INT64
- *  RetType::FLOAT - FieldType::FLOAT64
- *  RetType::STRING - FieldType::VARCHAR
- */
-enum class RetType { INT = 0, FLOAT, STRING };
-
 enum class ExprType {
-  LITERAL_STRING = 0, // LiteralStringExpr
-  LITERAL_INTEGER,    // LiteralIntegerExpr
-  LITERAL_FLOAT,      // LiteralFloatExpr
-  BINOP,              // BinaryExpr
-  BINCONDOP,          // BinaryConditionExpr
-  UNARYOP,            // UnaryExpr
-  UNARYCONDOP,        // UnaryConditionExpr
-  COLUMN,             // ColumnExpr
-  CAST,               // CastExpr
-  AGGR,               // AggregateFunctionExpr
+  LITERAL_STRING = 0,  // LiteralStringExpr
+  LITERAL_INTEGER,     // LiteralIntegerExpr
+  LITERAL_FLOAT,       // LiteralFloatExpr
+  BINOP,               // BinaryExpr
+  BINCONDOP,           // BinaryConditionExpr
+  UNARYOP,             // UnaryExpr
+  UNARYCONDOP,         // UnaryConditionExpr
+  COLUMN,              // ColumnExpr
+  CAST,                // CastExpr
+  AGGR,                // AggregateFunctionExpr
 };
 
 struct Expr {
   ExprType type_;
-  RetType ret_type_;
+  LogicalType ret_type_;
   std::unique_ptr<Expr> ch0_, ch1_;
   Expr(ExprType type) : type_(type) {}
   Expr(ExprType type, std::unique_ptr<Expr>&& ch0)
@@ -197,5 +188,3 @@ struct AggregateFunctionExpr : public Expr {
 };
 
 }  // namespace wing
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef SAKURA_LOCK_MANAGER_H__
-#define SAKURA_LOCK_MANAGER_H__
+#pragma once
 
 #include <condition_variable>
 #include <list>
@@ -86,8 +85,6 @@ class LockManager {
   std::mutex tuple_lock_table_latch_;
 
   // Deadlock handling Algorithm. Default: WAIT_DIE
-  [[maybe_unused]] DL_Algorithm dl_algorithm_;
+  DL_Algorithm dl_algorithm_;
 };
 }  // namespace wing
-
-#endif

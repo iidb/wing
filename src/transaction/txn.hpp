@@ -1,5 +1,4 @@
-#ifndef SAKURA_TXN_H__
-#define SAKURA_TXN_H__
+#pragma once
 
 #include <cstddef>
 #include <cstdint>
@@ -63,4 +62,3 @@ class Txn {
   std::stack<ModifyRecord> modify_records_;
 };
 }  // namespace wing
-#endif

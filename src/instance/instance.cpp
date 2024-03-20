@@ -9,7 +9,6 @@
 #include "common/logging.hpp"
 #include "common/stopwatch.hpp"
 #include "execution/executor.hpp"
-#include "jit/jitexecutor.hpp"
 #include "parser/parser.hpp"
 #include "plan/optimizer.hpp"
 #include "transaction/txn.hpp"
@@ -20,8 +19,8 @@ namespace wing {
 
 class Instance::Impl {
  public:
-  Impl(std::string_view db_file, bool use_jit_flag)
-    : use_jit_flag_(use_jit_flag), db_(db_file) {}
+  Impl(std::string_view db_file, WingOptions options)
+    : options_(options), db_(db_file) {}
   void ExecuteShell() {
     auto& out = std::cout;
     auto& err = std::cerr;
@@ -170,15 +169,14 @@ class Instance::Impl {
             }
           } else {
             // Query
-            auto [exe, use_jit] = GenerateExecutor(ret.GetPlan()->clone(),
-                txn->txn_id_, ret.GetAST()->type_ == StatementType::SELECT);
+            auto exe = GenerateExecutor(ret.GetPlan()->clone(), txn->txn_id_);
             err << fmt::format(
                 "Generate executor in {} seconds.\n", watch.GetTimeInSeconds());
             auto output_schema = ret.GetPlan()->output_schema_;
             // Release unused memory
             ret.Clear();
             watch.Reset();
-            auto result = GetResultFromExecutor(exe, use_jit, output_schema);
+            auto result = GetResultFromExecutor(exe, output_schema);
             err << fmt::format(
                 "Execute in {} seconds.\n", watch.GetTimeInSeconds());
             out << FormatOutputTable(result, output_schema) << std::endl;
@@ -196,7 +194,7 @@ class Instance::Impl {
       return true;
     });
 
-    out << "Welcome to WingDB.\n\n";
+    out << "Welcome to Wing.\n\n";
     cmd.StartLoop();
     out << "Exiting Wing...\n";
   }
@@ -213,12 +211,11 @@ class Instance::Impl {
           return ResultSet("", "");
         } else {
           // Query
-          auto [exe, use_jit] = GenerateExecutor(ret.GetPlan()->clone(), txn_id,
-              ret.GetAST()->type_ == StatementType::SELECT);
+          auto exe = GenerateExecutor(ret.GetPlan()->clone(), txn_id);
           auto output_schema = ret.GetPlan()->output_schema_;
           // Release unused memory
           ret.Clear();
-          auto result = GetResultFromExecutor(exe, use_jit, output_schema);
+          auto result = GetResultFromExecutor(exe, output_schema);
           return ResultSet(std::move(result));
         }
       } catch (const DBException& e) {
@@ -363,9 +360,9 @@ class Instance::Impl {
               DB::GenRefTableName(stmt->table_name_),
               DB::GenRefColumnName(tab.GetPrimaryKeySchema().name_)),
           db_.GetDBSchema());
-      auto exe = GenerateExecutor(ret.GetPlan()->clone(), txn_id, false);
-      exe.first->Init();
-      if (auto ret = exe.first->Next(); ret) {
+      auto exe = GenerateExecutor(ret.GetPlan()->clone(), txn_id);
+      exe->Init();
+      if (auto ret = exe->Next(); ret) {
         throw DBException("Drop table error: exists reference to {}={}",
             tab.GetPrimaryKeySchema().name_,
             ret.Read<StaticFieldRef>(1 * sizeof(StaticFieldRef))
@@ -378,9 +375,8 @@ class Instance::Impl {
     if (tab.GetFK().size() > 0) {
       auto ret = parser_.Parse(
           fmt::format("delete from {};", stmt->table_name_), db_.GetDBSchema());
-      auto exe = GenerateExecutor(ret.GetPlan()->clone(), txn_id, false);
-      GetResultFromExecutor(
-          exe.first, exe.second, ret.GetPlan()->output_schema_);
+      auto exe = GenerateExecutor(ret.GetPlan()->clone(), txn_id);
+      GetResultFromExecutor(exe, ret.GetPlan()->output_schema_);
     }
     // Drop the refcounts table.
     if (!tab.GetHidePKFlag()) {
@@ -404,9 +400,9 @@ class Instance::Impl {
 
   // After this function returns, std::unique_ptr<Executor> should be released
   // immediately!! Because TupleStore in JitExecutor has been moved.
-  TupleStore GetResultFromExecutor(std::unique_ptr<Executor>& exe, bool use_jit,
-      const OutputSchema& output_schema) {
-    if (use_jit) {
+  TupleStore GetResultFromExecutor(
+      std::unique_ptr<Executor>& exe, const OutputSchema& output_schema) {
+    if (options_.enable_jit_exec) {
       exe->Init();
       auto result = const_cast<TupleStore*>(
           reinterpret_cast<const TupleStore*>(exe->Next().Data()));
@@ -420,19 +416,19 @@ class Instance::Impl {
 
   // Generate executor by a logical plan.
   // This plan is released after executor is generated.
-  std::pair<std::unique_ptr<Executor>, bool> GenerateExecutor(
-      std::unique_ptr<PlanNode> plan, txn_id_t txn_id, bool use_jit) {
+  std::unique_ptr<Executor> GenerateExecutor(
+      std::unique_ptr<PlanNode> plan, txn_id_t txn_id) {
     std::unique_ptr<Executor> exe;
-    if (!use_jit_flag_)
-      use_jit = false;
     plan = LogicalOptimizer::Optimize(std::move(plan), db_);
     plan = CostBasedOptimizer::Optimize(std::move(plan), db_);
-    if (use_jit) {
+    if (options_.enable_jit_exec) {
       exe = JitExecutorGenerator::Generate(plan.get(), db_, txn_id);
+    } else if (options_.enable_vec_exec) {
+      exe = ExecutorGenerator::GenerateVec(plan.get(), db_, txn_id);
     } else {
       exe = ExecutorGenerator::Generate(plan.get(), db_, txn_id);
     }
-    return {std::move(exe), use_jit};
+    return exe;
   }
 
   /**
@@ -475,11 +471,11 @@ class Instance::Impl {
     } else {
       vec = output.GetPointerVec();
     }
-    std::vector<uint32_t> lengths(schema.Size());
-    for (uint32_t i = 0; i < schema.Size(); i++) {
+    std::vector<uint32_t> lengths(schema.size());
+    for (uint32_t i = 0; i < schema.size(); i++) {
       lengths[i] = schema[i].column_name_.size();
       for (auto& a : vec) {
-        auto str = InputTuplePtr(a)
+        auto str = SingleTuple(a)
                        .Read<StaticFieldRef>(i * sizeof(StaticFieldRef))
                        .ToString(schema[i].type_, schema[i].size_);
         lengths[i] = std::max(lengths[i], (uint32_t)str.length());
@@ -494,7 +490,7 @@ class Instance::Impl {
       ret += '+' + std::string(L, '-');
     }
     ret += "+\n";
-    for (uint32_t j = 0; j < schema.Size(); ++j) {
+    for (uint32_t j = 0; j < schema.size(); ++j) {
       ret += '|';
       ret += std::string(lengths[j] - schema[j].column_name_.length(), ' ') +
              schema[j].column_name_;
@@ -507,13 +503,13 @@ class Instance::Impl {
     for (uint32_t i = 0; i < vec.size(); i++) {
       if (i == limit / 2 && output.GetPointerVec().size() > limit) {
         // Generate ....| ....| ....|
-        for (uint32_t j = 0; j < schema.Size(); j++) {
+        for (uint32_t j = 0; j < schema.size(); j++) {
           ret += "|" + std::string(lengths[j] - 3, ' ') + std::string(3, '.');
         }
         ret += "|\n";
       }
-      for (uint32_t j = 0; j < schema.Size(); j++) {
-        auto str = InputTuplePtr(vec[i])
+      for (uint32_t j = 0; j < schema.size(); j++) {
+        auto str = SingleTuple(vec[i])
                        .Read<StaticFieldRef>(j * sizeof(StaticFieldRef))
                        .ToString(schema[j].type_, schema[j].size_);
         ret += "|" + std::string(lengths[j] - str.length(), ' ') + str;
@@ -527,13 +523,13 @@ class Instance::Impl {
     ret += fmt::format("{} rows in total.", output.GetPointerVec().size());
     return ret;
   }
-  bool use_jit_flag_{false};
+  WingOptions options_;
   DB db_;
   Parser parser_;
 };
 
-Instance::Instance(std::string_view db_file, bool use_jit_flag) {
-  ptr_ = std::make_unique<Impl>(db_file, use_jit_flag);
+Instance::Instance(std::string_view db_file, WingOptions options) {
+  ptr_ = std::make_unique<Impl>(db_file, options);
 }
 Instance::~Instance() {}
 ResultSet Instance::Execute(std::string_view statement) {

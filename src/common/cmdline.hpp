@@ -1,5 +1,4 @@
-#ifndef SAKURA_CMD_LINE_H__
-#define SAKURA_CMD_LINE_H__
+#pragma once
 
 #include <functional>
 #include <memory>
@@ -26,5 +25,3 @@ class SQLCmdLine {
   std::unique_ptr<Impl> ptr_;
 };
 }  // namespace wing
-
-#endif

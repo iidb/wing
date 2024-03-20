@@ -1,5 +1,4 @@
-#ifndef SAKURA_DBINFO_H__
-#define SAKURA_DBINFO_H__
+#pragma once
 
 #include <string>
 #include <vector>
@@ -88,5 +87,3 @@ class TableStatistics {
 };
 
 }  // namespace wing
-
-#endif

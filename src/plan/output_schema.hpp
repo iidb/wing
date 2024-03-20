@@ -1,5 +1,4 @@
-#ifndef SAKURA_OUTPUT_SCHEMA_H__
-#define SAKURA_OUTPUT_SCHEMA_H__
+#pragma once
 
 #include <fmt/core.h>
 
@@ -21,7 +20,7 @@ class OutputColumnData {
   /* Column name. The original column name of the table, or an alias. */
   std::string column_name_;
   /* The type of the column. */
-  FieldType type_;
+  LogicalType type_;
   /* The size of the column. */
   uint32_t size_;
   /* Is the column unique. */
@@ -43,13 +42,8 @@ class OutputColumnData {
 class OutputSchema {
  public:
   OutputSchema() = default;
-  OutputSchema(const std::vector<OutputColumnData>& cols, bool is_raw = false)
-    : cols_(cols), is_raw_(is_raw) {}
-  OutputSchema(std::vector<OutputColumnData>&& cols, bool is_raw = false)
-    : cols_(std::move(cols)), is_raw_(is_raw) {}
-
-  bool IsRaw() const { return is_raw_; }
-  void SetRaw(bool is_raw) { is_raw_ = is_raw; }
+  OutputSchema(const std::vector<OutputColumnData>& cols) : cols_(cols) {}
+  OutputSchema(std::vector<OutputColumnData>&& cols) : cols_(std::move(cols)) {}
   OutputColumnData& operator[](size_t index) { return cols_[index]; }
   const OutputColumnData& operator[](size_t index) const {
     return cols_[index];
@@ -73,21 +67,25 @@ class OutputSchema {
     cols_.insert(cols_.end(), std::make_move_iterator(R.cols_.begin()),
         std::make_move_iterator(R.cols_.end()));
   }
-  size_t Size() const { return cols_.size(); }
+  size_t size() const { return cols_.size(); }
 
   /* Concatenate two OutputColumnSchema. */
   static OutputSchema Concat(auto&& L, auto&& R) {
     OutputSchema ret(std::forward<decltype(L)>(L));
     ret.Append(std::forward<decltype(R)>(R));
-    ret.SetRaw(false);
+    return ret;
+  }
+
+  std::vector<LogicalType> GetTypes() const {
+    std::vector<LogicalType> ret;
+    ret.reserve(cols_.size());
+    for (auto& a : cols_)
+      ret.push_back(a.type_);
     return ret;
   }
 
  private:
   std::vector<OutputColumnData> cols_;
-  bool is_raw_{false};
 };
 
 }  // namespace wing
-
-#endif

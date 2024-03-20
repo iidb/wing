@@ -1,5 +1,4 @@
-#ifndef SAKURA_STATIC_FIELD_H__
-#define SAKURA_STATIC_FIELD_H__
+#pragma once
 
 #include <memory>
 #include <string>
@@ -174,7 +173,7 @@ class StaticFieldRef {
   std::string ReadString() const { return data_.str_data->ReadString(); }
 
   /* Use fmt::format to format the data. */
-  std::string ToString(FieldType type, [[maybe_unused]] size_t size) const {
+  std::string ToString(FieldType type, size_t size) const {
     if (type == FieldType::INT32) {
       return fmt::format("{}", (int32_t)data_.int_data);
     } else if (type == FieldType::INT64) {
@@ -186,6 +185,19 @@ class StaticFieldRef {
       return data_.str_data->ReadString();
     } else {
       DB_ERR("Internal Error: Unrecognized FieldType.");
+    }
+  }
+
+  /* Use fmt::format to format the data. */
+  std::string ToString(LogicalType type, size_t size) const {
+    if (type == LogicalType::INT) {
+      return fmt::format("{}", data_.int_data);
+    } else if (type == LogicalType::FLOAT) {
+      return fmt::format("{}", data_.double_data);
+    } else if (type == LogicalType::STRING) {
+      return data_.str_data->ReadString();
+    } else {
+      DB_ERR("Internal Error: Unrecognized LogicalType.");
     }
   }
 
@@ -229,7 +241,7 @@ class StaticFieldRef {
   }
 
   /* Return the size of a type. */
-  size_t Size(FieldType type, size_t size) const {
+  size_t size(FieldType type, size_t size) const {
     if (type == FieldType::INT32) {
       return sizeof(int32_t);
     } else if (type == FieldType::INT64) {
@@ -264,5 +276,3 @@ class StaticFieldRef {
 };
 
 }  // namespace wing
-
-#endif

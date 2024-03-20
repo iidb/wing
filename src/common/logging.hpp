@@ -1,5 +1,4 @@
-#ifndef LOGGING_H
-#define LOGGING_H
+#pragma once
 
 #include <fmt/core.h>
 #include <fmt/format.h>
@@ -66,5 +65,3 @@ void __LOG(int level, const char *file, const char *func, int line,
   fflush(stdout);
   pthread_mutex_unlock(&lock);
 }
-
-#endif

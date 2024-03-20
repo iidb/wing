@@ -2,7 +2,6 @@
 
 #include <numeric>
 
-#include "execution/exprdata.hpp"
 #include "type/field.hpp"
 
 namespace wing {
@@ -97,13 +96,13 @@ class BasicPlanGenerator::Impl {
       Expr* expr, const OutputSchema& column_name_table) {
     AnalysisExprResult result;
     if (expr->type_ == ExprType::LITERAL_FLOAT) {
-      expr->ret_type_ = RetType::FLOAT;
+      expr->ret_type_ = LogicalType::FLOAT;
       result.is_constant_ = true;
     } else if (expr->type_ == ExprType::LITERAL_STRING) {
-      expr->ret_type_ = RetType::STRING;
+      expr->ret_type_ = LogicalType::STRING;
       result.is_constant_ = true;
     } else if (expr->type_ == ExprType::LITERAL_INTEGER) {
-      expr->ret_type_ = RetType::INT;
+      expr->ret_type_ = LogicalType::INT;
       result.is_constant_ = true;
     } else if (expr->type_ == ExprType::CAST) {
       DB_ERR("Internal Error: Expr before analysis should not have CastExpr.");
@@ -117,30 +116,30 @@ class BasicPlanGenerator::Impl {
       auto ltype = this_expr->ch0_->ret_type_;
       auto rtype = this_expr->ch1_->ret_type_;
       if (ltype != rtype) {
-        if (ltype == RetType::STRING || rtype == RetType::STRING)
+        if (ltype == LogicalType::STRING || rtype == LogicalType::STRING)
           throw PlannerException(
               "Arithmetic operators between STRINGs and other type are "
               "invalid.");
-        if (ltype == RetType::FLOAT) {
+        if (ltype == LogicalType::FLOAT) {
           this_expr->ch1_ =
               std::make_unique<CastExpr>(std::move(this_expr->ch1_));
-          this_expr->ch1_->ret_type_ = RetType::FLOAT;
-          this_expr->ret_type_ = RetType::FLOAT;
+          this_expr->ch1_->ret_type_ = LogicalType::FLOAT;
+          this_expr->ret_type_ = LogicalType::FLOAT;
         } else {
           this_expr->ch0_ =
               std::make_unique<CastExpr>(std::move(this_expr->ch0_));
-          this_expr->ch0_->ret_type_ = RetType::FLOAT;
-          this_expr->ret_type_ = RetType::FLOAT;
+          this_expr->ch0_->ret_type_ = LogicalType::FLOAT;
+          this_expr->ret_type_ = LogicalType::FLOAT;
         }
       } else {
-        if (ltype == RetType::STRING) {
+        if (ltype == LogicalType::STRING) {
           throw PlannerException(
               "Arithmetic operators between STRINGs are invalid.");
         } else {
           this_expr->ret_type_ = ltype;
         }
       }
-      if (this_expr->ret_type_ == RetType::FLOAT) {
+      if (this_expr->ret_type_ == LogicalType::FLOAT) {
         if (this_expr->op_ == OpType::BITAND ||
             this_expr->op_ == OpType::BITOR ||
             this_expr->op_ == OpType::BITRSH ||
@@ -158,22 +157,22 @@ class BasicPlanGenerator::Impl {
           retl.aggregate_expr_num + retr.aggregate_expr_num;
       auto ltype = this_expr->ch0_->ret_type_;
       auto rtype = this_expr->ch1_->ret_type_;
-      this_expr->ret_type_ = RetType::INT;
+      this_expr->ret_type_ = LogicalType::INT;
       if (ltype != rtype) {
-        if (ltype == RetType::STRING || rtype == RetType::STRING)
+        if (ltype == LogicalType::STRING || rtype == LogicalType::STRING)
           throw PlannerException(
               "Relational operator between STRING and other type is invalid.");
-        if (ltype == RetType::FLOAT) {
+        if (ltype == LogicalType::FLOAT) {
           this_expr->ch1_ =
               std::make_unique<CastExpr>(std::move(this_expr->ch1_));
-          this_expr->ch1_->ret_type_ = RetType::FLOAT;
+          this_expr->ch1_->ret_type_ = LogicalType::FLOAT;
         } else {
           this_expr->ch0_ =
               std::make_unique<CastExpr>(std::move(this_expr->ch0_));
-          this_expr->ch0_->ret_type_ = RetType::FLOAT;
+          this_expr->ch0_->ret_type_ = LogicalType::FLOAT;
         }
       } else {
-        if (ltype == RetType::STRING) {
+        if (ltype == LogicalType::STRING) {
           if (this_expr->op_ != OpType::LT && this_expr->op_ != OpType::GT &&
               this_expr->op_ != OpType::LEQ && this_expr->op_ != OpType::GEQ &&
               this_expr->op_ != OpType::EQ && this_expr->op_ != OpType::NEQ) {
@@ -187,7 +186,7 @@ class BasicPlanGenerator::Impl {
       auto ret = analysis_expr(this_expr->ch0_.get(), column_name_table);
       result = ret;
       auto ltype = this_expr->ch0_->ret_type_;
-      if (ltype == RetType::STRING)
+      if (ltype == LogicalType::STRING)
         throw PlannerException(
             "Unary conditional operator on STRING is invalid.");
       expr->ret_type_ = ltype;
@@ -196,7 +195,7 @@ class BasicPlanGenerator::Impl {
       auto ret = analysis_expr(this_expr->ch0_.get(), column_name_table);
       result = ret;
       auto ltype = this_expr->ch0_->ret_type_;
-      if (ltype == RetType::STRING)
+      if (ltype == LogicalType::STRING)
         throw PlannerException(
             "Unary arithmetic operator on STRING is invalid.");
       expr->ret_type_ = ltype;
@@ -209,13 +208,7 @@ class BasicPlanGenerator::Impl {
       // Get table_id
       this_expr->id_table_in_planner_ =
           table_id_table_[this_expr->id_in_column_name_table_];
-      if (type == FieldType::CHAR || type == FieldType::VARCHAR) {
-        expr->ret_type_ = RetType::STRING;
-      } else if (type == FieldType::INT32 || type == FieldType::INT64) {
-        expr->ret_type_ = RetType::INT;
-      } else {
-        expr->ret_type_ = RetType::FLOAT;
-      }
+      expr->ret_type_ = type;
       result.is_constant_ = false;
       result.aggregate_expr_num = 0;
     } else if (expr->type_ == ExprType::AGGR) {
@@ -225,9 +218,9 @@ class BasicPlanGenerator::Impl {
         throw PlannerException("Aggregate functions cannot be nested");
       }
       if (this_expr->func_name_ == "avg") {
-        this_expr->ret_type_ = RetType::FLOAT;
+        this_expr->ret_type_ = LogicalType::FLOAT;
       } else if (this_expr->func_name_ == "count") {
-        this_expr->ret_type_ = RetType::INT;
+        this_expr->ret_type_ = LogicalType::INT;
       } else {
         this_expr->ret_type_ = this_expr->ch0_->ret_type_;
       }
@@ -239,25 +232,25 @@ class BasicPlanGenerator::Impl {
     return result;
   }
 
-  FieldType trans_to_field_type(RetType type) {
-    if (type == RetType::FLOAT) {
+  FieldType trans_to_field_type(LogicalType type) {
+    if (type == LogicalType::FLOAT) {
       return FieldType::FLOAT64;
-    } else if (type == RetType::INT) {
+    } else if (type == LogicalType::INT) {
       return FieldType::INT64;
-    } else if (type == RetType::STRING) {
+    } else if (type == LogicalType::STRING) {
       return FieldType::CHAR;
     } else {
-      DB_ERR("Internal Error: Unrecognized RetType.");
+      DB_ERR("Internal Error: Unrecognized LogicalType.");
     }
   }
 
-  RetType trans_to_ret_type(FieldType type) {
+  LogicalType trans_to_ret_type(FieldType type) {
     if (type == FieldType::INT32 || type == FieldType::INT64) {
-      return RetType::INT;
+      return LogicalType::INT;
     } else if (type == FieldType::FLOAT64) {
-      return RetType::FLOAT;
+      return LogicalType::FLOAT;
     } else if (type == FieldType::CHAR || type == FieldType::VARCHAR) {
-      return RetType::STRING;
+      return LogicalType::STRING;
     } else {
       DB_ERR("Internal Error: Unrecognized FieldType.");
     }
@@ -265,15 +258,34 @@ class BasicPlanGenerator::Impl {
 
   // Check whether type y can be converted into type x without loss.
   // Because we use int64 to store int32 information in execution.
-  bool IsTypeEqual(FieldType x, FieldType y) {
-    if (x == FieldType::INT64) {
-      return y == FieldType::INT32 || y == FieldType::INT64;
-    } else if (x == FieldType::CHAR) {
-      return y == FieldType::CHAR || y == FieldType::VARCHAR;
-    } else {
-      // FLOAT64
-      return x == y;
+  bool IsTypeEqual(FieldType x, LogicalType y) {
+    if (x == FieldType::INT64 || x == FieldType::INT32) {
+      return y == LogicalType::INT;
+    } else if (x == FieldType::CHAR || x == FieldType::VARCHAR) {
+      return y == LogicalType::STRING;
+    } else if (x == FieldType::FLOAT64) {
+      return y == LogicalType::FLOAT;
     }
+    return false;
+  }
+
+  // Try to convert val of type X to type Y.
+  bool TryTypeCast(StaticFieldRef& val, FieldType x, LogicalType y) {
+    if (x == FieldType::INT64 || x == FieldType::INT32) {
+      if (y == LogicalType::FLOAT) {
+        val = StaticFieldRef::CreateFloat(val.ReadInt());
+        return true;
+      } else if (y == LogicalType::INT) {
+        return true;
+      }
+    } else if (x == FieldType::CHAR || x == FieldType::VARCHAR) {
+      return y == LogicalType::STRING;
+    } else if (x == FieldType::FLOAT64) {
+      if (y == LogicalType::FLOAT) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // Plan insert statement.
@@ -292,16 +304,20 @@ class BasicPlanGenerator::Impl {
     auto table_schema = schema_[table_id.value()];
     auto table_columns = table_schema.GetColumns();
     auto insert_data = plan_table(statement->insert_data_.get());
-    if (insert_data->output_schema_.Size() != (table_schema.GetHidePKFlag()
+    if (insert_data->output_schema_.size() != (table_schema.GetHidePKFlag()
                                                       ? table_columns.size() - 1
                                                       : table_columns.size())) {
       throw PlannerException("The number of fields in tuples is not correct.");
     }
     for (uint32_t index = 0; auto& a : insert_data->output_schema_.GetCols()) {
-      if (!IsTypeEqual(a.type_, table_columns[index].type_)) {
-        throw PlannerException(fmt::format(
-            "The type of the {}-th field in insert value is not correct.",
-            index + 1));
+      if (!IsTypeEqual(table_columns[index].type_, a.type_)) {
+        if ((a.type_ == LogicalType::INT) &&
+            table_columns[index].type_ == FieldType::FLOAT64) {
+        } else {
+          throw PlannerException(fmt::format(
+              "The type of the {}-th field in insert value is not correct.",
+              index + 1));
+        }
       }
       index += 1;
     }
@@ -311,7 +327,7 @@ class BasicPlanGenerator::Impl {
     ret->table_name_ = statement->table_name_;
     table_id_table_.push_back(total_table_num_++);
     ret->output_schema_.Append(OutputColumnData{
-        column_id_++, "", "inserted rows", FieldType::INT64, 0});
+        column_id_++, "", "inserted rows", LogicalType::INT, 0});
 
     return ret;
   }
@@ -352,7 +368,7 @@ class BasicPlanGenerator::Impl {
     ret->table_name_ = statement->table_name_;
     table_id_table_.push_back(total_table_num_++);
     ret->output_schema_.Append(OutputColumnData{
-        column_id_++, "", "updated rows", FieldType::INT64, 0});
+        column_id_++, "", "updated rows", LogicalType::INT, 0});
 
     return ret;
   }
@@ -376,7 +392,7 @@ class BasicPlanGenerator::Impl {
     ret->table_bitset_ = ret->ch_->table_bitset_;
     table_id_table_.push_back(total_table_num_++);
     ret->output_schema_.Append(OutputColumnData{
-        column_id_++, "", "deleted rows", FieldType::INT64, 0});
+        column_id_++, "", "deleted rows", LogicalType::INT, 0});
     return ret;
   }
 
@@ -405,7 +421,7 @@ class BasicPlanGenerator::Impl {
     OutputSchema concat_get_column;
     if (read_from_tables) {
       concat_get_column.GetCols().reserve(
-          read_from_tables->output_schema_.Size());
+          read_from_tables->output_schema_.size());
       get_table_schema_concat(read_from_tables.get(), concat_get_column);
     }
 
@@ -417,10 +433,6 @@ class BasicPlanGenerator::Impl {
 
     std::vector<std::unique_ptr<Expr>> output_exprs;
     OutputSchema output_schema;
-
-    // The result of ProjectPlanNode is std::vector<StaticFieldRef>
-    // It is not raw tuple data.
-    output_schema.SetRaw(false);
 
     // Check whether it has aggregate functions (then we should use
     // AggregatePlanNode)
@@ -449,7 +461,7 @@ class BasicPlanGenerator::Impl {
               output_column.table_name_, output_column.column_name_);
           expr->id_in_column_name_table_ = output_column.id_;
           expr->id_table_in_planner_ = table_id_table_[output_column.id_];
-          expr->ret_type_ = trans_to_ret_type(output_column.type_);
+          expr->ret_type_ = output_column.type_;
           output_exprs.push_back(std::move(expr));
         }
       } else if (a->type_ == ResultColumnType::EXPR) {
@@ -475,8 +487,7 @@ class BasicPlanGenerator::Impl {
             data.column_name_ = a->as_;
             output_schema.Append(data);
           }
-          this_expr->ret_type_ =
-              trans_to_ret_type(read_from_tables->output_schema_[id].type_);
+          this_expr->ret_type_ = read_from_tables->output_schema_[id].type_;
           this_expr->id_in_column_name_table_ =
               read_from_tables->output_schema_[id].id_;
           this_expr->id_table_in_planner_ =
@@ -497,8 +508,8 @@ class BasicPlanGenerator::Impl {
             total_table_num_++;
           }
           table_id_table_.push_back(current_table_num);
-          output_schema.Append(OutputColumnData{column_id_++, "", column_name,
-              trans_to_field_type(expr->expr_->ret_type_), 0});
+          output_schema.Append(OutputColumnData{
+              column_id_++, "", column_name, expr->expr_->ret_type_, 0});
         }
         output_exprs.push_back(expr->expr_->clone());
       }
@@ -508,12 +519,12 @@ class BasicPlanGenerator::Impl {
       // Ensure that ProjectPlanNode don't read the table
       auto table = std::make_unique<PrintPlanNode>();
       table->num_fields_per_tuple_ = 1;
-      table->values_ = std::make_shared<StaticFieldVector>(
+      table->values_ = std::make_shared<StaticFieldArray>(
           std::vector<Field>{Field::CreateInt(FieldType::INT64, 8, 0)});
 
       table_id_table_.push_back(current_table_num);
       table->output_schema_.Append(
-          OutputColumnData{column_id_++, "", "unused", FieldType::INT64, 0});
+          OutputColumnData{column_id_++, "", "unused", LogicalType::INT, 0});
       read_from_tables = std::move(table);
     }
 
@@ -571,7 +582,7 @@ class BasicPlanGenerator::Impl {
       auto order_plan = std::make_unique<OrderByPlanNode>();
       std::vector<std::unique_ptr<Expr>> order_by_value_exprs;
       OutputSchema new_output_schema;
-      std::vector<std::pair<RetType, bool>> order_by_pairs;
+      std::vector<std::pair<LogicalType, bool>> order_by_pairs;
       for (auto& a : statement->order_by_) {
         auto expr_result = analysis_expr(a->expr_.get(), input_schema);
         if (expr_result.aggregate_expr_num > 0 && !aggregate_flag) {
@@ -583,13 +594,13 @@ class BasicPlanGenerator::Impl {
         order_by_value_exprs.push_back(a->expr_->clone());
         auto column_name = fmt::format("_#{}", ++unname_col_);
         table_id_table_.push_back(current_table_num);
-        new_output_schema.Append(OutputColumnData{column_id_++, "", column_name,
-            trans_to_field_type(a->expr_->ret_type_), 0});
+        new_output_schema.Append(OutputColumnData{
+            column_id_++, "", column_name, a->expr_->ret_type_, 0});
 
         order_by_pairs.push_back({a->expr_->ret_type_, a->is_asc_});
       }
       order_plan->output_schema_ = ret->output_schema_;
-      order_plan->order_by_offset_ = new_output_schema.Size();
+      order_plan->order_by_offset_ = new_output_schema.size();
       // Add order by value columns in front of other columns.
       ret->output_schema_.GetCols().insert(
           ret->output_schema_.GetCols().begin(),
@@ -629,7 +640,7 @@ class BasicPlanGenerator::Impl {
         throw PlannerException("We only support constant limit count.");
       }
       // Has been constant folded.
-      if (statement->limit_count_->ret_type_ != RetType::INT ||
+      if (statement->limit_count_->ret_type_ != LogicalType::INT ||
           statement->limit_count_->type_ != ExprType::LITERAL_INTEGER) {
         throw PlannerException("Limit count must be integer.");
       }
@@ -644,7 +655,7 @@ class BasicPlanGenerator::Impl {
           throw PlannerException("We only support constant limit offset.");
         }
         // Has been constant folded.
-        if (statement->limit_offset_->ret_type_ != RetType::INT ||
+        if (statement->limit_offset_->ret_type_ != LogicalType::INT ||
             statement->limit_count_->type_ != ExprType::LITERAL_INTEGER) {
           throw PlannerException("Limit offset must be integer.");
         }
@@ -678,11 +689,10 @@ class BasicPlanGenerator::Impl {
     ret->output_schema_.GetCols().resize(table_data.GetStorageColumns().size());
     for (uint32_t index = 0; const auto& a : table_data.GetStorageColumns()) {
       table_id_table_.push_back(total_table_num_ - 1);
-      ret->output_schema_[index] = OutputColumnData{
-          column_id_++, ret->table_name_, a.name_, a.type_, a.size_};
+      ret->output_schema_[index] = OutputColumnData{column_id_++,
+          ret->table_name_, a.name_, trans_to_ret_type(a.type_), a.size_};
       index += 1;
     }
-    ret->output_schema_.SetRaw(true);
     return ret;
   }
   // Add a filter on a plan node.
@@ -691,8 +701,8 @@ class BasicPlanGenerator::Impl {
     auto ret = std::make_unique<FilterPlanNode>();
     ret->output_schema_ = child->output_schema_;
     analysis_expr(expr, child->output_schema_);
-    // The return value of expr can only be RetType::INT
-    if (expr->ret_type_ != RetType::INT) {
+    // The return value of expr can only be LogicalType::INT
+    if (expr->ret_type_ != LogicalType::INT) {
       throw PlannerException("Return value of predicate can only be integer.");
     }
     ret->ch_ = std::move(child);
@@ -709,8 +719,6 @@ class BasicPlanGenerator::Impl {
     ret->ch2_ = plan_table(table->ch_[1].get());
     ret->output_schema_ = OutputSchema::Concat(
         ret->ch_->output_schema_, ret->ch2_->output_schema_);
-    // The output of join is std::vector<StaticFieldRef>.
-    ret->output_schema_.SetRaw(false);
     ret->table_bitset_ = ret->ch_->table_bitset_ | ret->ch2_->table_bitset_;
     if (table->predicate_) {
       return add_filter(std::move(ret), table->predicate_.get());
@@ -720,7 +728,7 @@ class BasicPlanGenerator::Impl {
   // Plan values table. Check if field types of all the tuples are the same.
   std::unique_ptr<PlanNode> plan_values_table(ValuesTableRef* table) {
     auto ret = std::make_unique<PrintPlanNode>();
-    ret->values_ = std::make_shared<StaticFieldVector>(table->values_);
+    ret->values_ = std::make_shared<StaticFieldArray>(table->values_);
     ret->num_fields_per_tuple_ = table->num_fields_per_tuple_;
     // Create a bit for this table. Although it is not physical table...
     auto current_table_num = total_table_num_++;
@@ -732,17 +740,21 @@ class BasicPlanGenerator::Impl {
     for (uint32_t index = 0; auto& a : table->values_) {
       if (index < table->num_fields_per_tuple_) {
         table_id_table_.push_back(current_table_num);
-        ret->output_schema_.Append(OutputColumnData{
-            column_id_++, "", fmt::format("_#{}", ++unname_col_), a.type_, 0});
+        ret->output_schema_.Append(OutputColumnData{column_id_++, "",
+            fmt::format("_#{}", ++unname_col_), trans_to_ret_type(a.type_), 0});
       } else {
         if (!IsTypeEqual(a.type_,
                 ret->output_schema_[index % table->num_fields_per_tuple_]
                     .type_)) {
-          throw PlannerException(
-              fmt::format("The type of the {}-th field in the {}-th tuple in "
-                          "values clause is not correct.",
-                  index % table->num_fields_per_tuple_ + 1,
-                  index / table->num_fields_per_tuple_ + 1));
+          if (!TryTypeCast(ret->values_->GetFieldVector()[index], a.type_,
+                  ret->output_schema_[index % table->num_fields_per_tuple_]
+                      .type_)) {
+            throw PlannerException(
+                fmt::format("The type of the {}-th field in the {}-th tuple in "
+                            "values clause is not correct.",
+                    index % table->num_fields_per_tuple_ + 1,
+                    index / table->num_fields_per_tuple_ + 1));
+          }
         }
       }
       index += 1;
@@ -770,7 +782,7 @@ class BasicPlanGenerator::Impl {
         for (auto& col : ret->output_schema_.GetCols())
           col.table_name_ = table->as_->table_name_;
       } else {
-        if (ret->output_schema_.Size() != table->as_->column_names_.size()) {
+        if (ret->output_schema_.size() != table->as_->column_names_.size()) {
           throw PlannerException(
               "Number of columns in the AS clause is not correct.");
         }
@@ -793,16 +805,16 @@ class BasicPlanGenerator::Impl {
       OutputSchema this_vec;
       // If the primary key needs to be hide.
       if (table_data.GetHidePKFlag()) {
-        this_vec.GetCols().reserve(this_table->output_schema_.Size() - 1);
-        for (uint32_t i = 0; i < this_table->output_schema_.Size(); i++)
+        this_vec.GetCols().reserve(this_table->output_schema_.size() - 1);
+        for (uint32_t i = 0; i < this_table->output_schema_.size(); i++)
           if (i != table_data.GetPrimaryKeyIndex()) {
             this_vec.GetCols().push_back(
                 this_table
                     ->output_schema_[table_data.GetShuffleToStorage()[i]]);
           }
       } else {
-        this_vec.GetCols().resize(this_table->output_schema_.Size());
-        for (uint32_t i = 0; i < this_table->output_schema_.Size(); i++) {
+        this_vec.GetCols().resize(this_table->output_schema_.size());
+        for (uint32_t i = 0; i < this_table->output_schema_.size(); i++) {
           this_vec[i] =
               this_table->output_schema_[table_data.GetShuffleToStorage()[i]];
         }
@@ -849,7 +861,6 @@ class BasicPlanGenerator::Impl {
     ret->ch2_ = std::move(ch1);
     ret->output_schema_ = OutputSchema::Concat(
         ret->ch_->output_schema_, ret->ch2_->output_schema_);
-    ret->output_schema_.SetRaw(false);
     ret->table_bitset_ = ret->ch_->table_bitset_ | ret->ch2_->table_bitset_;
     return ret;
   }
@@ -875,11 +886,6 @@ std::pair<std::unique_ptr<PlanNode>, std::string> BasicPlanGenerator::Plan(
 }
 
 // Print
-
-static const char* op_str[] = {"+", "-", "*", "/", "%", "&", "^", "|", "<<",
-    ">>", "<", ">", "<=", ">=", "=", "<>", "and", "or", "not", "-"};
-
-static const char* return_type_str[] = {"int", "float", "string", "null"};
 
 static const char* field_type_str[] = {
     "int32", "int64", "float64", "char", "varchar", "empty"};
@@ -968,7 +974,7 @@ std::string OrderByPlanNode::ToString() const {
   int i = 0;
   return fmt::format("Sort [On: {}] \n  -> {}",
       VecToString(order_by_exprs_,
-          [&](const std::pair<RetType, bool>& x) {
+          [&](const std::pair<LogicalType, bool>& x) {
             auto expr =
                 std::make_unique<ColumnExpr>(ch_->output_schema_[i].table_name_,
                     ch_->output_schema_[i].column_name_);

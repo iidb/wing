@@ -1,5 +1,4 @@
-#ifndef SAKURA_PARSER_H__
-#define SAKURA_PARSER_H__
+#pragma once
 
 #include <memory>
 #include <optional>
@@ -55,5 +54,3 @@ class Parser {
 };
 
 }  // namespace wing
-
-#endif

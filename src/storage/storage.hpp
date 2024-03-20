@@ -1,8 +1,9 @@
-#ifndef SAKURA_STORAGE_H__
-#define SAKURA_STORAGE_H__
+#pragma once
 
 #include <memory>
 #include <vector>
+
+#include "transaction/lock_manager.hpp"
 
 namespace wing {
 
@@ -53,6 +54,14 @@ class SearchHandle {
   virtual const uint8_t* Search(std::string_view key) = 0;
 };
 
-}  // namespace wing
+class Storage {
+ public:
+  virtual std::unique_ptr<ModifyHandle> GetModifyHandle(
+      std::unique_ptr<TxnExecCtx> ctx) = 0;
 
-#endif
+  virtual std::unique_ptr<SearchHandle> GetSearchHandle(
+      std::unique_ptr<TxnExecCtx> ctx) = 0;
+  // TODO
+};
+
+}  // namespace wing

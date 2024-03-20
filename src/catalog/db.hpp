@@ -1,5 +1,4 @@
-#ifndef SAKURA_DB_H__
-#define SAKURA_DB_H__
+#pragma once
 
 #include <chrono>
 
@@ -91,5 +90,3 @@ class DB {
 };
 
 }  // namespace wing
-
-#endif

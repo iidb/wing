@@ -1,5 +1,4 @@
-#ifndef SAKURA_MEMORY_STORAGE_H__
-#define SAKURA_MEMORY_STORAGE_H__
+#pragma once
 
 // This file is not allowed to be used in submissions.
 // We disable this file when grading to prevent unintentional use of this file.
@@ -168,7 +167,7 @@ class MemoryTable {
   }
 };
 
-class MemoryTableStorage {
+class MemoryTableStorage : public Storage {
  private:
   // https://stackoverflow.com/questions/20317413/what-are-transparent-comparators
   typedef std::map<std::string, MemoryTable, std::less<>> map_t;
@@ -186,7 +185,7 @@ class MemoryTableStorage {
       if (create_if_missing)
         return Create(std::move(path));
       else
-        return io::Error::from(io::ErrorKind::NotFound);
+        return io::Error::from(io::ErrorKind::kNotFound);
     }
     std::ifstream in(path, std::ios::binary);
     serde::bin_stream::Deserializer d(in);
@@ -218,13 +217,15 @@ class MemoryTableStorage {
     return std::make_unique<MemoryTable::Iterator>(iter_l, iter_r);
   }
 
-  std::unique_ptr<ModifyHandle> GetModifyHandle(std::string_view table_name) {
+  std::unique_ptr<ModifyHandle> GetModifyHandle(
+      std::unique_ptr<TxnExecCtx> ctx) {
     return std::make_unique<MemoryTable::ModifyHandle>(
-        GetMemoryTable(table_name));
+        GetMemoryTable(ctx->table_name_));
   }
-  std::unique_ptr<SearchHandle> GetSearchHandle(std::string_view table_name) {
+  std::unique_ptr<SearchHandle> GetSearchHandle(
+      std::unique_ptr<TxnExecCtx> ctx) {
     return std::make_unique<MemoryTable::SearchHandle>(
-        GetMemoryTable(table_name));
+        GetMemoryTable(ctx->table_name_));
   }
   void Create(const TableSchema& schema) {
     auto table_name = schema.GetName();
@@ -278,5 +279,3 @@ class MemoryTableStorage {
 }  // namespace wing
 
 #endif  // SAKURA_ONLINE_JUDGE
-
-#endif  // SAKURA_MEMORY_STORAGE_H__

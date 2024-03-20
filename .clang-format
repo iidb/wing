@@ -1,0 +1,10 @@
+# <https://clang.llvm.org/docs/ClangFormatStyleOptions.html>
+
+---
+BasedOnStyle: Google
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AlignAfterOpenBracket: DontAlign
+ContinuationIndentWidth: 4
+ConstructorInitializerIndentWidth: 2
+ColumnLimit: 80

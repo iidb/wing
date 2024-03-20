@@ -1,5 +1,4 @@
-#ifndef SAKURA_SCHEMA_H__
-#define SAKURA_SCHEMA_H__
+#pragma once
 
 #include <optional>
 #include <string>
@@ -128,7 +127,7 @@ class TableSchema {
 
   std::string ToString() const;
 
-  size_t Size() const { return columns_.size() + (pk_hide_ ? -1 : 0); }
+  size_t size() const { return columns_.size() + (pk_hide_ ? -1 : 0); }
 
  private:
   /* Table name. */
@@ -281,5 +280,3 @@ auto tag_invoke(serde::tag_t<serde::deserialize> tag,
 }
 
 }  // namespace wing
-
-#endif

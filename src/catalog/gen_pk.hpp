@@ -1,5 +1,4 @@
-#ifndef SAKURA_GEN_PK_H__
-#define SAKURA_GEN_PK_H__
+#pragma once
 
 #include <atomic>
 #include <string>
@@ -20,5 +19,3 @@ class GenPKHandle {
 };
 
 }  // namespace wing
-
-#endif

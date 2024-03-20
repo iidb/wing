@@ -1,23 +1,8 @@
-#ifndef SAKURA_ERROR_H_
-#define SAKURA_ERROR_H_
+#pragma once
 
 #include <memory>
 #include <ostream>
 #include <variant>
-
-#define panic(...)                                                      \
-  do {                                                                  \
-    fprintf(stderr, "panic: %s:%u: %s:", __FILE__, __LINE__, __func__); \
-    fprintf(stderr, " " __VA_ARGS__);                                   \
-    abort();                                                            \
-  } while (0)
-
-#define crash_if(cond, ...) \
-  do {                      \
-    if (cond) {             \
-      panic(__VA_ARGS__);   \
-    }                       \
-  } while (0)
 
 namespace wing {
 namespace io {
@@ -50,7 +35,7 @@ using Result = std::variant<T, E>;
 
 namespace io {
 enum class ErrorKind {
-  NotFound,
+  kNotFound,
   AlreadyExists,
   Other,
 };
@@ -89,5 +74,3 @@ std::ostream& operator<<(std::ostream& out, const Error& e);
 
 }  // namespace io
 }  // namespace wing
-
-#endif  // SAKURA_ERROR_H_

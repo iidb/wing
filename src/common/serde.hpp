@@ -1,5 +1,4 @@
-#ifndef SERDE_H_
-#define SERDE_H_
+#pragma once
 
 #include <map>
 #include <sstream>
@@ -7,6 +6,7 @@
 #include <vector>
 
 #include "common/error.hpp"
+#include "common/util.hpp"
 
 namespace wing {
 namespace serde {
@@ -143,8 +143,7 @@ auto tag_invoke(deserialize_t, type_tag_t<std::map<K, V, C, A>>, D d)
     K key = EXTRACT_RESULT(tag_invoke(deserialize_t{}, type_tag<K>, d));
     V val = EXTRACT_RESULT(tag_invoke(deserialize_t{}, type_tag<V>, d));
     auto ret = m.insert(std::make_pair(std::move(key), std::move(val)));
-    crash_if(ret.second == false,
-        "Deserialize std::map<K, V>: Repeated key on disk");
+    wing_assert(ret.second, "Deserialize std::map<K, V>: Repeated key on disk");
   }
   return m;
 }
@@ -242,5 +241,3 @@ Result<T, Deserializer::Error> from_string(std::string&& x) {
 
 }  // namespace serde
 }  // namespace wing
-
-#endif  // SERDE_H_

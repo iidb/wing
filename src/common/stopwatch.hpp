@@ -1,5 +1,4 @@
-#ifndef SAKURA_STOPWATCH_H__
-#define SAKURA_STOPWATCH_H__
+#pragma once
 
 #include <chrono>
 
@@ -25,5 +24,3 @@ class StopWatch {
 };
 
 }  // namespace wing
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef _AST_H___
-#define _AST_H___
+#pragma once
 
 #include <string>
 #include <vector>
@@ -258,5 +257,3 @@ struct DropIndexStatement : public Statement {
 };
 
 }  // namespace wing
-
-#endif

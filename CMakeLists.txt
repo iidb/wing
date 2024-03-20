@@ -19,16 +19,21 @@ add_subdirectory(third_party/fmt)
 add_subdirectory(third_party/replxx)
 
 # Source files
-file(GLOB DB_SOURCE 
+file(GLOB DB_SOURCE
+  src/catalog/*
   src/common/*
   src/execution/*
+  src/execution/vec/*
+  src/execution/volcano/*
+  src/execution/*
   src/instance/*
-  src/catalog/*
   src/parser/*
-  src/storage/*
-  src/type/*
   src/plan/*
+  src/storage/*
+  src/storage/bplus_tree/*
+  src/storage/lsm/*
   src/transaction/*
+  src/type/*
 )
 
 # Configure LLVM
@@ -52,12 +57,11 @@ if (BUILD_JIT)
   include_directories(${LLVM_INCLUDE_DIRS})
   add_definitions(${LLVM_DEFINITIONS})
   add_compile_definitions(BUILD_JIT=1)
-  file(GLOB DB_JIT_SOURCE src/jit/*)
+  file(GLOB DB_JIT_SOURCE src/execution/jit/*)
   set(DB_SOURCE ${DB_SOURCE} ${DB_JIT_SOURCE})
 endif()
 
 add_compile_options("-Wall" "-march=native")
-
 if (NOT WING_SANITIZER)
     set(WING_SANITIZER address)
 endif ()
@@ -95,8 +99,8 @@ add_subdirectory(test)
 
 set(P1_FILES
   "src/catalog/db.cpp"
-  "src/storage/bplus-tree.cpp"
-  "src/storage/bplus-tree.hpp"
+  "src/storage/bplus_tree/bplus-tree.cpp"
+  "src/storage/bplus_tree/bplus-tree.hpp"
   "src/storage/page-manager.cpp"
   "src/storage/page-manager.hpp"
 )

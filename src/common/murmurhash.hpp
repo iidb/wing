@@ -1,5 +1,4 @@
-#ifndef SAKURA_MURMURHASH_H__
-#define SAKURA_MURMURHASH_H__
+#pragma once
 
 #include <memory>
 #include <string>
@@ -84,5 +83,3 @@ static size_t Hash8(const void* _data, size_t seed) {
 static size_t Hash8(size_t data, size_t seed) { return Hash8(&data, seed); }
 
 }  // namespace wing::utils
-
-#endif

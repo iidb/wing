@@ -8,7 +8,7 @@ FROM aka_name AS an,
      movie_info AS mi,
      name AS n,
      role_type AS rt,
-     title AS t 
+     title AS t
 WHERE cn.country_code < 'c'
   and it.info < 'd'
   and n.gender = 1

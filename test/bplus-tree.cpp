@@ -1,4 +1,4 @@
-#include "storage/bplus-tree.hpp"
+#include "storage/bplus_tree/bplus-tree.hpp"
 
 #include <gtest/gtest.h>
 
@@ -6,7 +6,7 @@
 #include <optional>
 #include <random>
 
-#include "storage/blob.hpp"
+#include "storage/bplus_tree/blob.hpp"
 
 namespace fs = std::filesystem;
 

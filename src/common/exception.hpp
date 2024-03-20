@@ -1,5 +1,5 @@
-#ifndef SAKURA_EXCEPTION_H__
-#define SAKURA_EXCEPTION_H__
+#pragma once
+
 #include <execinfo.h>
 
 #include <exception>
@@ -60,5 +60,3 @@ class TxnDLAbortException : public std::exception {
 };
 
 }  // namespace wing
-
-#endif

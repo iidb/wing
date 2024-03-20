@@ -47,8 +47,8 @@ class PushDownFilterRule : public OptRule {
           t_node->ch_->type_ == PlanType::Distinct ||
           t_node->ch_->type_ == PlanType::Filter ||
           t_node->ch_->type_ == PlanType::Join ||
-          t_node->ch_->type_ == PlanType::SeqScan || 
-          t_node->ch_->type_ == PlanType::HashJoin || 
+          t_node->ch_->type_ == PlanType::SeqScan ||
+          t_node->ch_->type_ == PlanType::HashJoin ||
           t_node->ch_->type_ == PlanType::RangeScan) {
         return true;
       }
@@ -102,7 +102,7 @@ class PushDownFilterRule : public OptRule {
       auto B = static_cast<HashJoinPlanNode*>(A->ch_.get());
       B->predicate_.Append(std::move(A->predicate_));
       return std::move(A->ch_);
-    } 
+    }
     DB_ERR("Invalid node.");
   }
 };

@@ -1,11 +1,10 @@
-#ifndef SAKURA_RESULT_SET_H__
-#define SAKURA_RESULT_SET_H__
+#pragma once
 
 #include <memory>
 #include <string>
 
+#include "type/array.hpp"
 #include "type/field.hpp"
-#include "type/vector.hpp"
 
 namespace wing {
 
@@ -59,5 +58,3 @@ class ResultSet {
 };
 
 }  // namespace wing
-
-#endif

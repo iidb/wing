@@ -1,4 +1,4 @@
-SELECT count(*) 
+SELECT count(*)
 FROM company_name AS cn,
      company_type AS ct,
      info_type AS it1,
@@ -6,7 +6,7 @@ FROM company_name AS cn,
      movie_companies AS mc,
      movie_info AS mi,
      movie_info AS mi_idx,
-     title AS t 
+     title AS t
 WHERE cn.country_code < 'c'
   and ct.kind < 'e'
   and it1.info >= 'genres'

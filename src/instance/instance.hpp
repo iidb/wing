@@ -1,10 +1,10 @@
-#ifndef SAKURA_INSTANCE_H__
-#define SAKURA_INSTANCE_H__
+#pragma once
 
 #include <future>
 #include <memory>
 #include <string>
 
+#include "catalog/options.hpp"
 #include "instance/resultset.hpp"
 #include "plan/plan.hpp"
 #include "transaction/txn.hpp"
@@ -14,7 +14,7 @@ namespace wing {
 
 class Instance {
  public:
-  Instance(std::string_view db_file, bool use_jit_flag);
+  Instance(std::string_view db_file, WingOptions options);
   ~Instance();
   ResultSet Execute(std::string_view statement);
   ResultSet Execute(std::string_view statement, txn_id_t txn_id);
@@ -34,5 +34,3 @@ class Instance {
 };
 
 }  // namespace wing
-
-#endif

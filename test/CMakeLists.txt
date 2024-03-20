@@ -5,6 +5,12 @@ add_executable(
 )
 
 add_executable(
+  test_lsm
+  test_main.cpp
+  test_lsm.cpp
+)
+
+add_executable(
   test_btree
   test_main.cpp
   bplus-tree.cpp
@@ -35,6 +41,7 @@ add_executable(
 )
 
 target_include_directories(test_basic PRIVATE ../src ../third_party/fmt)
+target_include_directories(test_lsm PRIVATE ../src ../third_party/fmt)
 target_include_directories(test_btree PRIVATE ../src ../third_party/fmt)
 target_include_directories(test_exec PRIVATE ../src ../third_party/fmt)
 target_include_directories(test_opm PRIVATE ../src ../third_party/fmt)
@@ -66,6 +73,7 @@ if (NOT GTEST_LIB)
   enable_testing()
 
   target_link_libraries(test_basic wing_lib GTest::gmock fmt)
+  target_link_libraries(test_lsm wing_lib GTest::gmock fmt)
   target_link_libraries(test_btree wing_lib GTest::gmock fmt)
   target_link_libraries(test_exec wing_lib GTest::gmock fmt)
   target_link_libraries(test_opm wing_lib GTest::gmock fmt)
@@ -73,6 +81,7 @@ if (NOT GTEST_LIB)
   target_link_libraries(test_job wing_lib GTest::gmock fmt)
 else()
   target_link_libraries(test_basic wing_lib fmt gtest)
+  target_link_libraries(test_lsm wing_lib fmt gtest)
   target_link_libraries(test_btree wing_lib fmt gtest)
   target_link_libraries(test_exec wing_lib fmt gtest)
   target_link_libraries(test_opm wing_lib fmt gtest)
@@ -82,6 +91,7 @@ endif()
 
 include(GoogleTest)
 gtest_discover_tests(test_basic)
+gtest_discover_tests(test_lsm)
 gtest_discover_tests(test_btree)
 gtest_discover_tests(test_exec)
 gtest_discover_tests(test_opm)

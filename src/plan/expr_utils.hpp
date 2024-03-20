@@ -1,5 +1,4 @@
-#ifndef SAKURA_EXPR_UTILS_H__
-#define SAKURA_EXPR_UTILS_H__
+#pragma once
 
 #include <vector>
 
@@ -11,7 +10,7 @@ namespace wing {
 class ExprUtils {
  public:
   // Decompose the expression by AND operator.
-  // Store result expressions in std::vector<std::unique_ptr<Expr>> result. 
+  // Store result expressions in std::vector<std::unique_ptr<Expr>> result.
   static void DivideIntoPredicateList(
       std::unique_ptr<Expr> expr, std::vector<std::unique_ptr<Expr>>& result) {
     if (expr->type_ == ExprType::BINCONDOP &&
@@ -119,5 +118,3 @@ class ExprUtils {
   }
 };
 }  // namespace wing
-
-#endif

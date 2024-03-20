@@ -12,7 +12,7 @@ std::string Error::to_string() const {
 std::ostream& operator<<(std::ostream& out, const Error& e) {
   if (e.error_ == nullptr) {
     switch (e.kind()) {
-      case ErrorKind::NotFound:
+      case ErrorKind::kNotFound:
         out << "entity not found";
         break;
       case ErrorKind::AlreadyExists:

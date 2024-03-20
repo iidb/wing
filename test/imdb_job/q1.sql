@@ -8,8 +8,8 @@ FROM aka_name AS an,
   movie_info AS mi,
   name AS n,
   role_type AS rt,
-  title AS t 
-WHERE 
+  title AS t
+WHERE
   it.info = 'a'
   and n.gender = 0
   and rt.role = 'b'

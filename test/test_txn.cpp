@@ -10,9 +10,10 @@
 #include "common/error.hpp"
 #include "common/exception.hpp"
 #include "common/stopwatch.hpp"
+#include "common/threadpool.hpp"
 #include "fmt/core.h"
 #include "instance/instance.hpp"
-#include "storage/bplus-tree-storage.hpp"
+#include "storage/bplus_tree/bplus-tree-storage.hpp"
 #include "test.hpp"
 #include "transaction/lock_manager.hpp"
 #include "transaction/lock_mode.hpp"
@@ -573,7 +574,7 @@ TEST(LockManagerTest, DISABLED_WoundWaitTest) {
 
 TEST(QueryTest, SimpleAbortTest) {
   std::filesystem::remove("__tmp0100");
-  auto db = std::make_unique<wing::Instance>("__tmp0100", SAKURA_USE_JIT_FLAG);
+  auto db = std::make_unique<wing::Instance>("__tmp0100", wing_test_options);
   auto &txn_manager = db->GetTxnManager();
   EXPECT_TRUE(db->Execute("create table Numbers(t varchar(30) primary key, a "
                           "int32, b float64);")
@@ -599,7 +600,7 @@ TEST(QueryTest, SimpleAbortTest) {
 
 TEST(QueryTest, RollbackTest) {
   std::filesystem::remove("__tmp0100");
-  auto db = std::make_unique<wing::Instance>("__tmp0100", SAKURA_USE_JIT_FLAG);
+  auto db = std::make_unique<wing::Instance>("__tmp0100", wing_test_options);
   auto &txn_manager = db->GetTxnManager();
   EXPECT_TRUE(db->Execute("create table Numbers(t varchar(30) primary key, a "
                           "int32, b float64);")
@@ -619,10 +620,12 @@ TEST(QueryTest, RollbackTest) {
   auto res_data1 = res.Next();
   EXPECT_TRUE(res_data1);
   AnsMap<std::string> answer;
-  answer.emplace("blogaholic",
-      MkVec(SV::Create("blogaholic"), IV::Create(1), FV::Create(2.3)));
-  answer.emplace("alcoholic",
-      MkVec(SV::Create("alcoholic"), IV::Create(3), FV::Create(4.5)));
+  answer.emplace(
+      "blogaholic", MkVec(Value::CreateString("blogaholic"),
+                        Value::CreateInt(1), Value::CreateFloat(2.3)));
+  answer.emplace(
+      "alcoholic", MkVec(Value::CreateString("alcoholic"), Value::CreateInt(3),
+                       Value::CreateFloat(4.5)));
   EXPECT_TRUE(
       CheckAns(format("{}", res_data1.ReadString(0)), answer, res_data1, 3));
   auto res_data2 = res.Next();
@@ -633,7 +636,7 @@ TEST(QueryTest, RollbackTest) {
 
 TEST(AnomalyQueryTest, PhantomReadTest) {
   std::filesystem::remove("__tmp0100");
-  auto db = std::make_unique<wing::Instance>("__tmp0100", SAKURA_USE_JIT_FLAG);
+  auto db = std::make_unique<wing::Instance>("__tmp0100", wing_test_options);
   auto &txn_manager = db->GetTxnManager();
   EXPECT_TRUE(db->Execute("create table Numbers(t varchar(30) primary key, a "
                           "int32, b float64);")
@@ -653,10 +656,12 @@ TEST(AnomalyQueryTest, PhantomReadTest) {
   auto res = db->Execute("select * from Numbers;", txn3->txn_id_);
   EXPECT_TRUE(res.Valid());
   AnsMap<std::string> answer;
-  answer.emplace("blogaholic",
-      MkVec(SV::Create("blogaholic"), IV::Create(1), FV::Create(2.3)));
-  answer.emplace("bookaholic",
-      MkVec(SV::Create("bookaholic"), IV::Create(2), FV::Create(3.4)));
+  answer.emplace(
+      "blogaholic", MkVec(Value::CreateString("blogaholic"),
+                        Value::CreateInt(1), Value::CreateFloat(2.3)));
+  answer.emplace(
+      "bookaholic", MkVec(Value::CreateString("bookaholic"),
+                        Value::CreateInt(2), Value::CreateFloat(3.4)));
   for (uint32_t i = 0; i < answer.size(); i++) {
     auto tuple = res.Next();
     EXPECT_TRUE(bool(tuple));
@@ -667,7 +672,7 @@ TEST(AnomalyQueryTest, PhantomReadTest) {
 
 TEST(AnomalyQueryTest, DirtyReadTest) {
   std::filesystem::remove("__tmp0100");
-  auto db = std::make_unique<wing::Instance>("__tmp0100", SAKURA_USE_JIT_FLAG);
+  auto db = std::make_unique<wing::Instance>("__tmp0100", wing_test_options);
   auto &txn_manager = db->GetTxnManager();
   EXPECT_TRUE(db->Execute("create table Numbers(t varchar(30) primary key, a "
                           "int32, b float64);")
@@ -695,8 +700,9 @@ TEST(AnomalyQueryTest, DirtyReadTest) {
       db->Execute("select * from Numbers where t='blogaholic';", txn3->txn_id_);
   EXPECT_TRUE(res.Valid());
   AnsMap<std::string> answer;
-  answer.emplace("blogaholic",
-      MkVec(SV::Create("blogaholic"), IV::Create(3), FV::Create(4.3)));
+  answer.emplace(
+      "blogaholic", MkVec(Value::CreateString("blogaholic"),
+                        Value::CreateInt(3), Value::CreateFloat(4.3)));
   for (uint32_t i = 0; i < answer.size(); i++) {
     auto tuple = res.Next();
     EXPECT_TRUE(bool(tuple));
@@ -708,7 +714,7 @@ TEST(AnomalyQueryTest, DirtyReadTest) {
 auto InitWithTable(int init_balance, std::string file_name)
     -> std::unique_ptr<wing::Instance> {
   std::filesystem::remove(file_name);
-  auto db = std::make_unique<wing::Instance>(file_name, SAKURA_USE_JIT_FLAG);
+  auto db = std::make_unique<wing::Instance>(file_name, wing_test_options);
   auto &txn_manager = db->GetTxnManager();
   ExecAsATxnUntilCommit(
       db.get(), txn_manager, [&init_balance](Instance *db, txn_id_t txn_id) {
@@ -886,7 +892,7 @@ void TransferMoneyTest(uint32_t repetition_cnt, uint32_t txn_cnt) {
   for (uint32_t i = 0; i < repetition_cnt; i++) {
     std::filesystem::remove("__tmp_TransferMoneyTest");
     auto db = std::make_unique<wing::Instance>(
-        "__tmp_TransferMoneyTest", SAKURA_USE_JIT_FLAG);
+        "__tmp_TransferMoneyTest", wing_test_options);
     auto &txn_manager = db->GetTxnManager();
     ExecAsATxnUntilCommit(
         db.get(), txn_manager, [&init_balance](Instance *db, txn_id_t txn_id) {
@@ -956,7 +962,7 @@ void TransferMoneyTestThreePeople(uint32_t repetition_cnt, uint32_t txn_cnt) {
   for (uint32_t i = 0; i < repetition_cnt; i++) {
     std::filesystem::remove("__tmp_TransferMoneyTest");
     auto db = std::make_unique<wing::Instance>(
-        "__tmp_TransferMoneyTest", SAKURA_USE_JIT_FLAG);
+        "__tmp_TransferMoneyTest", wing_test_options);
     auto &txn_manager = db->GetTxnManager();
     ExecAsATxnUntilCommit(
         db.get(), txn_manager, [&init_balance](Instance *db, txn_id_t txn_id) {
@@ -1047,14 +1053,13 @@ TEST(ConcurrentQueryTest, TransferMoneyTest2_R50T100) {
 }
 
 constexpr int THREAD_CNT = 4;       // 4 CPUs on Autolab's machine
-constexpr int BENCH_DURATION = 15;  // in seconds
+constexpr int BENCH_DURATION = 30;  // in seconds
 constexpr double READ_WRITE_RATIO = 0.99;
-std::mt19937_64 rw_gen(0x202306031900);
-std::uniform_int_distribution<int> rw_uniform(1, 100);
 
 enum class AccessType { READ = 0, WRITE };
-AccessType GetNextOp() {
-  if (rw_uniform(rw_gen) > 100 * READ_WRITE_RATIO) {
+AccessType GetNextOp(std::mt19937_64 &rw_gen) {
+  std::uniform_real_distribution<> rw_uniform(0, 1);
+  if (rw_uniform(rw_gen) > READ_WRITE_RATIO) {
     return AccessType::WRITE;
   }
   return AccessType::READ;
@@ -1062,17 +1067,18 @@ AccessType GetNextOp() {
 
 TEST(TxnBenchmark, BenchmarkTable) {
   constexpr int TOTAL_TABLE_CNT = 10000;
+  constexpr int TOTAL_TXN_CNT = 1000000;
   const char *pk_name = "a";
   const char *pk_value = "v";
 
   std::mt19937_64 gen(0x202305152105);
-  zipf_distribution<> zipf(TOTAL_TABLE_CNT, 5, 2);
+  zipf_distribution<> zipf(TOTAL_TABLE_CNT, 0.9);
 
   std::uniform_int_distribution<int> uniform_dist(0, TOTAL_TABLE_CNT - 1);
 
   std::filesystem::remove("__tmp_BenchTest");
   auto db =
-      std::make_unique<wing::Instance>("__tmp_BenchTest", SAKURA_USE_JIT_FLAG);
+      std::make_unique<wing::Instance>("__tmp_BenchTest", wing_test_options);
   auto &txn_manager = db->GetTxnManager();
   for (int i = 0; i < TOTAL_TABLE_CNT; ++i) {
     EXPECT_TRUE(
@@ -1082,51 +1088,39 @@ TEST(TxnBenchmark, BenchmarkTable) {
     EXPECT_TRUE(
         db->Execute(format("insert into t{} values ('v', 1);", i)).Valid());
   }
-  std::vector<std::thread> threads;
-  std::atomic<uint64_t> commit_cnt = 0;
-  std::atomic<uint64_t> abort_cnt = 0;
-  auto start_time = std::chrono::high_resolution_clock::now();
-  for (int i = 0; i < THREAD_CNT; ++i) {
-    threads.push_back(std::thread([&]() {
-      uint64_t local_commit_cnt = 0;
-      uint64_t local_abort_cnt = 0;
-      while (true) {
-        auto txn = txn_manager.Begin();
-        try {
-          if (GetNextOp() == AccessType::READ) {
-            EXPECT_TRUE(db->Execute(format("select * from {} where {}='{}';",
-                                        format("t{}", zipf(gen) - 1), pk_name,
-                                        pk_value),
-                              txn->txn_id_)
-                            .Valid());
-          } else {
-            ExecUpdate(db.get(), format("t{}", zipf(gen) - 1), pk_name,
-                pk_value, format("{}", uniform_dist(gen)), txn->txn_id_);
-          }
-          txn_manager.Commit(txn);
-          local_commit_cnt++;
-        } catch (TxnDLAbortException &e) {
-          txn_manager.Abort(txn);
-          local_abort_cnt++;
-          std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        } catch (MultiUpgradeException &e) {
-          txn_manager.Abort(txn);
-          local_abort_cnt++;
-          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  wing::ThreadPool pool(THREAD_CNT);
+  StopWatch sw;
+  std::atomic<size_t> commit_cnt{0}, abort_cnt{0};
+  for (int i = 0; i < TOTAL_TXN_CNT; i++) {
+    pool.Push([&, i]() {
+      auto txn = txn_manager.Begin();
+      std::mt19937_64 rw_gen(0x202306031900 + i);
+      try {
+        if (GetNextOp(rw_gen) == AccessType::READ) {
+          EXPECT_TRUE(db->Execute(format("select * from t{} where {}='{}';",
+                                      zipf(gen) - 1, pk_name, pk_value),
+                            txn->txn_id_)
+                          .Valid());
+        } else {
+          ExecUpdate(db.get(), format("t{}", zipf(gen) - 1), pk_name, pk_value,
+              format("{}", uniform_dist(gen)), txn->txn_id_);
         }
-        auto now = std::chrono::high_resolution_clock::now();
-        if (std::chrono::duration_cast<std::chrono::seconds>(now - start_time)
-                .count() > BENCH_DURATION) {
-          break;
-        }
+        txn_manager.Commit(txn);
+        commit_cnt++;
+      } catch (TxnDLAbortException &e) {
+        txn_manager.Abort(txn);
+        abort_cnt++;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      } catch (MultiUpgradeException &e) {
+        txn_manager.Abort(txn);
+        abort_cnt++;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }
-      commit_cnt += local_commit_cnt;
-      abort_cnt += local_abort_cnt;
-    }));
+    });
   }
-  for (auto &t : threads) {
-    t.join();
-  }
+  ABORT_ON_TIMEOUT([&]() { pool.WaitForAllTasks(); }, 30000);
+  auto used_time = sw.GetTimeInSeconds();
+  DB_INFO("Used time: {}s", used_time);
   for (int i = 0; i < TOTAL_TABLE_CNT; ++i) {
     auto res = db->Execute(format("select count(*) from t{};", i));
     EXPECT_TRUE(res.Valid());
@@ -1136,22 +1130,23 @@ TEST(TxnBenchmark, BenchmarkTable) {
   std::cout << "Total abort cnt: " << abort_cnt << std::endl;
   std::filesystem::remove("__txn_benchmark_result1");
   std::ofstream out("__txn_benchmark_result1");
-  out << commit_cnt;
+  out << commit_cnt / used_time;
 }
 
 TEST(TxnBenchmark, BenchmarkTuple) {
   constexpr int TOTAL_TUPLE_CNT = 10000;
+  constexpr int TOTAL_TXN_CNT = 1000000;
   const char *tab_name = "t";
   const char *pk_name = "a";
 
   std::mt19937_64 gen(0x202305152135);
-  zipf_distribution<> zipf(TOTAL_TUPLE_CNT, 3);
+  zipf_distribution<> zipf(TOTAL_TUPLE_CNT, 0.5);
 
   std::uniform_int_distribution<int> uniform_dist(0, TOTAL_TUPLE_CNT - 1);
 
   std::filesystem::remove("__tmp_BenchTest");
   auto db =
-      std::make_unique<wing::Instance>("__tmp_BenchTest", SAKURA_USE_JIT_FLAG);
+      std::make_unique<wing::Instance>("__tmp_BenchTest", wing_test_options);
   auto &txn_manager = db->GetTxnManager();
   EXPECT_TRUE(
       db->Execute(format("create table t(a int32 primary key, b int32);"))
@@ -1160,52 +1155,42 @@ TEST(TxnBenchmark, BenchmarkTuple) {
     EXPECT_TRUE(
         db->Execute(format("insert into t values ({}, 1);", i)).Valid());
   }
-  std::vector<std::thread> threads;
-  std::atomic<uint64_t> commit_cnt = 0;
-  std::atomic<uint64_t> abort_cnt = 0;
-  auto start_time = std::chrono::high_resolution_clock::now();
-  for (int i = 0; i < THREAD_CNT; ++i) {
-    threads.push_back(std::thread([&]() {
-      uint64_t local_commit_cnt = 0;
-      uint64_t local_abort_cnt = 0;
-      while (true) {
-        auto txn = txn_manager.Begin();
-        try {
-          if (GetNextOp() == AccessType::READ) {
-            EXPECT_TRUE(
-                db->Execute(format("select * from {} where {}={};", tab_name,
-                                pk_name, format("{}", zipf(gen) - 1)),
-                      txn->txn_id_)
-                    .Valid());
-          } else {
-            ExecUpdate<false>(db.get(), tab_name, pk_name,
-                format("{}", zipf(gen) - 1), format("{}", uniform_dist(gen)),
-                txn->txn_id_);
-          }
-          txn_manager.Commit(txn);
-          local_commit_cnt++;
-        } catch (TxnDLAbortException &e) {
-          txn_manager.Abort(txn);
-          local_abort_cnt++;
-          std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        } catch (MultiUpgradeException &e) {
-          txn_manager.Abort(txn);
-          local_abort_cnt++;
-          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  wing::ThreadPool pool(THREAD_CNT);
+  StopWatch sw;
+  std::atomic<size_t> commit_cnt{0}, abort_cnt{0};
+  for (int i = 0; i < TOTAL_TXN_CNT; i++) {
+    pool.Push([&, i]() {
+      auto txn = txn_manager.Begin();
+      std::mt19937_64 rw_gen(0x202306031900 + i);
+      try {
+        if (GetNextOp(rw_gen) == AccessType::READ) {
+          EXPECT_TRUE(
+              db->Execute(format("select * from {} where {}={};", tab_name,
+                              pk_name, format("{}", zipf(gen) - 1)),
+                    txn->txn_id_)
+                  .Valid());
+        } else {
+          ExecUpdate<false>(db.get(), tab_name, pk_name,
+              format("{}", zipf(gen) - 1), format("{}", uniform_dist(gen)),
+              txn->txn_id_);
         }
-        auto now = std::chrono::high_resolution_clock::now();
-        if (std::chrono::duration_cast<std::chrono::seconds>(now - start_time)
-                .count() > BENCH_DURATION) {
-          break;
-        }
+        txn_manager.Commit(txn);
+        commit_cnt++;
+      } catch (TxnDLAbortException &e) {
+        txn_manager.Abort(txn);
+        abort_cnt++;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      } catch (MultiUpgradeException &e) {
+        txn_manager.Abort(txn);
+        abort_cnt++;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }
-      commit_cnt += local_commit_cnt;
-      abort_cnt += local_abort_cnt;
-    }));
+    });
   }
-  for (auto &t : threads) {
-    t.join();
-  }
+  ABORT_ON_TIMEOUT([&]() { pool.WaitForAllTasks(); }, 60000);
+  auto used_time = sw.GetTimeInSeconds();
+  DB_INFO("Used time: {}s", used_time);
+
   auto res = db->Execute("select count(*) from t;");
   EXPECT_TRUE(res.Valid());
   EXPECT_TRUE(res.Next().ReadInt(0) == TOTAL_TUPLE_CNT);
@@ -1213,5 +1198,5 @@ TEST(TxnBenchmark, BenchmarkTuple) {
   std::cout << "Total abort cnt: " << abort_cnt << std::endl;
   std::filesystem::remove("__txn_benchmark_result2");
   std::ofstream out("__txn_benchmark_result2");
-  out << commit_cnt;
+  out << commit_cnt / used_time;
 }
