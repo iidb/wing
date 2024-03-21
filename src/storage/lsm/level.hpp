@@ -21,8 +21,8 @@ class SortedRun {
     }
   }
 
-  SortedRun(std::vector<std::shared_ptr<SSTable>> ssts, size_t block_size,
-      bool use_direct_io)
+  SortedRun(const std::vector<std::shared_ptr<SSTable>>& ssts,
+      size_t block_size, bool use_direct_io)
     : block_size_(block_size), use_direct_io_(use_direct_io) {
     size_ = 0;
     ssts_ = std::move(ssts);

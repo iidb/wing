@@ -157,7 +157,7 @@ TEST(LSMTest, SSTableTest) {
   SSTableBuilder builder(
       std::make_unique<FileWriter>(
           std::make_unique<SeqWriteFile>("__tmpLSMSSTableTest", false), 4096),
-      4096);
+      4096, 10);
   uint32_t klen = 9, vlen = 13, N = 1e5;
   auto kv =
       GenKVDataWithRandomLen(0x202403152328, N, {klen - 1, klen}, {1, vlen});
@@ -214,7 +214,7 @@ TEST(LSMTest, SortedRunTest) {
             std::make_unique<SeqWriteFile>(
                 fmt::format("__tmpSortedRunTest{}", i), false),
             1 << 20),
-        4096);
+        4096, 10);
     /* Build the SSTable */
     for (uint32_t j = L; j < R; j++) {
       builder.Append(
@@ -287,7 +287,7 @@ TEST(LSMTest, IteratorHeapTest) {
             std::make_unique<SeqWriteFile>(
                 fmt::format("__tmpLSMIteratorHeapTest{}", i), false),
             4096),
-        4096);
+        4096, 10);
     /* Build the SSTable */
     for (uint32_t j = L; j < R; j++) {
       builder.Append(
@@ -353,7 +353,7 @@ TEST(LSMTest, CompactionBasicTest) {
   };
   auto filegen =
       std::make_unique<FileNameGenerator>("__tmpCompactionBasicTest", 0);
-  CompactionJob worker(filegen.get(), 4096, 1048576, 16384, false);
+  CompactionJob worker(filegen.get(), 4096, 104857, 16384, 10, false);
 
   uint32_t klen = 9, vlen = 13, N = 1e6;
   auto kv = GenKVData(0x202403170002, N, klen, vlen);

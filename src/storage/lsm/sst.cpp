@@ -7,6 +7,8 @@
 
 #include <fstream>
 
+#include "common/bloomfilter.hpp"
+
 namespace wing {
 
 namespace lsm {

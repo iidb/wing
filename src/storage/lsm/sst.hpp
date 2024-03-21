@@ -82,6 +82,8 @@ class SSTable {
   bool compaction_in_process_{false};
   /* If it is true, then the SSTable file will be removed in deconstrution. */
   bool remove_tag_{false};
+  /* The bloom filter buffer */
+  std::string bloom_filter_;
 
   friend class SSTableIterator;
 };
@@ -119,8 +121,11 @@ class SSTableIterator final : public Iterator {
 
 class SSTableBuilder {
  public:
-  SSTableBuilder(std::unique_ptr<FileWriter> writer, size_t block_size)
-    : writer_(std::move(writer)), block_builder_(block_size, writer_.get()) {}
+  SSTableBuilder(std::unique_ptr<FileWriter> writer, size_t block_size,
+      size_t bloom_bits_per_key)
+    : writer_(std::move(writer)),
+      block_builder_(block_size, writer_.get()),
+      bloom_bits_per_key_(bloom_bits_per_key) {}
 
   ~SSTableBuilder() = default;
 
@@ -153,6 +158,14 @@ class SSTableBuilder {
   InternalKey largest_key_, smallest_key_;
   /* The number of records in this SSTable. */
   size_t count_{0};
+  /* Current offset */
+  size_t current_block_offset_{0};
+  /* hashes of keys used to build bloom filter */
+  std::vector<size_t> key_hashes_;
+  /* The offset of the bloom filter */
+  size_t bloom_filter_offset_{0};
+  /* The number of bits per key in bloom filter */
+  size_t bloom_bits_per_key_{0};
 };
 
 }  // namespace lsm

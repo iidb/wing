@@ -212,7 +212,7 @@ void DBImpl::FlushThread() {
       for (auto& imm : imms) {
         CompactionJob worker(filename_gen_.get(), options_.block_size,
             options_.sst_file_size, options_.write_buffer_size,
-            options_.use_direct_io);
+            options_.bloom_bits_per_key, options_.use_direct_io);
         auto ssts = worker.Run(imm->Begin());
         runs.push_back(std::make_shared<SortedRun>(
             ssts, options_.block_size, options_.use_direct_io));

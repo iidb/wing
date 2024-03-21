@@ -20,7 +20,7 @@ struct Options {
   /* Use O_DIRECT or not */
   bool use_direct_io = false;
   /* Use bloom filter or not*/
-  bool enable_bloom_filter = false;
+  bool enable_bloom_filter = true;
   /* Whether we create a new database in the directory */
   bool create_new = true;
   /* The maximum number of immutable MemTables. */
@@ -34,6 +34,8 @@ struct Options {
   size_t level0_stop_writes_trigger = 20;
   /* The default size ratio used in tiering/leveling compaction strategy. */
   size_t compaction_size_ratio = 10;
+  /* The number of bits per key in bloom filter, by default */
+  size_t bloom_bits_per_key = 10;
   CacheOptions cache{};
 };
 

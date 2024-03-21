@@ -126,6 +126,8 @@ struct SSTInfo {
   size_t sst_id_;
   /* The offset of the index block */
   size_t index_offset_;
+  /* The offset of the bloom filter */
+  size_t bloom_filter_offset_;
   /* The path of the SSTable */
   std::string filename_;
 };
