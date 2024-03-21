@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <shared_mutex>
 #include <stack>
 #include <unordered_map>

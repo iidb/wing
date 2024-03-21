@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 # Set default build type to Release
 IF (NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Release" CACHE STRING
+    set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING
         "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
 ENDIF()
 
@@ -61,7 +61,7 @@ if (BUILD_JIT)
   set(DB_SOURCE ${DB_SOURCE} ${DB_JIT_SOURCE})
 endif()
 
-add_compile_options("-Wall" "-march=native")
+add_compile_options("-Wall")
 if (NOT WING_SANITIZER)
     set(WING_SANITIZER address)
 endif ()
@@ -84,8 +84,13 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND MINGW)
   add_compile_options("-femulated-tls")
 endif()
 
+
 add_library(wing_lib STATIC ${DB_SOURCE})
 add_executable(${PROJECT_NAME} src/main.cpp)
+
+if (MINGW)
+  target_compile_options(wing_lib PRIVATE "-Wa,-mbig-obj")
+endif()
 
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE src third_party/fmt)

@@ -12,9 +12,13 @@ class AlignedBuffer {
  public:
   AlignedBuffer() = default;
 
-  AlignedBuffer(size_t size, size_t alignment)
-    : data_(reinterpret_cast<char *>(aligned_alloc(alignment, size))),
-      size_(size) {
+  AlignedBuffer(size_t size, size_t alignment) : size_(size) {
+#ifdef __linux__
+    data_ = reinterpret_cast<char *>(aligned_alloc(alignment, size));
+#elif defined(__MINGW64__)
+    data_ = reinterpret_cast<char *>(_aligned_malloc(size, alignment));
+#endif
+
     if (!data_) {
       DB_ERR(
           "Error allocating buffer! alignment: {}, size: {}", alignment, size);
@@ -45,7 +49,11 @@ class AlignedBuffer {
 
   ~AlignedBuffer() {
     if (data_) {
+#ifdef __linux__
       free(data_);
+#elif defined(__MINGW64__)
+      _aligned_free(data_);
+#endif
     }
   }
 

@@ -3,6 +3,8 @@
 #include <cstring>
 #include <memory>
 
+#include "common/logging.hpp"
+
 namespace wing {
 
 namespace utils {

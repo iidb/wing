@@ -80,23 +80,23 @@ template <bool pk_varchar = true>
 void ExecUpdate(Instance *db, std::string_view table, std::string_view pk_name,
     std::string_view pk, std::string_view values, txn_id_t txn_id) {
   if constexpr (pk_varchar) {
-    EXPECT_TRUE(
-        db->Execute(format("delete from {} where {}='{}';", table, pk_name, pk),
-              txn_id)
-            .Valid());
-    EXPECT_TRUE(db->Execute(format("insert into {} values ('{}',{});", table,
-                                pk, values),
+    EXPECT_TRUE(db->Execute(fmt::format("delete from {} where {}='{}';", table,
+                                pk_name, pk),
+                      txn_id)
+                    .Valid());
+    EXPECT_TRUE(db->Execute(fmt::format("insert into {} values ('{}',{});",
+                                table, pk, values),
                       txn_id)
                     .Valid());
   } else {
-    EXPECT_TRUE(
-        db->Execute(
-              format("delete from {} where {}={};", table, pk_name, pk), txn_id)
-            .Valid());
-    EXPECT_TRUE(
-        db->Execute(format("insert into {} values ({},{});", table, pk, values),
-              txn_id)
-            .Valid());
+    EXPECT_TRUE(db->Execute(fmt::format("delete from {} where {}={};", table,
+                                pk_name, pk),
+                      txn_id)
+                    .Valid());
+    EXPECT_TRUE(db->Execute(fmt::format("insert into {} values ({},{});", table,
+                                pk, values),
+                      txn_id)
+                    .Valid());
   }
 }
 
@@ -626,12 +626,12 @@ TEST(QueryTest, RollbackTest) {
   answer.emplace(
       "alcoholic", MkVec(Value::CreateString("alcoholic"), Value::CreateInt(3),
                        Value::CreateFloat(4.5)));
-  EXPECT_TRUE(
-      CheckAns(format("{}", res_data1.ReadString(0)), answer, res_data1, 3));
+  EXPECT_TRUE(CheckAns(
+      fmt::format("{}", res_data1.ReadString(0)), answer, res_data1, 3));
   auto res_data2 = res.Next();
   EXPECT_TRUE(res_data2);
-  EXPECT_TRUE(
-      CheckAns(format("{}", res_data2.ReadString(0)), answer, res_data2, 3));
+  EXPECT_TRUE(CheckAns(
+      fmt::format("{}", res_data2.ReadString(0)), answer, res_data2, 3));
 }
 
 TEST(AnomalyQueryTest, PhantomReadTest) {
@@ -665,7 +665,8 @@ TEST(AnomalyQueryTest, PhantomReadTest) {
   for (uint32_t i = 0; i < answer.size(); i++) {
     auto tuple = res.Next();
     EXPECT_TRUE(bool(tuple));
-    EXPECT_TRUE(CheckAns(format("{}", tuple.ReadString(0)), answer, tuple, 3));
+    EXPECT_TRUE(
+        CheckAns(fmt::format("{}", tuple.ReadString(0)), answer, tuple, 3));
   }
   EXPECT_FALSE(res.Next());
 }
@@ -706,7 +707,8 @@ TEST(AnomalyQueryTest, DirtyReadTest) {
   for (uint32_t i = 0; i < answer.size(); i++) {
     auto tuple = res.Next();
     EXPECT_TRUE(bool(tuple));
-    EXPECT_TRUE(CheckAns(format("{}", tuple.ReadString(0)), answer, tuple, 3));
+    EXPECT_TRUE(
+        CheckAns(fmt::format("{}", tuple.ReadString(0)), answer, tuple, 3));
   }
   EXPECT_FALSE(res.Next());
 }
@@ -724,8 +726,9 @@ auto InitWithTable(int init_balance, std::string file_name)
                   txn_id)
                 .Valid());
         EXPECT_TRUE(
-            db->Execute(format("insert into Numbers values ('blogaholic', {});",
-                            init_balance),
+            db->Execute(
+                  fmt::format("insert into Numbers values ('blogaholic', {});",
+                      init_balance),
                   txn_id)
                 .Valid());
       });
@@ -837,8 +840,8 @@ TEST(AnomalyQueryTest, WriteSkewTest) {
     auto &txn_manager = db->GetTxnManager();
     for (int j = 0; j < 10; ++j) {
       EXPECT_TRUE(
-          db->Execute(format("insert into Numbers values ('row{}', {});", j + 1,
-                          j % 2))
+          db->Execute(fmt::format("insert into Numbers values ('row{}', {});",
+                          j + 1, j % 2))
               .Valid());
     }
     std::vector<std::thread> threads;
@@ -1085,8 +1088,8 @@ TEST(TxnBenchmark, BenchmarkTable) {
         db->Execute(
               format("create table t{}(a varchar(2) primary key, b int32);", i))
             .Valid());
-    EXPECT_TRUE(
-        db->Execute(format("insert into t{} values ('v', 1);", i)).Valid());
+    EXPECT_TRUE(db->Execute(fmt::format("insert into t{} values ('v', 1);", i))
+                    .Valid());
   }
   wing::ThreadPool pool(THREAD_CNT);
   StopWatch sw;
@@ -1097,10 +1100,11 @@ TEST(TxnBenchmark, BenchmarkTable) {
       std::mt19937_64 rw_gen(0x202306031900 + i);
       try {
         if (GetNextOp(rw_gen) == AccessType::READ) {
-          EXPECT_TRUE(db->Execute(format("select * from t{} where {}='{}';",
-                                      zipf(gen) - 1, pk_name, pk_value),
-                            txn->txn_id_)
-                          .Valid());
+          EXPECT_TRUE(
+              db->Execute(fmt::format("select * from t{} where {}='{}';",
+                              zipf(gen) - 1, pk_name, pk_value),
+                    txn->txn_id_)
+                  .Valid());
         } else {
           ExecUpdate(db.get(), format("t{}", zipf(gen) - 1), pk_name, pk_value,
               format("{}", uniform_dist(gen)), txn->txn_id_);
@@ -1122,7 +1126,7 @@ TEST(TxnBenchmark, BenchmarkTable) {
   auto used_time = sw.GetTimeInSeconds();
   DB_INFO("Used time: {}s", used_time);
   for (int i = 0; i < TOTAL_TABLE_CNT; ++i) {
-    auto res = db->Execute(format("select count(*) from t{};", i));
+    auto res = db->Execute(fmt::format("select count(*) from t{};", i));
     EXPECT_TRUE(res.Valid());
     EXPECT_TRUE(res.Next().ReadInt(0) == 1);
   }
@@ -1149,11 +1153,11 @@ TEST(TxnBenchmark, BenchmarkTuple) {
       std::make_unique<wing::Instance>("__tmp_BenchTest", wing_test_options);
   auto &txn_manager = db->GetTxnManager();
   EXPECT_TRUE(
-      db->Execute(format("create table t(a int32 primary key, b int32);"))
+      db->Execute(fmt::format("create table t(a int32 primary key, b int32);"))
           .Valid());
   for (int i = 0; i < TOTAL_TUPLE_CNT; ++i) {
     EXPECT_TRUE(
-        db->Execute(format("insert into t values ({}, 1);", i)).Valid());
+        db->Execute(fmt::format("insert into t values ({}, 1);", i)).Valid());
   }
   wing::ThreadPool pool(THREAD_CNT);
   StopWatch sw;
@@ -1165,7 +1169,7 @@ TEST(TxnBenchmark, BenchmarkTuple) {
       try {
         if (GetNextOp(rw_gen) == AccessType::READ) {
           EXPECT_TRUE(
-              db->Execute(format("select * from {} where {}={};", tab_name,
+              db->Execute(fmt::format("select * from {} where {}={};", tab_name,
                               pk_name, format("{}", zipf(gen) - 1)),
                     txn->txn_id_)
                   .Valid());

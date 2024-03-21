@@ -1,7 +1,5 @@
 #pragma once
 
-#include <execinfo.h>
-
 #include <exception>
 #include <string>
 

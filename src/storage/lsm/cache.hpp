@@ -4,6 +4,7 @@
 #include <functional>
 #include <list>
 #include <mutex>
+#include <optional>
 #include <unordered_map>
 
 #include "storage/lsm/format.hpp"

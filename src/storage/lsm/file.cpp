@@ -12,9 +12,13 @@ namespace lsm {
 ReadFile::ReadFile(const std::string& filename, bool use_direct_io)
   : filename_(filename), use_direct_io_(use_direct_io) {
   auto flag = O_RDONLY;
+#if defined(__linux__)
   if (use_direct_io) {
     flag |= O_DIRECT;
   }
+#elif defined(__MINGW64__)
+  flag |= O_BINARY;
+#endif
   fd_ = ::open(filename.c_str(), flag);
   if (fd_ < 0) {
     DB_ERR("::open file {} error! Error: {}", filename, errno);
@@ -24,7 +28,12 @@ ReadFile::ReadFile(const std::string& filename, bool use_direct_io)
 ReadFile::~ReadFile() { ::close(fd_); }
 
 ssize_t ReadFile::Read(char* data, size_t n, offset_t offset) {
+#if defined(__linux__)
   ssize_t ret = ::pread(fd_, data, n, offset);
+#elif defined(__MINGW64__)
+  ::lseek(fd_, offset, SEEK_SET);
+  ssize_t ret = ::read(fd_, data, n);
+#endif
   GetStatsContext()->total_read_bytes.fetch_add(n, std::memory_order_relaxed);
   if (ret < 0) {
     DB_ERR("::pread Error! Error: {}", errno);
@@ -35,9 +44,13 @@ ssize_t ReadFile::Read(char* data, size_t n, offset_t offset) {
 SeqWriteFile::SeqWriteFile(const std::string& filename, bool use_direct_io)
   : filename_(filename), use_direct_io_(use_direct_io) {
   auto flag = O_WRONLY | O_CREAT | O_TRUNC;
+#if defined(__linux__)
   if (use_direct_io) {
     flag |= O_DIRECT;
   }
+#elif defined(__MINGW64__)
+  flag |= O_BINARY;
+#endif
   fd_ = ::open(filename.c_str(), flag, 0644);
   if (fd_ < 0) {
     DB_ERR("::open file {} error! Error: {}", filename, errno);
