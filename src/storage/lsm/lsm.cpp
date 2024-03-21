@@ -115,6 +115,7 @@ void DBImpl::SaveMetadata() {
             .AppendValue<uint64_t>(info.size_)
             .AppendValue<uint64_t>(info.sst_id_)
             .AppendValue<uint64_t>(info.index_offset_)
+            .AppendValue<uint64_t>(info.bloom_filter_offset_)
             .AppendValue<uint64_t>(info.filename_.size())
             .AppendString(info.filename_);
       }
@@ -145,6 +146,7 @@ void DBImpl::LoadMetadata() {
         info.size_ = reader.ReadValue<uint64_t>();
         info.sst_id_ = reader.ReadValue<uint64_t>();
         info.index_offset_ = reader.ReadValue<uint64_t>();
+        info.bloom_filter_offset_ = reader.ReadValue<uint64_t>();
         auto len = reader.ReadValue<uint64_t>();
         info.filename_ = reader.ReadString(len);
         ssts.push_back(info);

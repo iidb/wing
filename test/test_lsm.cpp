@@ -161,6 +161,8 @@ TEST(LSMTest, SSTableTest) {
   uint32_t klen = 9, vlen = 13, N = 1e5;
   auto kv =
       GenKVDataWithRandomLen(0x202403152328, N, {klen - 1, klen}, {1, vlen});
+  auto kv_notinsert =
+      GenKVDataWithRandomLen(0x202403220115, 5e6, {klen - 1, klen}, {1, vlen});
   std::sort(kv.begin(), kv.end());
   /* Store the sorted key-value pairs into the SSTable */
   for (uint32_t i = 0; i < N; i++) {
@@ -182,7 +184,20 @@ TEST(LSMTest, SSTableTest) {
     std::string value;
     ASSERT_EQ(sst.Get(kv[i].key(), 1, &value), GetResult::kFound);
     ASSERT_EQ(value, kv[i].value());
+    ASSERT_EQ(sst.Get(kv[i].key(), 0, &value), GetResult::kNotFound);
   }
+  /* Test bloom filter */
+  wing::wing_testing::TestTimeout(
+      [&]() {
+        wing::StopWatch sw;
+        for (uint32_t i = 0; i < kv_notinsert.size(); i++) {
+          std::string value;
+          ASSERT_EQ(
+              sst.Get(kv_notinsert[i].key(), 1, &value), GetResult::kNotFound);
+        }
+        DB_INFO("Cost: {}s", sw.GetTimeInSeconds());
+      },
+      1000, "Did you utilize bloom filter? ");
   /* Test SSTable::Seek */
   for (uint32_t i = 0; i < 500; i++) {
     size_t id = i * (N / 499);
@@ -274,13 +289,13 @@ TEST(LSMTest, SortedRunTest) {
 }
 
 TEST(LSMTest, IteratorHeapTest) {
-  uint32_t klen = 9, vlen = 50, N = 3e6, fileN = 10;
+  uint32_t klen = 9, vlen = 50, N = 1e6, fileN = 10;
   auto kv = GenKVData(0x202403152328, N, klen, vlen);
   std::vector<std::shared_ptr<SSTable>> ssts;
-  /* Create 10 SSTables */
-  for (uint32_t i = 0; i < fileN; i++) {
-    auto L = (i) * (N / fileN);
-    auto R = std::min((i + 1) * (N / fileN), N);
+  /* Create 20 SSTables */
+  for (uint32_t i = 0; i < fileN * 2; i++) {
+    auto L = (i >= fileN ? i - fileN : i) * (N / fileN);
+    auto R = std::min(L + (N / fileN), N);
     std::sort(kv.begin() + L, kv.begin() + R);
     SSTableBuilder builder(
         std::make_unique<FileWriter>(
@@ -291,7 +306,8 @@ TEST(LSMTest, IteratorHeapTest) {
     /* Build the SSTable */
     for (uint32_t j = L; j < R; j++) {
       builder.Append(
-          ParsedKey(kv[j].key(), 1, RecordType::Value), kv[j].value());
+          ParsedKey(kv[j].key(), i >= fileN ? 114514 : 1, RecordType::Value),
+          kv[j].value());
     }
     builder.Finish();
     /* Add the SSTable*/
@@ -318,6 +334,12 @@ TEST(LSMTest, IteratorHeapTest) {
   for (uint32_t i = 0; i < N; i++) {
     ASSERT_TRUE(its.Valid());
     ASSERT_EQ(ParsedKey(its.key()).user_key_, kv[i].key());
+    ASSERT_EQ(ParsedKey(its.key()).seq_, 114514);
+    ASSERT_EQ(its.value(), kv[i].value());
+    its.Next();
+    ASSERT_TRUE(its.Valid());
+    ASSERT_EQ(ParsedKey(its.key()).user_key_, kv[i].key());
+    ASSERT_EQ(ParsedKey(its.key()).seq_, 1);
     ASSERT_EQ(its.value(), kv[i].value());
     its.Next();
   }
@@ -328,7 +350,191 @@ TEST(LSMTest, IteratorHeapTest) {
   }
 }
 
-TEST(LSMTest, SuperVersionTest) {}
+TEST(LSMTest, SuperVersionTest) {
+  auto mt = std::make_shared<MemTable>();
+  auto imms = std::make_shared<std::vector<std::shared_ptr<MemTable>>>();
+  auto version = std::make_shared<Version>();
+  std::filesystem::create_directories("__tmpSuperVersionTest");
+  uint32_t klen = 9, vlen = 50;
+  auto kv_mt = GenKVData(0x202403220134, 1e4, klen, vlen);
+  for (auto& k : kv_mt) {
+    mt->Put(k.key(), 114514, k.value());
+  }
+  auto kv_imm1 = GenKVData(0x202403220135, 1e4, klen, vlen);
+  auto kv_imm2 = GenKVData(0x202403220136, 1e4, klen, vlen);
+  auto imm1 = std::make_shared<MemTable>();
+  auto imm2 = std::make_shared<MemTable>();
+  for (auto& k : kv_imm1) {
+    imm1->Put(k.key(), 114514, k.value());
+  }
+  for (auto& k : kv_imm2) {
+    imm2->Put(k.key(), 114514, k.value());
+  }
+  imms->push_back(imm1);
+  imms->push_back(imm2);
+  int sst_id = 0;
+  auto gen_sr = [&](uint32_t fileN, auto& kv, int seq,
+                    RecordType type) -> std::shared_ptr<SortedRun> {
+    std::vector<SSTInfo> sst_infos;
+    std::sort(kv.begin(), kv.end());
+    /* Create SSTables */
+    wing::StopWatch sw;
+    uint32_t N = kv.size();
+    for (uint32_t i = 0; i < fileN; i++) {
+      auto L = (i) * (N / fileN);
+      auto R = std::min((i + 1) * (N / fileN), N);
+      SSTableBuilder builder(
+          std::make_unique<FileWriter>(
+              std::make_unique<SeqWriteFile>(
+                  fmt::format("__tmpSuperVersionTest/{}.sst", ++sst_id), false),
+              1 << 20),
+          4096, 10);
+      /* Build the SSTable */
+      for (uint32_t j = L; j < R; j++) {
+        builder.Append(ParsedKey(kv[j].key(), seq, type), kv[j].value());
+      }
+      builder.Finish();
+      /* Add the SSTable*/
+      SSTInfo info;
+      info.count_ = builder.count();
+      info.filename_ = fmt::format("__tmpSuperVersionTest/{}.sst", sst_id);
+      info.index_offset_ = builder.GetIndexOffset();
+      info.size_ = builder.size();
+      info.sst_id_ = i;
+      sst_infos.emplace_back(info);
+    }
+    DB_INFO("Cost: {}", sw.GetTimeInSeconds());
+    return std::make_shared<SortedRun>(sst_infos, 4096, false);
+  };
+
+  auto kv_sr1 = GenKVData(0x202403220137, 5e5, klen, vlen);
+  auto kv_sr2 = GenKVData(0x202403220138, 5e5, klen, vlen);
+  auto kv_sr3 = GenKVData(0x202403220139, 5e5, klen, vlen);
+  auto kv_sr4 = GenKVData(0x202403220140, 5e5, klen, vlen);
+  version->Append(0, gen_sr(10, kv_sr1, 2, RecordType::Value));
+  version->Append(0, gen_sr(10, kv_sr2, 2, RecordType::Value));
+  version->Append(1, gen_sr(10, kv_sr3, 2, RecordType::Value));
+  version->Append(2, gen_sr(10, kv_sr4, 2, RecordType::Value));
+  version->Append(3, gen_sr(10, kv_sr1, 1, RecordType::Deletion));
+  version->Append(3, gen_sr(10, kv_sr2, 1, RecordType::Deletion));
+  auto sv = std::make_shared<SuperVersion>(mt, imms, version);
+
+  auto merge_kv = [&](auto& dst, auto& src) {
+    dst.insert(dst.end(), src.begin(), src.end());
+  };
+
+  auto kv = std::vector<CompressedKVPair>();
+  merge_kv(kv, kv_mt);
+  merge_kv(kv, kv_imm1);
+  merge_kv(kv, kv_imm2);
+  merge_kv(kv, kv_sr1);
+  merge_kv(kv, kv_sr2);
+  merge_kv(kv, kv_sr3);
+  merge_kv(kv, kv_sr4);
+
+  auto kv_seq1 = std::vector<CompressedKVPair>();
+  merge_kv(kv_seq1, kv_sr1);
+  merge_kv(kv_seq1, kv_sr2);
+
+  auto kv_seq2 = std::vector<CompressedKVPair>();
+  merge_kv(kv_seq2, kv_sr1);
+  merge_kv(kv_seq2, kv_sr2);
+  merge_kv(kv_seq2, kv_sr3);
+  merge_kv(kv_seq2, kv_sr4);
+
+  auto kv_seq114514 = std::vector<CompressedKVPair>();
+  merge_kv(kv_seq114514, kv_mt);
+  merge_kv(kv_seq114514, kv_imm1);
+  merge_kv(kv_seq114514, kv_imm2);
+
+  /* Test SuperVersion::Get */
+  wing::StopWatch sw;
+  std::vector<std::future<void>> pool;
+  for (uint32_t T = 0; T < 4; T++) {
+    pool.push_back(std::async([&, T]() {
+      uint32_t step = kv.size() / 4;
+      auto L = step * T, R = step * T + step;
+      for (uint32_t i = L; i < kv.size() && i < R; i++) {
+        std::string value;
+        ASSERT_TRUE(sv->Get(kv[i].key(), 114514, &value));
+        ASSERT_EQ(value, kv[i].value());
+      }
+    }));
+  }
+  pool.push_back(std::async([&]() {
+    for (uint32_t i = 0; i < kv_seq1.size(); i++) {
+      std::string value;
+      ASSERT_FALSE(sv->Get(kv_seq1[i].key(), 1, &value));
+    }
+  }));
+  pool.push_back(std::async([&]() {
+    for (uint32_t i = 0; i < kv_seq114514.size(); i++) {
+      std::string value;
+      ASSERT_FALSE(sv->Get(kv_seq114514[i].key(), 1, &value));
+    }
+  }));
+  for (auto& f : pool)
+    f.get();
+  pool.clear();
+  DB_INFO("SuperVersion::Get Cost: {}s", sw.GetTimeInSeconds());
+  sw.Reset();
+  std::sort(kv.begin(), kv.end());
+  std::sort(kv_seq2.begin(), kv_seq2.end());
+  /* Test SuperVersionIterator::SeekToFirst */
+  {
+    auto it = DBIterator(sv, 114514);
+    it.SeekToFirst();
+    for (uint32_t j = 0; j < kv.size(); j++) {
+      ASSERT_TRUE(it.Valid());
+      ASSERT_EQ(it.key(), kv[j].key());
+      ASSERT_EQ(it.value(), kv[j].value());
+      it.Next();
+    }
+    ASSERT_FALSE(it.Valid());
+  }
+  DB_INFO("Full Scan Cost: {}s", sw.GetTimeInSeconds());
+  /* Test SuperVersionIterator::SeekToFirst using seq = 1 */
+  {
+    auto it = DBIterator(sv, 1);
+    it.SeekToFirst();
+    ASSERT_FALSE(it.Valid());
+  }
+  DB_INFO("Full Scan Cost: {}s", sw.GetTimeInSeconds());
+  /* Test SuperVersionIterator::SeekToFirst using seq = 2 */
+  {
+    auto it = DBIterator(sv, 2);
+    it.SeekToFirst();
+    for (uint32_t j = 0; j < kv_seq2.size(); j++) {
+      ASSERT_TRUE(it.Valid());
+      ASSERT_EQ(it.key(), kv_seq2[j].key());
+      ASSERT_EQ(it.value(), kv_seq2[j].value());
+      it.Next();
+    }
+    ASSERT_FALSE(it.Valid());
+  }
+  DB_INFO("Full Scan Cost: {}s", sw.GetTimeInSeconds());
+  /* Test SuperVersionIterator::Seek */
+  for (uint32_t i = 0; i < 500; i++) {
+    pool.push_back(std::async([&, i]() {
+      size_t step = (kv.size() / 499);
+      size_t id = i * step;
+      auto it = DBIterator(sv, 114514);
+      it.Seek(kv[id].key());
+      for (uint32_t j = id; j < kv.size() && j < id + step * 10; j++) {
+        ASSERT_TRUE(it.Valid());
+        ASSERT_EQ(it.key(), kv[j].key());
+        ASSERT_EQ(it.value(), kv[j].value());
+        it.Next();
+      }
+    }));
+  }
+  for (auto& f : pool)
+    f.get();
+  pool.clear();
+  DB_INFO("Short Range Scan Cost: {}s", sw.GetTimeInSeconds());
+
+  std::filesystem::remove_all("__tmpSuperVersionTest");
+}
 
 TEST(LSMTest, CompactionBasicTest) {
   class Iterator {
@@ -559,11 +765,17 @@ TEST(LSMTest, LSMSaveTest) {
     }
     lsm->Save();
   }
-  std::sort(kv.begin(), kv.end());
+
   {
     options.create_new = false;
     auto lsm = DBImpl::Create(options);
+    for (uint32_t i = 0; i < 1000 && i < N; i++) {
+      std::string value;
+      ASSERT_TRUE(lsm->Get(kv[i].key(), &value));
+      ASSERT_EQ(value, kv[i].value());
+    }
     auto it = lsm->Begin();
+    std::sort(kv.begin(), kv.end());
     for (uint32_t i = 0; i < N; i++) {
       ASSERT_TRUE(it.Valid());
       ASSERT_EQ(it.key(), kv[i].key());
