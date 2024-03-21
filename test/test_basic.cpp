@@ -2,6 +2,7 @@
 
 #include <filesystem>
 
+#include "common/bloomfilter.hpp"
 #include "common/threadpool.hpp"
 #include "instance/instance.hpp"
 #include "test.hpp"
@@ -652,4 +653,23 @@ TEST(ConcurrencyToolTest, ThreadPool) {
   }
   pool.WaitForAllTasks();
   EXPECT_TRUE(fabs(6323.09512394 - sum.load()) < 1e-7);
+}
+
+TEST(UtilsTest, BloomFilter) {
+  std::string bf;
+  size_t N = 1e5;
+  wing::utils::BloomFilter::Create(N, 10, bf);
+  auto kv = wing::wing_testing::GenKVData(0x202403212006, 2 * N, 10, 9);
+  for (uint32_t i = 0; i < N; i++) {
+    wing::utils::BloomFilter::Add(kv[i].key(), bf);
+  }
+  for (uint32_t i = 0; i < N; i++) {
+    ASSERT_TRUE(wing::utils::BloomFilter::Find(kv[i].key(), bf));
+  }
+  size_t fp = 0;
+  for (uint32_t i = N; i < 2 * N; i++) {
+    fp += wing::utils::BloomFilter::Find(kv[i].key(), bf);
+  }
+  DB_INFO("{}", fp / (double)N);
+  ASSERT_TRUE(fp / (double)N <= 0.01);
 }

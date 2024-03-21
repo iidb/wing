@@ -328,6 +328,8 @@ TEST(LSMTest, IteratorHeapTest) {
   }
 }
 
+TEST(LSMTest, SuperVersionTest) {}
+
 TEST(LSMTest, CompactionBasicTest) {
   class Iterator {
    public:

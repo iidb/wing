@@ -43,8 +43,7 @@ class SortedRun {
    * */
   GetResult Get(Slice key, uint64_t seq, std::string* value);
 
-  /* Return an iterator positioned at the first record that is not smaller than
-   * (key, seq). */
+  /* Return an iterator positioned at the first record >= (key, seq). */
   SortedRunIterator Seek(Slice key, uint64_t seq);
 
   /* Return an iterator positioned at the beginning of the SSTable */

@@ -130,27 +130,6 @@ struct SSTInfo {
   std::string filename_;
 };
 
-class Serializer {
- public:
-  Serializer(void* ptr) : ptr_(reinterpret_cast<char*>(ptr)) {}
-
-  Serializer& AddSlice(Slice s) {
-    memcpy(ptr_, s.data(), s.size());
-    ptr_ += s.size();
-    return *this;
-  }
-
-  template <typename T>
-  Serializer& Add(T t) {
-    *reinterpret_cast<T*>(ptr_) = t;
-    ptr_ += sizeof(T);
-    return *this;
-  }
-
- private:
-  char* ptr_;
-};
-
 }  // namespace lsm
 
 }  // namespace wing

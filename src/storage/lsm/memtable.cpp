@@ -1,6 +1,7 @@
 #include "storage/lsm/memtable.hpp"
 
 #include "common/logging.hpp"
+#include "common/serializer.hpp"
 
 namespace wing {
 
@@ -8,11 +9,11 @@ namespace lsm {
 
 void MemTable::Add(ParsedKey key, Slice value) {
   auto ptr = (char *)alloc_.Allocate(key.size() + value.size());
-  Serializer(ptr)
-      .AddSlice(key.user_key_)
-      .Add(key.seq_)
-      .Add(key.type_)
-      .AddSlice(value);
+  utils::Serializer(ptr)
+      .WriteString(key.user_key_)
+      .Write(key.seq_)
+      .Write(key.type_)
+      .WriteString(value);
   size_ += key.size() + value.size() + sizeof(offset_t) * 2;
   auto parsed_key =
       ParsedKey(Slice(ptr, key.user_key_.size()), key.seq_, key.type_);
