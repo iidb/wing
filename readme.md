@@ -28,6 +28,8 @@ If there are any updates to the lab framework, you can `git fetch public && git 
 
 Besides the basic compilation environment, wing also relies on GTest. Here is the installation guide of GTest for some platforms.
 
+It is not necessary for you to install GTest. If GTest is not found, it will be downloaded from the official website and recompiled during the build process of Wing.
+
 #### Debian
 
 ```shell
@@ -133,7 +135,7 @@ alias gtp="/path/to/gtest-parallel/gtest-parallel --workers=8"
 
 ## Documentation
 
-The documentation about the usage of the CLI version, the implementation of wing, and SQL grammar are under `docs/`.
+The documentation can be found at https://iidb.github.io/wing-docs .
 
 ## LICENSE
 
