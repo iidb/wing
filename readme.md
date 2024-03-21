@@ -133,6 +133,14 @@ You may make an alias in `~/.bashrc`:
 alias gtp="/path/to/gtest-parallel/gtest-parallel --workers=8"
 ```
 
+## Formatting
+
+You can install pre-commit using the command `pip install pre-commit`. It will automatically format your code before each commit.
+
+On your first time using it, you should execute `pre-commit install` from the root directory.
+
+You can use `pre-commit run -a` to apply the formatting scripts.
+
 ## Documentation
 
 The documentation can be found at https://iidb.github.io/wing-docs .
