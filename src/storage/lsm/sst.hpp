@@ -68,8 +68,6 @@ class SSTable {
   const SSTInfo& GetSSTInfo() const { return sst_info_; }
 
  private:
-  int FindBlock(Slice key, uint64_t seq) const;
-
   /* The information of SSTable. */
   SSTInfo sst_info_;
   /* The file manager. */
@@ -94,8 +92,10 @@ class SSTableIterator final : public Iterator {
 
   SSTableIterator(SSTable* sst) : sst_(sst), buf_(sst->block_size_, 4096) {}
 
+  /* Move the the beginning */
   void SeekToFirst();
 
+  /* Find the first record >= (user_key, seq) */
   void Seek(Slice key, uint64_t seq);
 
   bool Valid() override;
@@ -107,11 +107,13 @@ class SSTableIterator final : public Iterator {
   void Next() override;
 
  private:
-  void ReadBlock();
-
+  /* The reference to the SSTable */
   SSTable* sst_{nullptr};
+  /* Current data block id */
   size_t block_id_{0};
+  /* The block iterator of the current data block. */
   BlockIterator block_it_;
+  /* The buffer */
   AlignedBuffer buf_;
 };
 

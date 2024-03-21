@@ -74,8 +74,10 @@ class SuperVersionIterator final : public Iterator {
  public:
   SuperVersionIterator(SuperVersion* sv) : sv_(sv) {}
 
+  /* Move the the beginning */
   void SeekToFirst();
 
+  /* Find the first record >= (user_key, seq) */
   void Seek(Slice key, seq_t seq);
 
   bool Valid() override;
@@ -87,9 +89,13 @@ class SuperVersionIterator final : public Iterator {
   void Next() override;
 
  private:
+  /* The referenced superversion */
   SuperVersion* sv_;
+  /* The iterators */
   IteratorHeap<Iterator> it_;
+  /* The memtable iterators */
   std::vector<MemTableIterator> mt_its_;
+  /* The sorted run iterators */
   std::vector<SortedRunIterator> sst_its_;
 };
 

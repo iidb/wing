@@ -64,6 +64,9 @@ class BlockIterator final : public Iterator {
     DB_ERR("Not implemented!");
   }
 
+  /* Move the the beginning */
+  void SeekToFirst();
+
   /* Find the first record >= (user_key, seq) */
   void Seek(Slice user_key, seq_t seq);
 

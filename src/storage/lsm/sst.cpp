@@ -33,17 +33,11 @@ SSTableIterator SSTable::Seek(Slice key, uint64_t seq) {
 
 SSTableIterator SSTable::Begin() { DB_ERR("Not implemented!"); }
 
-int SSTable::FindBlock(Slice key, uint64_t seq) const {
-  DB_ERR("Not implemented!");
-}
-
 void SSTableIterator::Seek(Slice key, uint64_t seq) {
   DB_ERR("Not implemented!");
 }
 
 void SSTableIterator::SeekToFirst() { DB_ERR("Not implemented!"); }
-
-void SSTableIterator::ReadBlock() { DB_ERR("Not implemented!"); }
 
 bool SSTableIterator::Valid() { DB_ERR("Not implemented!"); }
 

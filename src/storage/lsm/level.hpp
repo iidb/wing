@@ -111,8 +111,11 @@ class SortedRunIterator final : public Iterator {
   void Next() override;
 
  private:
+  /* The referenced sorted run */
   SortedRun* run_;
+  /* The SSTable iterator of the current SSTable */
   SSTableIterator sst_it_;
+  /* The index of the current SSTable */
   size_t sst_id_{0};
 };
 
