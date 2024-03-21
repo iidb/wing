@@ -72,7 +72,7 @@ Compile with G++:
 ```shell
 mkdir build
 cd build
-cmake .. -DBUILD_JIT=OFF -DCMAKE_BUILD_TYPE="release" -DCMAKE_CXX_COMPILER="g++" -DCMAKE_C_COMPILER="gcc"
+cmake .. -DBUILD_JIT=OFF -DCMAKE_BUILD_TYPE="relwithdebinfo" -DCMAKE_CXX_COMPILER="g++" -DCMAKE_C_COMPILER="gcc"
 cmake --build . -j
 ```
 
@@ -81,7 +81,7 @@ Compile with Clang:
 ```shell
 mkdir build
 cd build
-cmake .. -DBUILD_JIT=OFF -DCMAKE_BUILD_TYPE="release" -DCMAKE_CXX_COMPILER="clang++" -DCMAKE_C_COMPILER="clang"
+cmake .. -DBUILD_JIT=OFF -DCMAKE_BUILD_TYPE="relwithdebinfo" -DCMAKE_CXX_COMPILER="clang++" -DCMAKE_C_COMPILER="clang"
 cmake --build . -j
 ```
 
