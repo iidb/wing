@@ -20,9 +20,7 @@ class SSTableIterator;
 class SSTable {
  public:
   /**
-   * id: the SSTable ID
-   * filename: the name of the SSTable file
-   * index_offset: the offset of the index block in SSTable
+   * sst_info: The information about SSTable. see lsm/format.hpp
    * -----------------------
    * Below are global options (see lsm/options.hpp):
    * block_size: The size of data block in the SSTable
