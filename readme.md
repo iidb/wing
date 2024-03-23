@@ -143,7 +143,11 @@ You can use `pre-commit run -a` to apply the formatting scripts.
 
 ## Documentation
 
-The documentation can be found at https://iidb.github.io/wing-docs .
+The documentation can be found at <https://iidb.github.io/wing-docs>.
+
+## Submit
+
+`make submit` in the build directory to create `submission.zip` and submit it to autolab.
 
 ## LICENSE
 
