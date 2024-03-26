@@ -67,6 +67,15 @@ Windows: [Mingw-w64](https://winlibs.com/)
 
 Linux: Upgrade the version of GCC to 10 or newer. You may also use Clang.
 
+If you use the default arguments on Linux, you can just do:
+
+```shell
+mkdir build
+cd build
+cmake ..
+make -j
+```
+
 Compile with G++:
 
 ```shell
