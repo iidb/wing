@@ -65,7 +65,7 @@ Wing requires C++20. You may need to upgrade your compiler.
 
 Windows: [Mingw-w64](https://winlibs.com/)
 
-Linux: Upgrade the version of GCC to 10 or newer. You may also use Clang.
+Linux: Upgrade the version of GCC to 10 or newer. You can use `g++ --version` to check the version. You may also use Clang.
 
 If you use the default arguments on Linux, you can just do:
 
