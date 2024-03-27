@@ -177,6 +177,7 @@ TEST(LSMTest, SSTableTest) {
   info.size_ = builder.size();
   info.filename_ = "__tmpLSMSSTableTest";
   info.index_offset_ = builder.GetIndexOffset();
+  info.bloom_filter_offset_ = builder.GetBloomFilterOffset();
   info.sst_id_ = 0;
   SSTable sst(info, 4096, false);
   /* Test SSTable::Get */
@@ -241,6 +242,7 @@ TEST(LSMTest, SortedRunTest) {
     info.count_ = builder.count();
     info.filename_ = fmt::format("__tmpSortedRunTest{}", i);
     info.index_offset_ = builder.GetIndexOffset();
+    info.bloom_filter_offset_ = builder.GetBloomFilterOffset();
     info.size_ = builder.size();
     info.sst_id_ = i;
     sst_infos.emplace_back(info);
@@ -315,6 +317,7 @@ TEST(LSMTest, IteratorHeapTest) {
     info.count_ = builder.count();
     info.filename_ = fmt::format("__tmpLSMIteratorHeapTest{}", i);
     info.index_offset_ = builder.GetIndexOffset();
+    info.bloom_filter_offset_ = builder.GetBloomFilterOffset();
     info.size_ = builder.size();
     info.sst_id_ = i;
     ssts.emplace_back(std::make_shared<SSTable>(info, 4096, false));
@@ -399,6 +402,7 @@ TEST(LSMTest, SuperVersionTest) {
       info.count_ = builder.count();
       info.filename_ = fmt::format("__tmpSuperVersionTest/{}.sst", sst_id);
       info.index_offset_ = builder.GetIndexOffset();
+      info.bloom_filter_offset_ = builder.GetBloomFilterOffset();
       info.size_ = builder.size();
       info.sst_id_ = i;
       sst_infos.emplace_back(info);

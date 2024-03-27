@@ -143,6 +143,8 @@ class SSTableBuilder {
 
   size_t GetIndexOffset() const { return index_offset_; }
 
+  size_t GetBloomFilterOffset() const { return bloom_filter_offset_; }
+
  private:
   /* The file writer */
   std::unique_ptr<FileWriter> writer_;
