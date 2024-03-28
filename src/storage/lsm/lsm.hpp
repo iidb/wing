@@ -42,13 +42,14 @@ class DBImpl {
 
   DBIterator Begin();
   DBIterator Seek(Slice key);
+  std::shared_ptr<SuperVersion> GetSV();
+  const Options &GetOptions() const { return options_; }
 
  private:
   void SwitchMemtable(bool force = false);
   void FlushThread();
   void CompactionThread();
   std::vector<std::shared_ptr<MemTable>> PickMemTables();
-  std::shared_ptr<SuperVersion> GetSV();
   void InstallSV(std::shared_ptr<SuperVersion> sv);
   void SaveMetadata();
   void LoadMetadata();

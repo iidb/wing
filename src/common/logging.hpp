@@ -59,9 +59,9 @@ void __LOG(int level, const char *file, const char *func, int line,
   if (level > DEFAULT_LOG_LEVEL)
     return;
   pthread_mutex_lock(&lock);
-  fmt::print("{}[{}@{}:{}]: ", __loglevel_str[level], func, file, line);
-  fmt::print(fmt::runtime(format_string), args...);
-  fmt::print("\n");
-  fflush(stdout);
+  fmt::print(stderr, "{}[{}@{}:{}]: ", __loglevel_str[level], func, file, line);
+  fmt::print(stderr, fmt::runtime(format_string), args...);
+  fmt::print(stderr, "\n");
+  fflush(stderr);
   pthread_mutex_unlock(&lock);
 }

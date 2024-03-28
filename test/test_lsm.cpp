@@ -540,13 +540,16 @@ TEST(LSMTest, SuperVersionTest) {
   std::filesystem::remove_all("__tmpSuperVersionTest");
 }
 
+//// CompactionJob Test
+
 TEST(LSMTest, CompactionBasicTest) {
   class Iterator {
    public:
-    Iterator(std::vector<CompressedKVPair>& kv) : kv_(kv) {}
+    Iterator(std::vector<CompressedKVPair>& kv, seq_t seq, RecordType type)
+      : kv_(kv), seq_(seq), type_(type) {}
 
     Slice key() {
-      key_ = InternalKey(kv_[id_].key(), 1, RecordType::Value);
+      key_ = InternalKey(kv_[id_].key(), seq_, type_);
       return key_.GetSlice();
     }
 
@@ -559,28 +562,84 @@ TEST(LSMTest, CompactionBasicTest) {
    private:
     std::vector<CompressedKVPair>& kv_;
     uint32_t id_{0};
+    seq_t seq_{0};
     InternalKey key_;
+    RecordType type_;
   };
-  auto filegen =
-      std::make_unique<FileNameGenerator>("__tmpCompactionBasicTest", 0);
-  CompactionJob worker(filegen.get(), 4096, 104857, 16384, 10, false);
+  {
+    auto sst_size = 104857;
+    auto filegen =
+        std::make_unique<FileNameGenerator>("__tmpCompactionBasicTest", 0);
+    CompactionJob worker(filegen.get(), 4096, sst_size, 16384, 10, false);
 
-  uint32_t klen = 9, vlen = 13, N = 1e6;
-  auto kv = GenKVData(0x202403170002, N, klen, vlen);
-  std::sort(kv.begin(), kv.end());
-  auto ssts = worker.Run(Iterator(kv));
-  SortedRun level(ssts, 4096, false);
-  auto it = level.Begin();
-  for (uint32_t i = 0; i < N; i++) {
-    ASSERT_TRUE(it.Valid());
-    ASSERT_EQ(ParsedKey(it.key()).user_key_, kv[i].key());
-    ASSERT_EQ(it.value(), kv[i].value());
-    it.Next();
+    uint32_t klen = 9, vlen = 13, N = 1e6;
+    auto kv = GenKVData(0x202403170002, N, klen, vlen);
+    std::sort(kv.begin(), kv.end());
+    auto ssts = worker.Run(Iterator(kv, 1, RecordType::Value));
+    SortedRun level(ssts, 4096, false);
+    auto it = level.Begin();
+    for (uint32_t i = 0; i < N; i++) {
+      ASSERT_TRUE(it.Valid());
+      ASSERT_EQ(ParsedKey(it.key()).user_key_, kv[i].key());
+      ASSERT_EQ(it.value(), kv[i].value());
+      it.Next();
+    }
+    for (uint32_t i = 0; i + 1 < level.GetSSTs().size(); i++) {
+      auto& L = level.GetSSTs()[i];
+      auto& R = level.GetSSTs()[i + 1];
+      ASSERT_TRUE(L->GetSSTInfo().size_ <= sst_size * 1.1);
+      ASSERT_TRUE(
+          L->GetSmallestKey().user_key_ < R->GetSmallestKey().user_key_ &&
+          L->GetLargestKey().user_key_ != R->GetSmallestKey().user_key_);
+    }
+    ASSERT_FALSE(it.Valid());
+    /* Delete all SSTables */
+    for (uint32_t i = 0; i < ssts.size(); i++) {
+      std::remove(ssts[i].filename_.c_str());
+    }
   }
-  ASSERT_FALSE(it.Valid());
-  /* Delete all SSTables */
-  for (uint32_t i = 0; i < ssts.size(); i++) {
-    std::remove(ssts[i].filename_.c_str());
+  // Test duplicate keys.
+  {
+    auto sst_size = 104857;
+    auto filegen =
+        std::make_unique<FileNameGenerator>("__tmpCompactionBasicTest", 0);
+    CompactionJob worker(filegen.get(), 4096, sst_size, 16384, 10, false);
+
+    uint32_t klen = 9, vlen = 13, N = 1e6;
+    auto kv = GenKVData(0x202403282017, N, klen, vlen);
+    std::sort(kv.begin(), kv.end());
+    auto kv2 = std::vector<CompressedKVPair>(kv.begin(), kv.begin() + N / 2);
+    std::vector<Iterator> iters;
+    iters.push_back(Iterator(kv, 1, RecordType::Value));
+    iters.push_back(Iterator(kv2, 2, RecordType::Deletion));
+    IteratorHeap<Iterator> heap;
+    for (auto& it : iters) {
+      heap.Push(&it);
+    }
+    heap.Build();
+    auto ssts = worker.Run(heap);
+    SortedRun level(ssts, 4096, false);
+    auto it = level.Begin();
+    for (uint32_t i = 0; i < N; i++) {
+      ASSERT_TRUE(it.Valid());
+      ASSERT_EQ(ParsedKey(it.key()).user_key_, kv[i].key());
+      ASSERT_EQ(it.value(), kv[i].value());
+      ASSERT_EQ(ParsedKey(it.key()).seq_, (i < N / 2 ? 2 : 1));
+      it.Next();
+    }
+    for (uint32_t i = 0; i + 1 < level.GetSSTs().size(); i++) {
+      auto& L = level.GetSSTs()[i];
+      auto& R = level.GetSSTs()[i + 1];
+      ASSERT_TRUE(L->GetSSTInfo().size_ <= sst_size * 1.1);
+      ASSERT_TRUE(
+          L->GetSmallestKey().user_key_ < R->GetSmallestKey().user_key_ &&
+          L->GetLargestKey().user_key_ != R->GetSmallestKey().user_key_);
+    }
+    ASSERT_FALSE(it.Valid());
+    /* Delete all SSTables */
+    for (uint32_t i = 0; i < ssts.size(); i++) {
+      std::remove(ssts[i].filename_.c_str());
+    }
   }
 }
 
@@ -608,12 +667,14 @@ TEST(LSMTest, LSMBasicTest) {
 
 TEST(LSMTest, LSMSmallGetTest) {
   Options options;
-  options.sst_file_size = 8 << 20;
+  options.compaction_strategy_name = "leveled";
+  options.sst_file_size = 1 << 20;
+  options.compaction_size_ratio = 4;
   options.db_path = "__tmpLSMSmallGetTest/";
   std::filesystem::create_directories(options.db_path);
   auto lsm = DBImpl::Create(options);
 
-  uint32_t klen = 10, vlen = 15, N = 3e6;
+  uint32_t klen = 10, vlen = 15, N = 1e6;
   auto kv =
       GenKVDataWithRandomLen(0x202403170002, N, {klen - 1, klen}, {1, vlen});
   /* Insert all key-value pairs into LSM tree */
@@ -644,12 +705,14 @@ TEST(LSMTest, LSMSmallGetTest) {
 
 TEST(LSMTest, LSMSmallScanTest) {
   Options options;
-  options.sst_file_size = 8 << 20;
+  options.compaction_strategy_name = "leveled";
+  options.sst_file_size = 1 << 20;
+  options.compaction_size_ratio = 4;
   options.db_path = "__tmpLSMSmallScanTest/";
   std::filesystem::create_directories(options.db_path);
   auto lsm = DBImpl::Create(options);
 
-  uint32_t klen = 10, vlen = 13, N = 1e7;
+  uint32_t klen = 10, vlen = 13, N = 5e6;
   auto kv =
       GenKVDataWithRandomLen(0x202403180237, N, {klen - 1, klen}, {1, vlen});
   std::mt19937_64 rgen(0x202403180238);
@@ -721,7 +784,9 @@ TEST(LSMTest, LSMSmallScanTest) {
 TEST(LSMTest, LSMSmallMultithreadGetPutTest) {
   uint32_t TH = 4;
   Options options;
-  options.sst_file_size = 8 << 20;
+  options.compaction_strategy_name = "leveled";
+  options.sst_file_size = 1 << 20;
+  options.compaction_size_ratio = 4;
   options.db_path = "__tmpLSMMultithreadGetPutTest/";
   std::filesystem::create_directories(options.db_path);
   auto lsm = DBImpl::Create(options);
@@ -754,12 +819,60 @@ TEST(LSMTest, LSMSmallMultithreadGetPutTest) {
   std::filesystem::remove_all(options.db_path);
 }
 
+bool SanityCheck(DBImpl* lsm) {
+  auto options = lsm->GetOptions();
+  auto it = std::filesystem::directory_iterator(options.db_path);
+  auto it_end = std::filesystem::directory_iterator();
+  size_t sst_cnt = 0;
+  while (it != it_end) {
+    if (it->is_regular_file() &&
+        it->path().filename().string().find(".sst") != std::string::npos) {
+      if (it->file_size() > options.sst_file_size * 1.1) {
+        DB_INFO("SSTable size exceeds limit {}", options.sst_file_size * 1.1);
+        return false;
+      }
+      sst_cnt++;
+    }
+    it++;
+  }
+
+  size_t sst_cnt_lsm = 0;
+  auto sv = lsm->GetSV();
+  auto version = sv->GetVersion();
+  for (auto& level : version->GetLevels()) {
+    for (auto& sr : level.GetRuns()) {
+      for (auto& sst : sr->GetSSTs()) {
+        sst_cnt_lsm += 1;
+        if (std::filesystem::file_size(sst->GetSSTInfo().filename_) !=
+            sst->GetSSTInfo().size_) {
+          DB_INFO("SSTable size information is wrong! Actual {}, expected {}",
+              std::filesystem::file_size(sst->GetSSTInfo().filename_),
+              sst->GetSSTInfo().size_);
+          return false;
+        }
+      }
+    }
+  }
+  // The number of SSTables in the directory
+  // must equal to the number of SSTables in the LSM tree.
+  if (sst_cnt != sst_cnt_lsm) {
+    DB_INFO(
+        "the number of SSTables in LSM-tree ({}) is not equal to the number of "
+        "SSTable files ({})",
+        sst_cnt_lsm, sst_cnt);
+    return false;
+  }
+  return true;
+}
+
 TEST(LSMTest, LSMSaveTest) {
   Options options;
-  options.sst_file_size = 8 << 20;
+  options.compaction_strategy_name = "leveled";
+  options.sst_file_size = 1 << 20;
   options.db_path = "__tmpLSMSaveTest/";
+  std::filesystem::remove_all(options.db_path);
   std::filesystem::create_directories(options.db_path);
-  uint32_t klen = 10, vlen = 13, N = 1e6;
+  uint32_t klen = 10, vlen = 130, N = 1e6;
   auto kv =
       GenKVDataWithRandomLen(0x202403181246, N, {klen - 1, klen}, {1, vlen});
   {
@@ -789,13 +902,22 @@ TEST(LSMTest, LSMSaveTest) {
     ASSERT_FALSE(it.Valid());
   }
 
+  // Check the number/size of SSTables in the directory
+  {
+    options.create_new = false;
+    auto lsm = DBImpl::Create(options);
+    ASSERT_TRUE(SanityCheck(lsm.get()));
+  }
+
   std::filesystem::remove_all(options.db_path);
 }
 
 TEST(LSMTest, LSMBigScanTest) {
   Options options;
+  options.compaction_strategy_name = "leveled";
   options.sst_file_size = 1 << 20;
   options.db_path = "__tmpLSMBigScanTest/";
+  std::filesystem::remove_all(options.db_path);
   std::filesystem::create_directories(options.db_path);
   auto lsm = DBImpl::Create(options);
 
@@ -813,31 +935,36 @@ TEST(LSMTest, LSMBigScanTest) {
   sw.Reset();
   std::sort(kv.begin(), kv.end());
   /* Test DBImpl::Begin. */
-  {
-    auto it = lsm->Begin();
-    for (uint32_t i = 0; i < N; i++) {
-      ASSERT_TRUE(it.Valid());
-      ASSERT_EQ(it.key(), kv[i].key());
-      ASSERT_EQ(it.value(), kv[i].value());
-      it.Next();
-    }
-    ASSERT_FALSE(it.Valid());
-  }
+  wing::wing_testing::TestTimeout(
+      [&]() {
+        auto it = lsm->Begin();
+        for (uint32_t i = 0; i < N; i++) {
+          ASSERT_TRUE(it.Valid());
+          ASSERT_EQ(it.key(), kv[i].key());
+          ASSERT_EQ(it.value(), kv[i].value());
+          it.Next();
+        }
+        ASSERT_FALSE(it.Valid());
+      },
+      10000, "Your Scan is too slow!");
   DB_INFO("Scan All Cost: {}s", sw.GetTimeInSeconds());
   sw.Reset();
   /* Test DBImpl::Seek. */
-  {
-    for (uint32_t i = 0; i < 1000; i++) {
-      uint32_t begin = rgen() % N;
-      auto it = lsm->Seek(kv[begin].key());
-      for (uint32_t j = begin; j < (N / 1000) + begin && j < N; j++) {
-        ASSERT_TRUE(it.Valid());
-        ASSERT_EQ(it.key(), kv[j].key());
-        ASSERT_EQ(it.value(), kv[j].value());
-        it.Next();
-      }
-    }
-  }
+  wing::wing_testing::TestTimeout(
+      [&]() {
+        for (uint32_t i = 0; i < 1000; i++) {
+          uint32_t begin = rgen() % N;
+          auto it = lsm->Seek(kv[begin].key());
+          for (uint32_t j = begin; j < (N / 1000) + begin && j < N; j++) {
+            ASSERT_TRUE(it.Valid());
+            ASSERT_EQ(it.key(), kv[j].key());
+            ASSERT_EQ(it.value(), kv[j].value());
+            it.Next();
+          }
+        }
+      },
+      7000, "Your Seek is too slow!");
+  DB_INFO("Seek Cost: {}s", sw.GetTimeInSeconds());
   /* Test Save */
   lsm.reset();
   {
@@ -877,9 +1004,131 @@ TEST(LSMTest, LSMBigScanTest) {
     auto it2 = lsm->Seek(kv[10].key());
     ASSERT_FALSE(it2.Valid());
   }
+  lsm->FlushAll();
+  lsm->WaitForFlushAndCompaction();
+  ASSERT_TRUE(SanityCheck(lsm.get()));
   lsm.reset();
-  DB_INFO("Write amplification: {}",
-      GetStatsContext()->total_write_bytes.load() /
-          GetStatsContext()->total_input_bytes.load());
+  auto wa = GetStatsContext()->total_write_bytes.load() /
+            (double)GetStatsContext()->total_input_bytes.load();
+  DB_INFO("Write amplification: {}", wa);
+  ASSERT_TRUE(wa <= 20);
   std::filesystem::remove_all(options.db_path);
 }
+
+TEST(LSMTest, LeveledCompactionTest) {
+  Options options;
+  options.sst_file_size = 1 << 20;
+  options.compaction_size_ratio = 2;
+  options.compaction_strategy_name = "leveled";
+  options.db_path = "__tmpLeveledCompactionTest/";
+  std::filesystem::remove_all(options.db_path);
+  std::filesystem::create_directories(options.db_path);
+  auto lsm = DBImpl::Create(options);
+
+  uint32_t klen = 10, vlen = 514, N = 1e6;
+  auto kv =
+      GenKVDataWithRandomLen(0x202403282311, N, {klen - 1, klen}, {1, vlen});
+
+  /* Insert all key-value pairs into LSM tree */
+  wing::StopWatch sw;
+  wing::wing_testing::TestTimeout(
+      [&]() {
+        for (uint32_t i = 0; i < N; i++) {
+          lsm->Put(kv[i].key(), kv[i].value());
+        }
+        lsm->FlushAll();
+        lsm->WaitForFlushAndCompaction();
+      },
+      30000, "Your compaction is too slow!");
+  DB_INFO("Put Cost {}s.", sw.GetTimeInSeconds());
+  // Check the number of sorted runs at each level
+  {
+    auto sv = lsm->GetSV();
+    auto version = sv->GetVersion();
+    auto level_size_limit =
+        options.level0_compaction_trigger * options.sst_file_size;
+    for (auto& level : version->GetLevels()) {
+      if (level.GetID() == 0) {
+        ASSERT_TRUE(
+            level.GetRuns().size() <= options.level0_stop_writes_trigger);
+      } else {
+        ASSERT_TRUE(level.GetRuns().size() == 1);
+      }
+      size_t level_size = 0;
+      for (auto& sr : level.GetRuns()) {
+        for (auto& sst : sr->GetSSTs()) {
+          level_size += sst->GetSSTInfo().size_;
+        }
+      }
+      ASSERT_TRUE(level_size <= level_size_limit);
+      level_size_limit *= options.compaction_size_ratio;
+    }
+  }
+  ASSERT_TRUE(SanityCheck(lsm.get()));
+  lsm.reset();
+  auto wa = GetStatsContext()->total_write_bytes.load() /
+            (double)GetStatsContext()->total_input_bytes.load();
+  DB_INFO("Write amplification: {}", wa);
+  ASSERT_TRUE(wa <= 16);
+  std::filesystem::remove_all(options.db_path);
+}
+
+TEST(LSMTest, TieredCompactionTest) {
+  Options options;
+  options.sst_file_size = 1 << 20;
+  options.compaction_size_ratio = 4;
+  options.compaction_strategy_name = "tiered";
+  options.db_path = "__tmpLeveledCompactionTest/";
+  std::filesystem::remove_all(options.db_path);
+  std::filesystem::create_directories(options.db_path);
+  auto lsm = DBImpl::Create(options);
+
+  uint32_t klen = 10, vlen = 514, N = 1e6;
+  auto kv =
+      GenKVDataWithRandomLen(0x202403282311, N, {klen - 1, klen}, {1, vlen});
+
+  /* Insert all key-value pairs into LSM tree */
+  wing::StopWatch sw;
+  wing::wing_testing::TestTimeout(
+      [&]() {
+        for (uint32_t i = 0; i < N; i++) {
+          lsm->Put(kv[i].key(), kv[i].value());
+        }
+        lsm->FlushAll();
+        lsm->WaitForFlushAndCompaction();
+      },
+      30000, "Your compaction is too slow!");
+  DB_INFO("Put Cost {}s.", sw.GetTimeInSeconds());
+  // Check the number of sorted runs at each level
+  {
+    auto sv = lsm->GetSV();
+    auto version = sv->GetVersion();
+    auto level_size_limit =
+        options.level0_compaction_trigger * options.sst_file_size;
+    for (auto& level : version->GetLevels()) {
+      if (level.GetID() == 0) {
+        ASSERT_TRUE(
+            level.GetRuns().size() <= options.level0_stop_writes_trigger);
+      } else {
+        ASSERT_TRUE(level.GetRuns().size() <= options.compaction_size_ratio);
+      }
+      size_t level_size = 0;
+      for (auto& sr : level.GetRuns()) {
+        for (auto& sst : sr->GetSSTs()) {
+          level_size += sst->GetSSTInfo().size_;
+        }
+      }
+      ASSERT_TRUE(level_size <= level_size_limit);
+      level_size_limit *= options.compaction_size_ratio;
+    }
+  }
+  ASSERT_TRUE(SanityCheck(lsm.get()));
+  lsm.reset();
+  auto wa = GetStatsContext()->total_write_bytes.load() /
+            (double)GetStatsContext()->total_input_bytes.load();
+  DB_INFO("Write amplification: {}", wa);
+  ASSERT_TRUE(wa <= 8);
+  std::filesystem::remove_all(options.db_path);
+}
+
+TEST(LSMTest, Benchmark1) {}

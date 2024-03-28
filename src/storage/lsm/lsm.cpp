@@ -22,10 +22,19 @@ DBImpl::DBImpl(const Options& options)
   } else {
     LoadMetadata();
   }
-  compaction_picker_ =
-      std::make_unique<LeveledCompactionPicker>(options_.compaction_size_ratio,
-          options_.level0_compaction_trigger * options_.sst_file_size,
-          options_.level0_compaction_trigger);
+  if (options_.compaction_strategy_name == "leveled") {
+    compaction_picker_ = std::make_unique<LeveledCompactionPicker>(
+        options_.compaction_size_ratio,
+        options_.level0_compaction_trigger * options_.sst_file_size,
+        options_.level0_compaction_trigger);
+  } else if (options_.compaction_strategy_name == "tiered") {
+    compaction_picker_ =
+        std::make_unique<TieredCompactionPicker>(options_.compaction_size_ratio,
+            options_.level0_compaction_trigger * options_.sst_file_size,
+            options_.level0_compaction_trigger);
+  } else if (options_.compaction_strategy_name == "flexible") {
+  }
+
   threads_.emplace_back([&]() { FlushThread(); });
   threads_.emplace_back([&]() { CompactionThread(); });
 }
@@ -51,10 +60,12 @@ void DBImpl::SwitchMemtable(bool force) {
   std::unique_lock db_lck(db_mutex_);
   auto old_sv = GetSV();
   while (old_sv->GetImms()->size() >= options_.max_immutable_count) {
+    old_sv.reset();
     StopWrite();
     old_sv = GetSV();
   }
-  if (force || old_sv->GetMt()->size() > options_.sst_file_size) {
+  if ((force && old_sv->GetMt()->size() > 0) ||
+      old_sv->GetMt()->size() > options_.sst_file_size) {
     auto mt = old_sv->GetMt();
     auto new_imm = std::make_shared<std::vector<std::shared_ptr<MemTable>>>();
     auto version = old_sv->GetVersion();
@@ -64,6 +75,7 @@ void DBImpl::SwitchMemtable(bool force) {
     auto new_mt = std::make_shared<MemTable>();
     auto new_sv = std::make_shared<SuperVersion>(new_mt, new_imm, version);
     InstallSV(new_sv);
+    DB_INFO("{}", new_sv->ToString());
     flush_cv_.notify_one();
   }
 }
@@ -185,6 +197,7 @@ void DBImpl::FlushThread() {
     /* Wait for the signal from SwitchMemtable */
     std::unique_lock lck(db_mutex_);
     if (stop_signal_) {
+      flush_flag_ = false;
       return;
     }
     /* Pick the memtables that require flushing */
@@ -194,11 +207,14 @@ void DBImpl::FlushThread() {
       while (old_sv->GetVersion()->GetLevels().size() > 0 &&
              old_sv->GetVersion()->GetLevels()[0].GetRuns().size() >=
                  options_.level0_stop_writes_trigger) {
+        old_sv.reset();
         StopWrite();
         old_sv = GetSV();
       }
       imms = PickMemTables();
       if (imms.empty()) {
+        old_sv.reset();
+        flush_flag_ = false;
         flush_cv_.wait(lck);
         continue;
       }
@@ -216,6 +232,9 @@ void DBImpl::FlushThread() {
             options_.sst_file_size, options_.write_buffer_size,
             options_.bloom_bits_per_key, options_.use_direct_io);
         auto ssts = worker.Run(imm->Begin());
+        if (ssts.empty()) {
+          continue;
+        }
         runs.push_back(std::make_shared<SortedRun>(
             ssts, options_.block_size, options_.use_direct_io));
         GetStatsContext()->total_input_bytes.fetch_add(

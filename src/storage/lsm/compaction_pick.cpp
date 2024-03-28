@@ -8,6 +8,10 @@ std::unique_ptr<Compaction> LeveledCompactionPicker::Get(Version* version) {
   DB_ERR("Not implemented!");
 }
 
+std::unique_ptr<Compaction> TieredCompactionPicker::Get(Version* version) {
+  DB_ERR("Not implemented!");
+}
+
 }  // namespace lsm
 
 }  // namespace wing
