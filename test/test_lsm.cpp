@@ -285,7 +285,7 @@ TEST(LSMTest, SortedRunTest) {
   }
   DB_INFO("Full Scan Cost: {}s", sw.GetTimeInSeconds());
   /* Delete all SSTables */
-  for (uint32_t i = 0; i < fileN; i++) {
+  for (uint32_t i = 0; i < fileN * 2; i++) {
     std::remove(fmt::format("__tmpSortedRunTest{}", i).c_str());
   }
 }
