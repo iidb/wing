@@ -26,7 +26,7 @@ struct Options {
   /* The maximum number of immutable MemTables. */
   size_t max_immutable_count = 4;
   /* The name of compaction strategy. */
-  std::string compaction_strategy_name = "tiered";
+  std::string compaction_strategy_name = "leveled";
   /* The minimum number of sorted runs for triggering compaction in Level 0*/
   size_t level0_compaction_trigger = 4;
   /**
