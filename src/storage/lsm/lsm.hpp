@@ -38,7 +38,8 @@ class DBImpl {
   // Return true if kFound, false if not
   bool Get(Slice key, std::string *value);
   void Save();
-  void FlushAllAndWait();
+  void FlushAll();
+  void WaitForFlushAndCompaction();
 
   DBIterator Begin();
   DBIterator Seek(Slice key);
@@ -65,6 +66,8 @@ class DBImpl {
   std::condition_variable flush_cv_;
   std::condition_variable compact_cv_;
   bool stop_signal_{false};
+  bool compact_flag_{false};
+  bool flush_flag_{false};
 
   std::mutex write_mutex_;
   std::mutex db_mutex_;

@@ -40,7 +40,7 @@ DBImpl::DBImpl(const Options& options)
 }
 
 DBImpl::~DBImpl() {
-  FlushAllAndWait();
+  FlushAll();
   stop_signal_ = true;
   flush_cv_.notify_all();
   compact_cv_.notify_all();
@@ -179,7 +179,7 @@ void DBImpl::LoadMetadata() {
 
 void DBImpl::Save() { SaveMetadata(); }
 
-void DBImpl::FlushAllAndWait() {
+void DBImpl::FlushAll() {
   SwitchMemtable(true);
   while (true) {
     {
@@ -188,6 +188,18 @@ void DBImpl::FlushAllAndWait() {
         break;
       }
     }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+}
+
+void DBImpl::WaitForFlushAndCompaction() {
+  while (true) {
+    db_mutex_.lock();
+    if (!flush_flag_ && !compact_flag_) {
+      db_mutex_.unlock();
+      return;
+    }
+    db_mutex_.unlock();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 }
