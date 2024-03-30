@@ -663,6 +663,7 @@ TEST(LSMTest, LSMBasicTest) {
   lsm->Put("abc", "abc3");
   ASSERT_TRUE(lsm->Get("abc", &value));
   ASSERT_EQ(value, "abc3");
+  lsm.reset();
   std::filesystem::remove_all(options.db_path);
 }
 
