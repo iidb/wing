@@ -26,9 +26,9 @@ void SortedRunIterator::SeekToFirst() { DB_ERR("Not implemented!"); }
 
 bool SortedRunIterator::Valid() { DB_ERR("Not implemented!"); }
 
-Slice SortedRunIterator::key() { DB_ERR("Not implemented!"); }
+Slice SortedRunIterator::key() const { DB_ERR("Not implemented!"); }
 
-Slice SortedRunIterator::value() { DB_ERR("Not implemented!"); }
+Slice SortedRunIterator::value() const { DB_ERR("Not implemented!"); }
 
 void SortedRunIterator::Next() { DB_ERR("Not implemented!"); }
 

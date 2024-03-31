@@ -70,9 +70,9 @@ class BlockIterator final : public Iterator {
   /* Find the first record >= (user_key, seq) */
   void Seek(Slice user_key, seq_t seq);
 
-  Slice key() override;
+  Slice key() const override;
 
-  Slice value() override;
+  Slice value() const override;
 
   void Next() override;
 

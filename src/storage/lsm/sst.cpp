@@ -43,9 +43,9 @@ void SSTableIterator::SeekToFirst() { DB_ERR("Not implemented!"); }
 
 bool SSTableIterator::Valid() { DB_ERR("Not implemented!"); }
 
-Slice SSTableIterator::key() { DB_ERR("Not implemented!"); }
+Slice SSTableIterator::key() const { DB_ERR("Not implemented!"); }
 
-Slice SSTableIterator::value() { DB_ERR("Not implemented!"); }
+Slice SSTableIterator::value() const { DB_ERR("Not implemented!"); }
 
 void SSTableIterator::Next() { DB_ERR("Not implemented!"); }
 

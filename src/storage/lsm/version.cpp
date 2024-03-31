@@ -51,9 +51,9 @@ void SuperVersionIterator::Seek(Slice key, seq_t seq) {
 
 bool SuperVersionIterator::Valid() { DB_ERR("Not implemented!"); }
 
-Slice SuperVersionIterator::key() { DB_ERR("Not implemented!"); }
+Slice SuperVersionIterator::key() const { DB_ERR("Not implemented!"); }
 
-Slice SuperVersionIterator::value() { DB_ERR("Not implemented!"); }
+Slice SuperVersionIterator::value() const { DB_ERR("Not implemented!"); }
 
 void SuperVersionIterator::Next() { DB_ERR("Not implemented!"); }
 

@@ -82,9 +82,9 @@ class SuperVersionIterator final : public Iterator {
 
   bool Valid() override;
 
-  Slice key() override;
+  Slice key() const override;
 
-  Slice value() override;
+  Slice value() const override;
 
   void Next() override;
 

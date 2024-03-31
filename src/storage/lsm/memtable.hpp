@@ -68,11 +68,11 @@ class MemTableIterator final : public Iterator {
 
   bool Valid() override { return it_ != table_->table_.end(); }
 
-  Slice key() override {
+  Slice key() const override {
     return Slice(it_->first.user_key_.data(), it_->first.size());
   }
 
-  Slice value() override { return it_->second; }
+  Slice value() const override { return it_->second; }
 
   void Next() override { it_++; }
 

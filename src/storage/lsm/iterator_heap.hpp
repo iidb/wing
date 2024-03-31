@@ -20,9 +20,9 @@ class IteratorHeap final : public Iterator {
 
   bool Valid() override { DB_ERR("Not implemented!"); }
 
-  Slice key() override { DB_ERR("Not implemented!"); }
+  Slice key() const override { DB_ERR("Not implemented!"); }
 
-  Slice value() override { DB_ERR("Not implemented!"); }
+  Slice value() const override { DB_ERR("Not implemented!"); }
 
   void Next() override { DB_ERR("Not implemented!"); }
 

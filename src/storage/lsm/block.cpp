@@ -16,9 +16,9 @@ void BlockIterator::Seek(Slice user_key, seq_t seq) {
 
 void BlockIterator::SeekToFirst() { DB_ERR("Not implemented!"); }
 
-Slice BlockIterator::key() { DB_ERR("Not implemented!"); }
+Slice BlockIterator::key() const { DB_ERR("Not implemented!"); }
 
-Slice BlockIterator::value() { DB_ERR("Not implemented!"); }
+Slice BlockIterator::value() const { DB_ERR("Not implemented!"); }
 
 void BlockIterator::Next() { DB_ERR("Not implemented!"); }
 

@@ -342,9 +342,9 @@ void DBIterator::Seek(Slice key) {
 
 bool DBIterator::Valid() { return it_.Valid(); }
 
-Slice DBIterator::key() { return current_key_.user_key(); }
+Slice DBIterator::key() const { return current_key_.user_key(); }
 
-Slice DBIterator::value() { return it_.value(); }
+Slice DBIterator::value() const { return it_.value(); }
 
 void DBIterator::Next() {
   it_.Next();
