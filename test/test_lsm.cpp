@@ -465,76 +465,92 @@ TEST(LSMTest, SuperVersionTest) {
       }
     }));
   }
-  pool.push_back(std::async([&]() {
-    for (uint32_t i = 0; i < kv_seq1.size(); i++) {
-      std::string value;
-      ASSERT_FALSE(sv->Get(kv_seq1[i].key(), 1, &value));
-    }
-  }));
-  pool.push_back(std::async([&]() {
-    for (uint32_t i = 0; i < kv_seq114514.size(); i++) {
-      std::string value;
-      ASSERT_FALSE(sv->Get(kv_seq114514[i].key(), 1, &value));
-    }
-  }));
-  for (auto& f : pool)
-    f.get();
-  pool.clear();
+  wing::wing_testing::TestTimeout(
+      [&]() {
+        for (auto& f : pool)
+          f.get();
+        pool.clear();
+      },
+      6000, "Your get is too slow!");
+  DB_INFO("SuperVersion::Get Cost: {}s", sw.GetTimeInSeconds());
+  sw.Reset();
+  wing::wing_testing::TestTimeout(
+      [&]() {
+        for (uint32_t i = 0; i < kv_seq1.size(); i++) {
+          std::string value;
+          ASSERT_FALSE(sv->Get(kv_seq1[i].key(), 1, &value));
+        }
+      },
+      4000, "Your get is too slow!");
+  wing::wing_testing::TestTimeout(
+      [&]() {
+        for (uint32_t i = 0; i < kv_seq114514.size(); i++) {
+          std::string value;
+          ASSERT_FALSE(sv->Get(kv_seq114514[i].key(), 1, &value));
+        }
+      },
+      6000, "Your get is too slow!");
+
   DB_INFO("SuperVersion::Get Cost: {}s", sw.GetTimeInSeconds());
   sw.Reset();
   std::sort(kv.begin(), kv.end());
   std::sort(kv_seq2.begin(), kv_seq2.end());
   /* Test SuperVersionIterator::SeekToFirst */
-  {
-    auto it = DBIterator(sv, 114514);
-    it.SeekToFirst();
-    for (uint32_t j = 0; j < kv.size(); j++) {
-      ASSERT_TRUE(it.Valid());
-      ASSERT_EQ(it.key(), kv[j].key());
-      ASSERT_EQ(it.value(), kv[j].value());
-      it.Next();
-    }
-    ASSERT_FALSE(it.Valid());
-  }
+  wing::wing_testing::TestTimeout(
+      [&]() {
+        auto it = DBIterator(sv, 114514);
+        it.SeekToFirst();
+        for (uint32_t j = 0; j < kv.size(); j++) {
+          ASSERT_TRUE(it.Valid());
+          ASSERT_EQ(it.key(), kv[j].key());
+          ASSERT_EQ(it.value(), kv[j].value());
+          it.Next();
+        }
+        ASSERT_FALSE(it.Valid());
+      },
+      5000, "Your scan is too slow!");
   DB_INFO("Full Scan Cost: {}s", sw.GetTimeInSeconds());
   /* Test SuperVersionIterator::SeekToFirst using seq = 1 */
-  {
-    auto it = DBIterator(sv, 1);
-    it.SeekToFirst();
-    ASSERT_FALSE(it.Valid());
-  }
+  wing::wing_testing::TestTimeout(
+      [&]() {
+        auto it = DBIterator(sv, 1);
+        it.SeekToFirst();
+        ASSERT_FALSE(it.Valid());
+      },
+      5000, "Your scan is too slow!");
   DB_INFO("Full Scan Cost: {}s", sw.GetTimeInSeconds());
   /* Test SuperVersionIterator::SeekToFirst using seq = 2 */
-  {
-    auto it = DBIterator(sv, 2);
-    it.SeekToFirst();
-    for (uint32_t j = 0; j < kv_seq2.size(); j++) {
-      ASSERT_TRUE(it.Valid());
-      ASSERT_EQ(it.key(), kv_seq2[j].key());
-      ASSERT_EQ(it.value(), kv_seq2[j].value());
-      it.Next();
-    }
-    ASSERT_FALSE(it.Valid());
-  }
+  wing::wing_testing::TestTimeout(
+      [&]() {
+        auto it = DBIterator(sv, 2);
+        it.SeekToFirst();
+        for (uint32_t j = 0; j < kv_seq2.size(); j++) {
+          ASSERT_TRUE(it.Valid());
+          ASSERT_EQ(it.key(), kv_seq2[j].key());
+          ASSERT_EQ(it.value(), kv_seq2[j].value());
+          it.Next();
+        }
+        ASSERT_FALSE(it.Valid());
+      },
+      5000, "Your scan is too slow!");
   DB_INFO("Full Scan Cost: {}s", sw.GetTimeInSeconds());
   /* Test SuperVersionIterator::Seek */
-  for (uint32_t i = 0; i < 500; i++) {
-    pool.push_back(std::async([&, i]() {
-      size_t step = (kv.size() / 499);
-      size_t id = i * step;
-      auto it = DBIterator(sv, 114514);
-      it.Seek(kv[id].key());
-      for (uint32_t j = id; j < kv.size() && j < id + step * 10; j++) {
-        ASSERT_TRUE(it.Valid());
-        ASSERT_EQ(it.key(), kv[j].key());
-        ASSERT_EQ(it.value(), kv[j].value());
-        it.Next();
-      }
-    }));
-  }
-  for (auto& f : pool)
-    f.get();
-  pool.clear();
+  wing::wing_testing::TestTimeout(
+      [&]() {
+        for (uint32_t i = 0; i < 250; i++) {
+          size_t step = (kv.size() / 249);
+          size_t id = i * step;
+          auto it = DBIterator(sv, 114514);
+          it.Seek(kv[id].key());
+          for (uint32_t j = id; j < kv.size() && j < id + step * 10; j++) {
+            ASSERT_TRUE(it.Valid());
+            ASSERT_EQ(it.key(), kv[j].key());
+            ASSERT_EQ(it.value(), kv[j].value());
+            it.Next();
+          }
+        }
+      },
+      15000, "Your seek is too slow!");
   DB_INFO("Short Range Scan Cost: {}s", sw.GetTimeInSeconds());
 
   std::filesystem::remove_all("__tmpSuperVersionTest");
