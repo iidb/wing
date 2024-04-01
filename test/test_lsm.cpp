@@ -553,7 +553,10 @@ TEST(LSMTest, CompactionBasicTest) {
       return key_.GetSlice();
     }
 
-    Slice value() { return kv_[id_].value(); }
+    Slice value() {
+      current_v_ = kv_[id_].value();
+      return current_v_;
+    }
 
     void Next() { id_ += 1; }
 
@@ -565,6 +568,7 @@ TEST(LSMTest, CompactionBasicTest) {
     seq_t seq_{0};
     InternalKey key_;
     RecordType type_;
+    std::string current_v_;
   };
   {
     auto sst_size = 104857;
