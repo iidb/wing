@@ -348,7 +348,7 @@ TEST(LSMTest, IteratorHeapTest) {
   }
   ASSERT_FALSE(its.Valid());
   /* Delete all SSTables */
-  for (uint32_t i = 0; i < fileN; i++) {
+  for (uint32_t i = 0; i < fileN * 2; i++) {
     std::remove(fmt::format("__tmpLSMIteratorHeapTest{}", i).c_str());
   }
 }
