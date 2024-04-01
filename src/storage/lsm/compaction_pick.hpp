@@ -11,6 +11,8 @@ namespace lsm {
 class CompactionPicker {
  public:
   virtual std::unique_ptr<Compaction> Get(Version* version) = 0;
+
+  virtual ~CompactionPicker() = default;
 };
 
 class LeveledCompactionPicker final : public CompactionPicker {
