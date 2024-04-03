@@ -234,6 +234,7 @@ void DBImpl::FlushThread() {
       for (auto& imm : imms) {
         imm->SetFlushInProgress(true);
       }
+      flush_flag_ = true;
     }
     /* Flush the memtables */
     std::vector<std::shared_ptr<SortedRun>> runs;
