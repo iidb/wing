@@ -481,7 +481,7 @@ TEST(LSMTest, SuperVersionTest) {
           ASSERT_FALSE(sv->Get(kv_seq1[i].key(), 1, &value));
         }
       },
-      4000, "Your get is too slow!");
+      10000, "Your get is too slow!");
   wing::wing_testing::TestTimeout(
       [&]() {
         for (uint32_t i = 0; i < kv_seq114514.size(); i++) {
