@@ -13,6 +13,12 @@ struct StatsContext {
   std::atomic<uint64_t> total_write_bytes{0};
   /* Total bytes of flushed MemTable */
   std::atomic<uint64_t> total_input_bytes{0};
+
+  void Reset() {
+    total_read_bytes = 0;
+    total_write_bytes = 0;
+    total_input_bytes = 0;
+  }
 };
 
 StatsContext* GetStatsContext();

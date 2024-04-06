@@ -348,6 +348,7 @@ TEST(LSMTest, IteratorHeapTest) {
   }
   ASSERT_FALSE(its.Valid());
   /* Delete all SSTables */
+  ssts.clear();
   for (uint32_t i = 0; i < fileN * 2; i++) {
     std::remove(fmt::format("__tmpLSMIteratorHeapTest{}", i).c_str());
   }
@@ -481,7 +482,7 @@ TEST(LSMTest, SuperVersionTest) {
           ASSERT_FALSE(sv->Get(kv_seq1[i].key(), 1, &value));
         }
       },
-      10000, "Your get is too slow!");
+      4000, "Your get is too slow!");
   wing::wing_testing::TestTimeout(
       [&]() {
         for (uint32_t i = 0; i < kv_seq114514.size(); i++) {
@@ -552,7 +553,7 @@ TEST(LSMTest, SuperVersionTest) {
       },
       15000, "Your seek is too slow!");
   DB_INFO("Short Range Scan Cost: {}s", sw.GetTimeInSeconds());
-
+  sv.reset();
   std::filesystem::remove_all("__tmpSuperVersionTest");
 }
 
@@ -988,6 +989,7 @@ TEST(LSMTest, LSMBigScanTest) {
   std::filesystem::remove_all(options.db_path);
   std::filesystem::create_directories(options.db_path);
   auto lsm = DBImpl::Create(options);
+  GetStatsContext()->Reset();
 
   uint32_t klen = 10, vlen = 514, N = 3e6;
   auto kv =
@@ -996,9 +998,13 @@ TEST(LSMTest, LSMBigScanTest) {
 
   /* Insert all key-value pairs into LSM tree */
   wing::StopWatch sw;
-  for (uint32_t i = 0; i < N; i++) {
-    lsm->Put(kv[i].key(), kv[i].value());
-  }
+  wing::wing_testing::TestTimeout(
+      [&]() {
+        for (uint32_t i = 0; i < N; i++) {
+          lsm->Put(kv[i].key(), kv[i].value());
+        }
+      },
+      25000, "Your put is slow!");
   DB_INFO("Put Cost: {}s", sw.GetTimeInSeconds());
   sw.Reset();
   std::sort(kv.begin(), kv.end());
@@ -1079,7 +1085,7 @@ TEST(LSMTest, LSMBigScanTest) {
   auto wa = GetStatsContext()->total_write_bytes.load() /
             (double)GetStatsContext()->total_input_bytes.load();
   DB_INFO("Write amplification: {}", wa);
-  ASSERT_TRUE(wa <= 16);
+  ASSERT_TRUE(wa <= 12);
   std::filesystem::remove_all(options.db_path);
 }
 
@@ -1125,14 +1131,15 @@ TEST(LSMTest, LSMDuplicateKeyTest) {
 TEST(LSMTest, LeveledCompactionTest) {
   Options options;
   options.sst_file_size = 1 << 20;
-  options.compaction_size_ratio = 3;
+  options.compaction_size_ratio = 8;
   options.compaction_strategy_name = "leveled";
   options.db_path = "__tmpLeveledCompactionTest/";
   std::filesystem::remove_all(options.db_path);
   std::filesystem::create_directories(options.db_path);
   auto lsm = DBImpl::Create(options);
+  GetStatsContext()->Reset();
 
-  uint32_t klen = 10, vlen = 514, N = 1e6;
+  uint32_t klen = 10, vlen = 514, N = 5e6;
   auto kv =
       GenKVDataWithRandomLen(0x202403282311, N, {klen - 1, klen}, {1, vlen});
 
@@ -1146,7 +1153,7 @@ TEST(LSMTest, LeveledCompactionTest) {
         lsm->FlushAll();
         lsm->WaitForFlushAndCompaction();
       },
-      20000, "Your compaction is too slow!");
+      40000, "Your compaction is too slow!");
   DB_INFO("Put Cost {}s.", sw.GetTimeInSeconds());
   // Check the number of sorted runs at each level
   {
@@ -1176,22 +1183,24 @@ TEST(LSMTest, LeveledCompactionTest) {
   auto wa = GetStatsContext()->total_write_bytes.load() /
             (double)GetStatsContext()->total_input_bytes.load();
   DB_INFO("Write amplification: {}", wa);
-  ASSERT_TRUE(wa <= 16);
+  ASSERT_TRUE(wa <= 12);
   std::filesystem::remove_all(options.db_path);
 }
 
 TEST(LSMTest, TieredCompactionTest) {
   Options options;
   options.sst_file_size = 1 << 20;
-  options.compaction_size_ratio = 4;
+  options.compaction_size_ratio = 8;
+  options.max_immutable_count = 20;
   options.level0_stop_writes_trigger = 4;
   options.compaction_strategy_name = "tiered";
   options.db_path = "__tmpLeveledCompactionTest/";
   std::filesystem::remove_all(options.db_path);
   std::filesystem::create_directories(options.db_path);
   auto lsm = DBImpl::Create(options);
+  GetStatsContext()->Reset();
 
-  uint32_t klen = 10, vlen = 514, N = 1e6;
+  uint32_t klen = 10, vlen = 514, N = 5e6;
   auto kv =
       GenKVDataWithRandomLen(0x202403282311, N, {klen - 1, klen}, {1, vlen});
 
@@ -1205,7 +1214,7 @@ TEST(LSMTest, TieredCompactionTest) {
         lsm->FlushAll();
         lsm->WaitForFlushAndCompaction();
       },
-      30000, "Your compaction is too slow!");
+      25000, "Your compaction is too slow!");
   DB_INFO("Put Cost {}s.", sw.GetTimeInSeconds());
   // Check the number of sorted runs at each level
   {
@@ -1235,7 +1244,7 @@ TEST(LSMTest, TieredCompactionTest) {
   auto wa = GetStatsContext()->total_write_bytes.load() /
             (double)GetStatsContext()->total_input_bytes.load();
   DB_INFO("Write amplification: {}", wa);
-  ASSERT_TRUE(wa <= 8);
+  ASSERT_TRUE(wa <= 4.1);
   std::filesystem::remove_all(options.db_path);
 }
 
