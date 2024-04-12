@@ -563,19 +563,25 @@ TEST(LSMTest, CompactionBasicTest) {
   class Iterator {
    public:
     Iterator(std::vector<CompressedKVPair>& kv, seq_t seq, RecordType type)
-      : kv_(kv), seq_(seq), type_(type) {}
-
-    Slice key() {
-      key_ = InternalKey(kv_[id_].key(), seq_, type_);
-      return key_.GetSlice();
+      : kv_(kv), seq_(seq), type_(type) {
+      if (kv_.size() > 0) {
+        key_ = InternalKey(kv_[0].key(), seq_, type_);
+      }
     }
+
+    Slice key() { return key_.GetSlice(); }
 
     Slice value() {
       current_v_ = kv_[id_].value();
       return current_v_;
     }
 
-    void Next() { id_ += 1; }
+    void Next() {
+      id_ += 1;
+      if (Valid()) {
+        key_ = InternalKey(kv_[id_].key(), seq_, type_);
+      }
+    }
 
     bool Valid() { return id_ < kv_.size(); }
 
