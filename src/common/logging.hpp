@@ -26,7 +26,7 @@
   } while (0)
 #define DEFAULT_LOG_FILE NULL
 
-#ifndef NDEBUG
+#ifndef DB_NDEBUG
 #define DEFAULT_LOG_LEVEL __LOG_DEBUG
 #define DB_ASSERT(assertion)                                   \
   ({                                                           \
