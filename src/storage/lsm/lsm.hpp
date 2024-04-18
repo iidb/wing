@@ -40,6 +40,7 @@ class DBImpl {
   void Save();
   void FlushAll();
   void WaitForFlushAndCompaction();
+  size_t CurrentSeq() const { return seq_; }
 
   DBIterator Begin();
   DBIterator Seek(Slice key);
