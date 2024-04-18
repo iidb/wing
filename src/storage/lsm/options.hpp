@@ -38,6 +38,10 @@ struct Options {
   size_t compaction_size_ratio = 10;
   /* The number of bits per key in bloom filter, by default */
   size_t bloom_bits_per_key = 10;
+  /* The target scan length in part3 */
+  double target_scan_length_part3 = 0;
+  /* The target alpha in part3 */
+  double target_alpha_part3 = 0;
   CacheOptions cache{};
 };
 

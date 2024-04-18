@@ -12,6 +12,15 @@ std::unique_ptr<Compaction> TieredCompactionPicker::Get(Version* version) {
   DB_ERR("Not implemented!");
 }
 
+std::unique_ptr<Compaction> FluidCompactionPicker::Get(Version* version) {
+  DB_ERR("Not implemented!");
+}
+
+std::unique_ptr<Compaction> LazyLevelingCompactionPicker::Get(
+    Version* version) {
+  DB_ERR("Not implemented!");
+}
+
 }  // namespace lsm
 
 }  // namespace wing
