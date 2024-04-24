@@ -250,13 +250,13 @@ struct TableMetaPages {
 
 class BPlusTreeStorage : public Storage {
  public:
-  static auto Open(std::filesystem::path&& path, bool create_if_missing,
-      size_t max_buf_pages) -> Result<BPlusTreeStorage, io::Error> {
+  static std::unique_ptr<Storage> Open(std::filesystem::path&& path,
+      bool create_if_missing, size_t max_buf_pages) {
     if (!std::filesystem::exists(path)) {
       if (create_if_missing)
         return Create(std::move(path), max_buf_pages);
     }
-    auto pgm = EXTRACT_RESULT(PageManager::Open(path, max_buf_pages));
+    auto pgm = PageManager::Open(path, max_buf_pages);
     pgid_t meta;
     pgm->GetPlainPage(pgm->SuperPageID()).Read(&meta, 0, sizeof(meta));
     // Table B+Tree use StringKeyCompare by default.
@@ -277,11 +277,11 @@ class BPlusTreeStorage : public Storage {
       db_schema.AddTable(schema);
       it.Next();
     }
-    return BPlusTreeStorage(
-        std::move(pgm), std::move(map), std::move(db_schema));
+    return std::unique_ptr<Storage>(new BPlusTreeStorage(
+        std::move(pgm), std::move(map), std::move(db_schema)));
   }
   auto GetIterator(std::string_view table_name)
-      -> std::unique_ptr<Iterator<const uint8_t*>> {
+      -> std::unique_ptr<Iterator<const uint8_t*>> override {
     return ApplyFuncOnTable<std::unique_ptr<Iterator<const uint8_t*>>>(
         GetPKType(table_name), GetTable(table_name),
         [](auto a) { return a->GetIterator(); });
@@ -290,31 +290,31 @@ class BPlusTreeStorage : public Storage {
   auto GetRangeIterator(std::string_view table_name,
       std::tuple<std::string_view, bool, bool> L,
       std::tuple<std::string_view, bool, bool> R)
-      -> std::unique_ptr<Iterator<const uint8_t*>> {
+      -> std::unique_ptr<Iterator<const uint8_t*>> override {
     return ApplyFuncOnTable<std::unique_ptr<Iterator<const uint8_t*>>>(
         GetPKType(table_name), GetTable(table_name),
         [&L, &R](auto a) { return a->GetRangeIterator(L, R); });
   }
 
   std::unique_ptr<wing::ModifyHandle> GetModifyHandle(
-      std::unique_ptr<TxnExecCtx> ctx) {
+      std::unique_ptr<TxnExecCtx> ctx) override {
     return ApplyFuncOnTable<std::unique_ptr<wing::ModifyHandle>>(
         GetPKType(ctx->table_name_), GetTable(ctx->table_name_),
         [&ctx](auto a) { return a->GetModifyHandle(std::move(ctx)); });
   }
   std::unique_ptr<wing::SearchHandle> GetSearchHandle(
-      std::unique_ptr<TxnExecCtx> ctx) {
+      std::unique_ptr<TxnExecCtx> ctx) override {
     return ApplyFuncOnTable<std::unique_ptr<wing::SearchHandle>>(
         GetPKType(ctx->table_name_), GetTable(ctx->table_name_),
         [&ctx](auto a) { return a->GetSearchHandle(std::move(ctx)); });
   }
-  std::optional<io::Error> Create(const TableSchema& schema) {
+  void Create(const TableSchema& schema) override {
     auto table_name = schema.GetName();
     auto blob = Blob::Create(*pgm_);
     schema_.AddTable(schema);
     blob.Rewrite(serde::bin_stream::to_string(schema));
 
-    auto create_func = [&](auto&& tree) -> std::optional<io::Error> {
+    auto create_func = [&](auto&& tree) {
       TableMetaPages meta{
           .data = tree.MetaPageID(),
           .schema = blob.MetaPageID(),
@@ -324,33 +324,33 @@ class BPlusTreeStorage : public Storage {
       if (!succeed) {
         tree.Destroy();
         blob.Destroy();
-        return io::Error::from(io::ErrorKind::AlreadyExists);
+        throw DBException("Table `{}' already exists in B+tree!", table_name);
       }
       auto ret = cached_tables_.emplace(std::string(table_name),
           CreateBPlusTreeTable(TableSchema(schema), std::move(tree)));
       if (!ret.second)
         DB_ERR("{}", table_name);
-      return std::nullopt;
     };
     // Primary key type
     auto pk_type = schema.GetPrimaryKeySchema().type_;
     if (pk_type == FieldType::INT32 || pk_type == FieldType::INT64) {
       auto tree = BPlusTree<IntegerKeyCompare>::Create(*pgm_);
-      return create_func(std::move(tree));
+      create_func(std::move(tree));
     } else if (pk_type == FieldType::CHAR || pk_type == FieldType::VARCHAR) {
       auto tree = BPlusTree<StringKeyCompare>::Create(*pgm_);
-      return create_func(std::move(tree));
+      create_func(std::move(tree));
     } else if (pk_type == FieldType::FLOAT64) {
       auto tree = BPlusTree<FloatKeyCompare>::Create(*pgm_);
-      return create_func(std::move(tree));
+      create_func(std::move(tree));
     } else {
       DB_ERR("Invalid primary key type.");
     }
   }
-  std::optional<io::Error> Drop(std::string_view table_name) {
+  void Drop(std::string_view table_name) override {
     auto ret = map_table_name_to_meta_pages_.Take(table_name);
-    if (!ret.has_value())
-      return io::Error::from(io::ErrorKind::kNotFound);
+    if (!ret.has_value()) {
+      throw DBException("Table `{}' is not found in B+tree!", table_name);
+    }
     auto meta = TableMetaPages::from_bytes(ret.value());
     auto it = cached_tables_.find(std::string(table_name));
     if (it != cached_tables_.end()) {
@@ -366,22 +366,23 @@ class BPlusTreeStorage : public Storage {
     }
     Blob::Open(*pgm_, meta.schema).Destroy();
     schema_.RemoveTable(table_name);
-    return std::nullopt;
   }
+
   size_t TupleNum(std::string_view table_name) {
     return ApplyFuncOnTable<size_t>(GetPKType(table_name), GetTable(table_name),
         [](auto a) { return a->TupleNum(); });
   }
-  std::optional<std::string_view> GetMaxKey(std::string_view table_name) {
+  std::optional<std::string_view> GetMaxKey(
+      std::string_view table_name) override {
     return ApplyFuncOnTable<std::optional<std::string_view>>(
         GetPKType(table_name), GetTable(table_name),
         [](auto a) { return a->GetMaxKey(); });
   }
-  size_t GetTicks(std::string_view table_name) {
+  size_t GetTicks(std::string_view table_name) override {
     return ApplyFuncOnTable<size_t>(GetPKType(table_name), GetTable(table_name),
         [](auto a) { return a->GetTicks(); });
   }
-  const DBSchema& GetDBSchema() const { return schema_; }
+  const DBSchema& GetDBSchema() const override { return schema_; }
 
  private:
   BPlusTreeStorage(std::unique_ptr<PageManager> pgm,
@@ -390,14 +391,15 @@ class BPlusTreeStorage : public Storage {
       map_table_name_to_meta_pages_(std::move(map)),
       schema_(std::move(db_schema)) {}
   static auto Create(std::filesystem::path path, size_t max_buf_pages)
-      -> BPlusTreeStorage {
+      -> std::unique_ptr<BPlusTreeStorage> {
     auto pgm = PageManager::Create(path, max_buf_pages);
     auto map = BPlusTree<StringKeyCompare>::Create(*pgm);
     pgid_t meta = map.MetaPageID();
     pgm->GetPlainPage(pgm->SuperPageID())
         .Write(0, std::string_view(
                       reinterpret_cast<const char*>(&meta), sizeof(meta)));
-    return BPlusTreeStorage(std::move(pgm), std::move(map), DBSchema{});
+    return std::unique_ptr<BPlusTreeStorage>(
+        new BPlusTreeStorage(std::move(pgm), std::move(map), DBSchema{}));
   }
   AbstractBPlusTreeTable* GetTable(std::string_view table_name) {
     auto it_find = cached_tables_.find(std::string(table_name));

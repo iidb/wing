@@ -3,6 +3,7 @@
 #include <chrono>
 
 #include "catalog/gen_pk.hpp"
+#include "catalog/options.hpp"
 #include "catalog/schema.hpp"
 #include "catalog/stat.hpp"
 #include "storage/storage.hpp"
@@ -13,7 +14,7 @@ namespace wing {
 
 class DB {
  public:
-  DB(std::string_view file_name);
+  DB(std::string_view file_name, const WingOptions& options);
 
   ~DB();
 

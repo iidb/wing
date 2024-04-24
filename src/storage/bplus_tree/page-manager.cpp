@@ -3,6 +3,7 @@
 #include <memory>
 #include <mutex>
 
+#include "common/exception.hpp"
 #include "common/logging.hpp"
 
 namespace wing {
@@ -64,17 +65,14 @@ auto PageManager::Create(std::filesystem::path path, size_t max_buf_pages)
 }
 
 auto PageManager::Open(std::filesystem::path path, size_t max_buf_pages)
-    -> Result<std::unique_ptr<PageManager>, io::Error> {
+    -> std::unique_ptr<PageManager> {
   std::fstream file(path);
-  // TODO: Detect more detailed reason
-  if (!file.good())
-    return io::Error::New(
-        io::ErrorKind::Other, "Fail to open file " + path.string());
+  if (!file.good()) {
+    throw DBException("Fail to open file {}", path.string());
+  }
   auto pgm = std::unique_ptr<PageManager>(
       new PageManager(path, std::move(file), max_buf_pages));
-  auto ret = pgm->Load();
-  if (ret.has_value())
-    return std::move(ret.value());
+  pgm->Load();
   return pgm;
 }
 
@@ -215,16 +213,16 @@ void PageManager::Init() {
   is_free_.resize(PageNum(), false);
 }
 
-std::optional<io::Error> PageManager::Load() {
+void PageManager::Load() {
   AllocMeta();
   file_.read(buf_[0].addr_mut(), Page::SIZE);
-  if (!file_.good())
-    return io::Error::New(io::ErrorKind::Other,
-        "Error occurred when reading file " + path_.string());
+  if (!file_.good()) {
+    throw DBException("Error occurred when reading file {}", path_.string());
+  }
   is_free_.resize(PageNum(), false);
   pgid_t head = FreeListHead();
   if (head == 0)
-    return std::nullopt;
+    return;
   file_.seekg(head * Page::SIZE);
   free_list_buf_used_ = FreePagesInHead();
   file_.read(reinterpret_cast<char *>(free_list_buf_),
@@ -250,10 +248,9 @@ std::optional<io::Error> PageManager::Load() {
   // Postpone the free here to make sure that free_list_buf_standby_ is empty.
   Free(head);
 
-  if (!file_.good())
-    return io::Error::New(io::ErrorKind::Other,
-        "Error occurred when reading file " + path_.string());
-  return std::nullopt;
+  if (!file_.good()) {
+    throw DBException("Error occurred when reading file {}", path_.string());
+  }
 }
 
 Page PageManager::GetPage(pgid_t pgid) {

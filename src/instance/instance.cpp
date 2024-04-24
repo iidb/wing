@@ -20,7 +20,7 @@ namespace wing {
 class Instance::Impl {
  public:
   Impl(std::string_view db_file, WingOptions options)
-    : options_(options), db_(db_file) {}
+    : options_(options), db_(db_file, options) {}
   void ExecuteShell() {
     auto& out = std::cout;
     auto& err = std::cerr;

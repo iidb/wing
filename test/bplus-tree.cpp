@@ -306,7 +306,7 @@ static auto Open(const std::filesystem::path& path)
     -> wing::Result<std::pair<std::unique_ptr<wing::PageManager>,
                         wing::BPlusTree<std::compare_three_way>>,
         wing::io::Error> {
-  auto pgm = EXTRACT_RESULT(wing::PageManager::Open(path, MAX_BUF_PAGES));
+  auto pgm = wing::PageManager::Open(path, MAX_BUF_PAGES);
   wing::pgid_t meta;
   pgm->GetPlainPage(pgm->SuperPageID()).Read(&meta, 0, sizeof(meta));
   auto tree = wing::BPlusTree<std::compare_three_way>::Open(*pgm, meta);
@@ -1276,13 +1276,8 @@ static void rand_insert_destroy(
     tree.Destroy();
   }
   {
-    std::unique_ptr<wing::PageManager> pgm;
-    ASSERT_NO_FATAL_FAILURE(match(
-        wing::PageManager::Open(path, MAX_BUF_PAGES),
-        [&pgm](std::unique_ptr<wing::PageManager>& pgm_ret) {
-          pgm = std::move(pgm_ret);
-        },
-        [](wing::io::Error& err) { FAIL() << err; }));
+    std::unique_ptr<wing::PageManager> pgm =
+        wing::PageManager::Open(path, MAX_BUF_PAGES);
     ASSERT_EQ(pgm->PageNum(), page_num);
     pgm->ShrinkToFit();
     ASSERT_EQ(pgm->PageNum(), pgm->SuperPageID() + 1);

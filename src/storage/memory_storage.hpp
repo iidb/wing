@@ -178,27 +178,32 @@ class MemoryTableStorage : public Storage {
     serde::bin_stream::Serializer s(out);
     serde::serialize(tables_, s);
   }
-  static auto Open(std::filesystem::path&& path, bool create_if_missing,
-      size_t max_buf_pages) -> Result<MemoryTableStorage, io::Error> {
-    (void)max_buf_pages;
+  static std::unique_ptr<Storage> Open(
+      std::filesystem::path&& path, bool create_if_missing) {
     if (!std::filesystem::exists(path)) {
       if (create_if_missing)
-        return Create(std::move(path));
-      else
-        return io::Error::from(io::ErrorKind::kNotFound);
+        return std::unique_ptr<Storage>(
+            new MemoryTableStorage(std::move(path)));
+      else {
+        throw DBException("Cannot find database under {}", path.string());
+      }
     }
     std::ifstream in(path, std::ios::binary);
     serde::bin_stream::Deserializer d(in);
-    map_t tables =
-        EXTRACT_RESULT(serde::deserialize(serde::type_tag<map_t>, d));
+    auto table_result = serde::deserialize(serde::type_tag<map_t>, d);
+    if (table_result.index() == 1) {
+      throw DBException("Exception occurs when reading table list");
+    }
+    map_t tables = std::get<0>(table_result);
     DBSchema schema;
     for (auto& kv : tables)
       schema.AddTable(kv.second.GetTableSchema());
-    return MemoryTableStorage(
-        std::move(tables), std::move(path), std::move(schema));
+    return std::unique_ptr<Storage>(new MemoryTableStorage(
+        std::move(tables), std::move(path), std::move(schema)));
   }
+
   std::unique_ptr<Iterator<const uint8_t*>> GetIterator(
-      std::string_view table_name) {
+      std::string_view table_name) override {
     auto& table = GetMemoryTable(table_name);
     return std::make_unique<MemoryTable::Iterator>(
         table.GetIndexBegin(), table.GetIndexEnd());
@@ -206,7 +211,7 @@ class MemoryTableStorage : public Storage {
 
   std::unique_ptr<Iterator<const uint8_t*>> GetRangeIterator(
       std::string_view table_name, std::tuple<std::string_view, bool, bool> L,
-      std::tuple<std::string_view, bool, bool> R) {
+      std::tuple<std::string_view, bool, bool> R) override {
     auto& table = GetMemoryTable(table_name);
     auto iter_l = std::get<1>(L)   ? table.GetIndexBegin()
                   : std::get<2>(L) ? table.GetIndexLower(std::get<0>(L))
@@ -218,40 +223,45 @@ class MemoryTableStorage : public Storage {
   }
 
   std::unique_ptr<ModifyHandle> GetModifyHandle(
-      std::unique_ptr<TxnExecCtx> ctx) {
+      std::unique_ptr<TxnExecCtx> ctx) override {
     return std::make_unique<MemoryTable::ModifyHandle>(
         GetMemoryTable(ctx->table_name_));
   }
+
   std::unique_ptr<SearchHandle> GetSearchHandle(
-      std::unique_ptr<TxnExecCtx> ctx) {
+      std::unique_ptr<TxnExecCtx> ctx) override {
     return std::make_unique<MemoryTable::SearchHandle>(
         GetMemoryTable(ctx->table_name_));
   }
-  void Create(const TableSchema& schema) {
+
+  void Create(const TableSchema& schema) override {
     auto table_name = schema.GetName();
     tables_.emplace(table_name, MemoryTable::New(TableSchema(schema)));
     schema_.AddTable(schema);
   }
-  void Drop(std::string_view table_name) {
+
+  void Drop(std::string_view table_name) override {
     auto it = tables_.find(table_name);
     if (it != tables_.end()) {
       tables_.erase(it);
       schema_.RemoveTable(table_name);
     }
   }
+
   size_t TupleNum(std::string_view table_name) {
     return GetMemoryTable(table_name).TupleNum();
   }
 
-  std::optional<std::string_view> GetMaxKey(std::string_view table_name) {
+  std::optional<std::string_view> GetMaxKey(
+      std::string_view table_name) override {
     return GetMemoryTable(table_name).GetMaxKey();
   }
 
-  size_t GetTicks(std::string_view table_name) {
+  size_t GetTicks(std::string_view table_name) override {
     return GetMemoryTable(table_name).GetTicks();
   }
 
-  const DBSchema& GetDBSchema() const { return schema_; }
+  const DBSchema& GetDBSchema() const override { return schema_; }
 
  private:
   MemoryTableStorage(std::filesystem::path&& path) : path_(std::move(path)) {}
@@ -260,9 +270,6 @@ class MemoryTableStorage : public Storage {
     : tables_(std::move(tables)),
       path_(std::move(path)),
       schema_(std::move(schema)) {}
-  static MemoryTableStorage Create(std::filesystem::path path) {
-    return MemoryTableStorage(std::move(path));
-  }
   MemoryTable& GetMemoryTable(std::string_view table_name) {
     auto it = tables_.find(table_name);
     if (it == tables_.end()) {

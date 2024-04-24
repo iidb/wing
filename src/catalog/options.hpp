@@ -20,6 +20,14 @@ class WingOptions {
 
   /* Whether we strictly check if the chunk size <= size_batch. */
   bool check_chunk_size{false};
+
+  /* Storage backend: options are 'memory', 'b+tree' and 'lsm' */
+  std::string storage_backend_name{"memory"};
+
+  size_t buf_pool_max_page{1024};
+
+  /* Create a database if the file path is empty*/
+  bool create_if_missing{true};
 };
 
 }  // namespace wing

@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 
+#include "catalog/schema.hpp"
 #include "transaction/lock_manager.hpp"
 
 namespace wing {
@@ -56,12 +57,31 @@ class SearchHandle {
 
 class Storage {
  public:
+  virtual ~Storage() = default;
+
   virtual std::unique_ptr<ModifyHandle> GetModifyHandle(
       std::unique_ptr<TxnExecCtx> ctx) = 0;
 
   virtual std::unique_ptr<SearchHandle> GetSearchHandle(
       std::unique_ptr<TxnExecCtx> ctx) = 0;
-  // TODO
+
+  virtual void Create(const TableSchema& schema) = 0;
+
+  virtual void Drop(std::string_view table_name) = 0;
+
+  virtual std::unique_ptr<Iterator<const uint8_t*>> GetIterator(
+      std::string_view table_name) = 0;
+
+  virtual std::unique_ptr<Iterator<const uint8_t*>> GetRangeIterator(
+      std::string_view table_name, std::tuple<std::string_view, bool, bool> L,
+      std::tuple<std::string_view, bool, bool> R) = 0;
+
+  virtual std::optional<std::string_view> GetMaxKey(
+      std::string_view table_name) = 0;
+
+  virtual size_t GetTicks(std::string_view table_name) = 0;
+
+  virtual const DBSchema& GetDBSchema() const = 0;
 };
 
 }  // namespace wing

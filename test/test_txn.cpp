@@ -42,13 +42,10 @@ void ExpectTupleLockSetSize(
   EXPECT_EQ(txn->tuple_lock_set_[LockMode::X][table_name.data()].size(), x);
 }
 
-auto SetUpDummyStorage() -> BPlusTreeStorage {
+std::unique_ptr<Storage> SetUpDummyStorage() {
   std::filesystem::remove("__tmp_dummy");
   std::filesystem::path path("__tmp_dummy");
-  auto ret = BPlusTreeStorage::Open(std::move(path), true, 32 * 1024);
-  if (ret.index() == 1)
-    throw std::get<1>(ret).to_string();
-  return std::move(std::get<0>(ret));
+  return BPlusTreeStorage::Open(std::move(path), true, 32 * 1024);
 }
 
 // Execute the func as a transaction until the transaction is committed.
@@ -101,8 +98,8 @@ void ExecUpdate(Instance *db, std::string_view table, std::string_view pk_name,
 }
 
 TEST(LockManagerTest, InvalidBehaviorTest1) {
-  auto dummy_storage = SetUpDummyStorage();
-  auto txn_manager = TxnManager(dummy_storage);
+  auto dummy_storage_ptr = SetUpDummyStorage();
+  auto txn_manager = TxnManager(*dummy_storage_ptr);
   auto &lock_manager = txn_manager.GetLockManager();
 
   Txn *txn1 = txn_manager.Begin();
@@ -129,8 +126,8 @@ TEST(LockManagerTest, InvalidBehaviorTest1) {
 }
 
 TEST(LockManagerTest, InvalidBehaviorTest2) {
-  auto dummy_storage = SetUpDummyStorage();
-  auto txn_manager = TxnManager(dummy_storage);
+  auto dummy_storage_ptr = SetUpDummyStorage();
+  auto txn_manager = TxnManager(*dummy_storage_ptr);
   auto &lock_manager = txn_manager.GetLockManager();
 
   // Incompatible upgrade
@@ -168,8 +165,8 @@ TEST(LockManagerTest, InvalidBehaviorTest2) {
 }
 
 TEST(LockManagerTest, InvalidBehaviorTest3) {
-  auto dummy_storage = SetUpDummyStorage();
-  auto txn_manager = TxnManager(dummy_storage);
+  auto dummy_storage_ptr = SetUpDummyStorage();
+  auto txn_manager = TxnManager(*dummy_storage_ptr);
   auto &lock_manager = txn_manager.GetLockManager();
 
   // Tuple lock should ensure correctness of table lock.
@@ -191,8 +188,8 @@ TEST(LockManagerTest, InvalidBehaviorTest3) {
 }
 
 TEST(LockManagerTest, MultiUpgradeTest) {
-  auto dummy_storage = SetUpDummyStorage();
-  auto txn_manager = TxnManager(dummy_storage);
+  auto dummy_storage_ptr = SetUpDummyStorage();
+  auto txn_manager = TxnManager(*dummy_storage_ptr);
   auto &lock_manager = txn_manager.GetLockManager();
 
   // Multi upgrade
@@ -218,8 +215,8 @@ TEST(LockManagerTest, MultiUpgradeTest) {
 
 // We do not test this for now. May be future semester.
 TEST(LockManagerTest, DISABLED_MultiUpgradeTestBonus) {
-  auto dummy_storage = SetUpDummyStorage();
-  auto txn_manager = TxnManager(dummy_storage);
+  auto dummy_storage_ptr = SetUpDummyStorage();
+  auto txn_manager = TxnManager(*dummy_storage_ptr);
   auto &lock_manager = txn_manager.GetLockManager();
 
   // Multi upgrade
@@ -250,8 +247,8 @@ TEST(LockManagerTest, DISABLED_MultiUpgradeTestBonus) {
 }
 
 TEST(LockManagerTest, TableLockTest1) {
-  auto dummy_storage = SetUpDummyStorage();
-  auto txn_manager = TxnManager(dummy_storage);
+  auto dummy_storage_ptr = SetUpDummyStorage();
+  auto txn_manager = TxnManager(*dummy_storage_ptr);
   auto &lock_manager = txn_manager.GetLockManager();
   int txn_num = 5;
   std::vector<Txn *> txns;
@@ -284,8 +281,8 @@ TEST(LockManagerTest, TableLockTest1) {
 
 // First S then upgrade to X
 TEST(LockManagerTest, TableLockTest2) {
-  auto dummy_storage = SetUpDummyStorage();
-  auto txn_manager = TxnManager(dummy_storage);
+  auto dummy_storage_ptr = SetUpDummyStorage();
+  auto txn_manager = TxnManager(*dummy_storage_ptr);
   auto &lock_manager = txn_manager.GetLockManager();
   Txn *txn0 = txn_manager.Begin();
   std::string table_name = "table0";
@@ -301,8 +298,8 @@ TEST(LockManagerTest, TableLockTest2) {
 
 // Three txns run concurrently. One txn upgrades to X and waiting.
 TEST(LockManagerTest, TableLockOrderTest) {
-  auto dummy_storage = SetUpDummyStorage();
-  auto txn_manager = TxnManager(dummy_storage);
+  auto dummy_storage_ptr = SetUpDummyStorage();
+  auto txn_manager = TxnManager(*dummy_storage_ptr);
   auto &lock_manager = txn_manager.GetLockManager();
   int txn_num = 3;
   std::vector<Txn *> txns;
@@ -351,8 +348,8 @@ TEST(LockManagerTest, TableLockOrderTest) {
 }
 
 TEST(LockManagerTest, LivenessTest1) {
-  auto dummy_storage = SetUpDummyStorage();
-  auto txn_manager = TxnManager(dummy_storage);
+  auto dummy_storage_ptr = SetUpDummyStorage();
+  auto txn_manager = TxnManager(*dummy_storage_ptr);
   auto &lock_manager = txn_manager.GetLockManager();
   std::string tab = "table0";
   int txn_num = 5;
@@ -385,8 +382,8 @@ TEST(LockManagerTest, LivenessTest1) {
 }
 
 TEST(LockManagerTest, LivenessTest2) {
-  auto dummy_storage = SetUpDummyStorage();
-  auto txn_manager = TxnManager(dummy_storage);
+  auto dummy_storage_ptr = SetUpDummyStorage();
+  auto txn_manager = TxnManager(*dummy_storage_ptr);
   auto &lock_manager = txn_manager.GetLockManager();
   std::string tab = "table0";
   int txn_num = 5;
@@ -430,8 +427,8 @@ TEST(LockManagerTest, LivenessTest2) {
     COMMIT
 */
 TEST(LockManagerTest, WaitDieTest) {
-  auto dummy_storage = SetUpDummyStorage();
-  auto txn_manager = TxnManager(dummy_storage);
+  auto dummy_storage_ptr = SetUpDummyStorage();
+  auto txn_manager = TxnManager(*dummy_storage_ptr);
   auto &lock_manager = txn_manager.GetLockManager();
   std::string table1 = "table1";
   std::string table2 = "table2";
@@ -502,9 +499,9 @@ TEST(LockManagerTest, WaitDieTest) {
 
 // disabled
 TEST(LockManagerTest, DISABLED_WoundWaitTest) {
-  auto dummy_storage = SetUpDummyStorage();
+  auto dummy_storage_ptr = SetUpDummyStorage();
   auto txn_manager =
-      TxnManager(dummy_storage, LockManager::DL_Algorithm::WOUND_WAIT);
+      TxnManager(*dummy_storage_ptr, LockManager::DL_Algorithm::WOUND_WAIT);
   auto &lock_manager = txn_manager.GetLockManager();
   std::string table1 = "table1";
   std::string table2 = "table2";

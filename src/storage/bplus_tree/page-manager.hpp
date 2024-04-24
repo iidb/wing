@@ -486,7 +486,7 @@ class PageManager {
   static auto Create(std::filesystem::path path, size_t max_buf_pages)
       -> std::unique_ptr<PageManager>;
   static auto Open(std::filesystem::path path, size_t max_buf_pages)
-      -> Result<std::unique_ptr<PageManager>, io::Error>;
+      -> std::unique_ptr<PageManager>;
   /* Allocate a page ID. You may use GetSortedPage or GetPlainPage later on
    * this page ID to get a handle for this page. Note that SortedPage should be
    * initialized with SortedPage::Init before using it for the first time.
@@ -575,7 +575,7 @@ class PageManager {
 
   void AllocMeta();
   void Init();
-  std::optional<io::Error> Load();
+  void Load();
   Page GetPage(pgid_t pgid);
   void DropPage(pgid_t pgid, bool dirty);
   void FlushFreeListStandby(pgid_t pgid);
