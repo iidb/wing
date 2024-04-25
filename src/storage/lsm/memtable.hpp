@@ -43,6 +43,8 @@ class MemTable {
 
   bool GetFlushComplete() const { return flush_complete_; }
 
+  void Clear();
+
  private:
   void Add(ParsedKey key, Slice value);
 

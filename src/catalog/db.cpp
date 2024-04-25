@@ -7,6 +7,7 @@
 
 #include "common/logging.hpp"
 #include "storage/bplus_tree/bplus-tree-storage.hpp"
+#include "storage/lsm/lsm_storage.hpp"
 #include "storage/memory_storage.hpp"
 #include "transaction/lock_manager.hpp"
 #include "transaction/lock_mode.hpp"
@@ -26,6 +27,9 @@ class DB::Impl {
     } else if (options.storage_backend_name == "b+tree") {
       table_storage = BPlusTreeStorage::Open(std::move(path),
           options.create_if_missing, options.buf_pool_max_page);
+    } else if (options.storage_backend_name == "lsm") {
+      table_storage = LSMStorage::Open(
+          std::move(path), options.create_if_missing, options.lsm_options);
     } else {
       DB_ERR("This is not valid Storage backend name! `{}'",
           options.storage_backend_name);
@@ -86,18 +90,6 @@ class DB::Impl {
   }
 
   const DBSchema& GetDBSchema() const { return table_storage_->GetDBSchema(); }
-
-  size_t GetPrimaryKey(std::string_view table_name) {
-    auto ret = table_storage_->GetMaxKey(table_name);
-    if (!ret.has_value()) {
-      return 0;
-    }
-    std::string_view max_key = ret.value();
-    if (max_key.size() != sizeof(size_t)) {
-      DB_ERR("Currently only support primary keys of type size_t");
-    }
-    return *reinterpret_cast<const size_t*>(max_key.data()) + 1;
-  }
 
   TxnManager& GetTxnManager() { return txn_manager_; }
 

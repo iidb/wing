@@ -252,8 +252,7 @@ class MemoryTableStorage : public Storage {
     return GetMemoryTable(table_name).TupleNum();
   }
 
-  std::optional<std::string_view> GetMaxKey(
-      std::string_view table_name) override {
+  std::optional<std::string_view> GetMaxKey(std::string_view table_name) {
     return GetMemoryTable(table_name).GetMaxKey();
   }
 

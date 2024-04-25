@@ -31,6 +31,11 @@ void MemTable::Del(Slice user_key, seq_t seq) {
   Add(ParsedKey(user_key, seq, RecordType::Deletion), Slice());
 }
 
+void MemTable::Clear() {
+  std::unique_lock<std::shared_mutex> lck(mu_);
+  table_.clear();
+}
+
 GetResult MemTable::Get(Slice user_key, seq_t seq, std::string *value) {
   std::shared_lock<std::shared_mutex> lock(mu_);
   auto it = table_.lower_bound(ParsedKey(user_key, seq, RecordType::Value));

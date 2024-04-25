@@ -2,6 +2,8 @@
 
 #include <memory>
 
+#include "storage/lsm/options.hpp"
+
 namespace wing {
 
 class WingOptions {
@@ -22,12 +24,15 @@ class WingOptions {
   bool check_chunk_size{false};
 
   /* Storage backend: options are 'memory', 'b+tree' and 'lsm' */
-  std::string storage_backend_name{"memory"};
+  std::string storage_backend_name{"lsm"};
 
   size_t buf_pool_max_page{1024};
 
   /* Create a database if the file path is empty*/
   bool create_if_missing{true};
+
+  /* Options for LSM tree */
+  lsm::Options lsm_options;
 };
 
 }  // namespace wing

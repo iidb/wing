@@ -41,6 +41,8 @@ class DBImpl {
   void FlushAll();
   void WaitForFlushAndCompaction();
   size_t CurrentSeq() const { return seq_; }
+  /* Delete all things */
+  void DropAll();
 
   DBIterator Begin();
   DBIterator Seek(Slice key);

@@ -11,7 +11,7 @@
 TEST(OptimizerTest, PushdownTest) {
   using namespace wing;
   using namespace wing::wing_testing;
-  std::filesystem::remove("__tmp0201");
+  std::filesystem::remove_all("__tmp0201");
   auto db = std::make_unique<wing::Instance>("__tmp0201", wing_test_options);
   {
     ResultSet result;
@@ -85,13 +85,13 @@ TEST(OptimizerTest, PushdownTest) {
   }
 
   db = nullptr;
-  std::filesystem::remove("__tmp0201");
+  std::filesystem::remove_all("__tmp0201");
 }
 
 // TEST(OptimizerTest, ProjectFoldTest) {
 //   using namespace wing;
 //   using namespace wing::wing_testing;
-//   std::filesystem::remove("__tmp0202");
+//   std::filesystem::remove_all("__tmp0202");
 //   auto db = std::make_unique<wing::Instance>("__tmp0202",
 //   wing_test_options);
 //   {
@@ -122,7 +122,7 @@ TEST(OptimizerTest, PushdownTest) {
 //     DB_INFO("Use: {} s", sw.GetTimeInSeconds());
 //   }
 //   db = nullptr;
-//   std::filesystem::remove("__tmp0202");
+//   std::filesystem::remove_all("__tmp0202");
 // }
 
 TEST(StatsTest, HyperLLTest) {
@@ -168,7 +168,7 @@ TEST(StatsTest, CountMinSketchTest) {
 TEST(OptimizerTest, JoinCommuteTest) {
   using namespace wing;
   using namespace wing::wing_testing;
-  std::filesystem::remove("__tmp0203");
+  std::filesystem::remove_all("__tmp0203");
   auto db = std::make_unique<wing::Instance>("__tmp0203", wing_test_options);
   {
     EXPECT_TRUE(db->Execute("create table B(a int64 auto_increment primary "
@@ -315,13 +315,13 @@ TEST(OptimizerTest, JoinCommuteTest) {
   }
 
   db = nullptr;
-  std::filesystem::remove("__tmp0203");
+  std::filesystem::remove_all("__tmp0203");
 }
 
 TEST(OptimizerTest, JoinAssociate4Test) {
   using namespace wing;
   using namespace wing::wing_testing;
-  std::filesystem::remove("__tmp0204");
+  std::filesystem::remove_all("__tmp0204");
   auto db = std::make_unique<wing::Instance>("__tmp0204", wing_test_options);
   // There is a cafe called Cats'eye which has some cat employees.
   // The cat dba only stores the id of the referenced information in table Cats.
@@ -370,13 +370,13 @@ TEST(OptimizerTest, JoinAssociate4Test) {
     DB_INFO("Use: {} s", sw.GetTimeInSeconds());
   }
   db = nullptr;
-  std::filesystem::remove("__tmp0204");
+  std::filesystem::remove_all("__tmp0204");
 }
 
 TEST(OptimizerTest, JoinAssociate5Test) {
   using namespace wing;
   using namespace wing::wing_testing;
-  std::filesystem::remove("__tmp0205");
+  std::filesystem::remove_all("__tmp0205");
   auto db = std::make_unique<wing::Instance>("__tmp0205", wing_test_options);
   // There is a cafe called Cats'eye which has some cat employees.
   // The cat dba only stores the id of the referenced information in table Cats.
@@ -468,7 +468,7 @@ TEST(OptimizerTest, JoinAssociate5Test) {
     }
   }
   db = nullptr;
-  std::filesystem::remove("__tmp0205");
+  std::filesystem::remove_all("__tmp0205");
 }
 
 template <typename PKType, typename T,
@@ -624,7 +624,7 @@ void TestPKRangeScan(int NUM, int round, int short_range_round,
 TEST(OptimizerTest, IntegerRangeScanTest) {
   using namespace wing;
   using namespace wing::wing_testing;
-  std::filesystem::remove("__tmp0205");
+  std::filesystem::remove_all("__tmp0205");
   auto db = std::make_unique<wing::Instance>("__tmp0205", wing_test_options);
   // Insert key-value data
   // Read the corresponding value of a random key while inserting.
@@ -642,13 +642,13 @@ TEST(OptimizerTest, IntegerRangeScanTest) {
         [](int64_t x) { return x; });
   }
   db = nullptr;
-  std::filesystem::remove("__tmp0205");
+  std::filesystem::remove_all("__tmp0205");
 }
 
 TEST(OptimizerTest, StringRangeScanTest) {
   using namespace wing;
   using namespace wing::wing_testing;
-  std::filesystem::remove("__tmp0206");
+  std::filesystem::remove_all("__tmp0206");
   auto db = std::make_unique<wing::Instance>("__tmp0206", wing_test_options);
   {
     EXPECT_TRUE(
@@ -675,13 +675,13 @@ TEST(OptimizerTest, StringRangeScanTest) {
         [](std::string x) { return "'" + x + "'"; });
   }
   db = nullptr;
-  std::filesystem::remove("__tmp0206");
+  std::filesystem::remove_all("__tmp0206");
 }
 
 TEST(OptimizerTest, FloatRangeScanTest) {
   using namespace wing;
   using namespace wing::wing_testing;
-  std::filesystem::remove("__tmp0207");
+  std::filesystem::remove_all("__tmp0207");
   auto db = std::make_unique<wing::Instance>("__tmp0207", wing_test_options);
   // Insert key-value data
   // Read the corresponding value of a random key while inserting.
@@ -703,5 +703,5 @@ TEST(OptimizerTest, FloatRangeScanTest) {
         [](double x) -> std::string { return fmt::format("{:.10f}", x); });
   }
   db = nullptr;
-  std::filesystem::remove("__tmp0207");
+  std::filesystem::remove_all("__tmp0207");
 }

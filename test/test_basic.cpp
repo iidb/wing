@@ -9,7 +9,7 @@
 
 TEST(BasicTest, ParserTest) {
   using namespace wing;
-  std::filesystem::remove("__tmp-1");
+  std::filesystem::remove_all("__tmp-1");
   auto db = std::make_unique<wing::Instance>("__tmp-1", wing_test_options);
   // SELECT
   EXPECT_FALSE(db->Execute("select").ParseValid());
@@ -119,12 +119,13 @@ TEST(BasicTest, ParserTest) {
   EXPECT_TRUE(db->Execute("select distinct * from A, A;").ParseValid());
   // DROP
   EXPECT_TRUE(db->Execute("drop tablE \"\";").ParseValid());
-  std::filesystem::remove("__tmp-1");
+  db.reset();
+  std::filesystem::remove_all("__tmp-1");
 }
 
 TEST(BasicTest, ConstantExprTest) {
   using namespace wing;
-  std::filesystem::remove("__tmp0");
+  std::filesystem::remove_all("__tmp0");
   auto db = std::make_unique<wing::Instance>("__tmp0", wing_test_options);
   auto test_func_int = [&](auto&& stmt, int64_t expect) {
     auto result = db->Execute(stmt);
@@ -249,13 +250,13 @@ TEST(BasicTest, ConstantExprTest) {
   test_func_int("select not 1 < 2;", 1);
   test_func_int("select not (1 < 2);", 0);
   db = nullptr;
-  std::filesystem::remove("__tmp0");
+  std::filesystem::remove_all("__tmp0");
 }
 
 TEST(BasicTest, Project) {
   using namespace wing;
   using namespace wing::wing_testing;
-  std::filesystem::remove("__tmp1");
+  std::filesystem::remove_all("__tmp1");
   auto db = std::make_unique<wing::Instance>("__tmp1", wing_test_options);
   db->Execute(
       "create table A (a1 int64, a2 int32, a3 float64, a4 varchar(30), a5 "
@@ -401,12 +402,12 @@ TEST(BasicTest, Project) {
     EXPECT_FALSE(bool(tuple));
   }
   db = nullptr;
-  std::filesystem::remove("__tmp1");
+  std::filesystem::remove_all("__tmp1");
 }
 
 TEST(BasicTest, Save) {
   using namespace wing;
-  std::filesystem::remove("__tmp2");
+  std::filesystem::remove_all("__tmp2");
   {
     // Empty DB
     auto db = std::make_unique<wing::Instance>("__tmp2", wing_test_options);
@@ -538,12 +539,12 @@ TEST(BasicTest, Save) {
       }
     }
   }
-  std::filesystem::remove("__tmp2");
+  std::filesystem::remove_all("__tmp2");
 }
 
 TEST(BasicTest, ForeignKey) {
   using namespace wing;
-  std::filesystem::remove("__tmp3");
+  std::filesystem::remove_all("__tmp3");
 #define CHECKT(str) EXPECT_TRUE(db->Execute(str).Valid());
 #define CHECKF(str) EXPECT_FALSE(db->Execute(str).Valid());
   {
@@ -637,7 +638,7 @@ TEST(BasicTest, ForeignKey) {
 
 #undef CHECKT
 #undef CHECKF
-  std::filesystem::remove("__tmp3");
+  std::filesystem::remove_all("__tmp3");
 }
 
 TEST(ConcurrencyToolTest, ThreadPool) {

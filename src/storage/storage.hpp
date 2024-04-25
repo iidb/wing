@@ -76,9 +76,6 @@ class Storage {
       std::string_view table_name, std::tuple<std::string_view, bool, bool> L,
       std::tuple<std::string_view, bool, bool> R) = 0;
 
-  virtual std::optional<std::string_view> GetMaxKey(
-      std::string_view table_name) = 0;
-
   virtual size_t GetTicks(std::string_view table_name) = 0;
 
   virtual const DBSchema& GetDBSchema() const = 0;

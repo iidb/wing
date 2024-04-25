@@ -281,7 +281,7 @@ static bool CheckDefaultData(wing::Instance& db) {
 static void EnsureDB(std::unique_ptr<wing::Instance>& db) {
   db = std::make_unique<wing::Instance>("__imdb", wing_test_options);
   if (!CheckDefaultData(*db)) {
-    std::filesystem::remove("__imdb");
+    std::filesystem::remove_all("__imdb");
     db = std::make_unique<wing::Instance>("__imdb", wing_test_options);
     CreateTables(*db);
     DB_INFO("Generating data...");
@@ -295,8 +295,8 @@ static void EnsureDB(std::unique_ptr<wing::Instance>& db) {
 TEST(Benchmark, JoinOrder10Q1) {
   using namespace wing;
   using namespace wing::wing_testing;
-  // std::filesystem::remove("__imdb");
-  std::filesystem::remove("__job_benchmark_result1");
+  // std::filesystem::remove_all("__imdb");
+  std::filesystem::remove_all("__job_benchmark_result1");
   std::unique_ptr<wing::Instance> db;
   EnsureDB(db);
 
@@ -310,8 +310,8 @@ TEST(Benchmark, JoinOrder10Q1) {
 TEST(Benchmark, JoinOrder10Q2) {
   using namespace wing;
   using namespace wing::wing_testing;
-  // std::filesystem::remove("__imdb");
-  std::filesystem::remove("__job_benchmark_result2");
+  // std::filesystem::remove_all("__imdb");
+  std::filesystem::remove_all("__job_benchmark_result2");
   std::unique_ptr<wing::Instance> db;
   EnsureDB(db);
 
@@ -325,8 +325,8 @@ TEST(Benchmark, JoinOrder10Q2) {
 TEST(Benchmark, JoinOrder10Q3) {
   using namespace wing;
   using namespace wing::wing_testing;
-  // std::filesystem::remove("__imdb");
-  std::filesystem::remove("__job_benchmark_result3");
+  // std::filesystem::remove_all("__imdb");
+  std::filesystem::remove_all("__job_benchmark_result3");
   std::unique_ptr<wing::Instance> db;
   EnsureDB(db);
 
@@ -340,8 +340,8 @@ TEST(Benchmark, JoinOrder10Q3) {
 TEST(Benchmark, JoinOrder10Q4) {
   using namespace wing;
   using namespace wing::wing_testing;
-  // std::filesystem::remove("__imdb");
-  std::filesystem::remove("__job_benchmark_result4");
+  // std::filesystem::remove_all("__imdb");
+  std::filesystem::remove_all("__job_benchmark_result4");
   std::unique_ptr<wing::Instance> db;
   EnsureDB(db);
 

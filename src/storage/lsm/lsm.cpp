@@ -109,6 +109,22 @@ void DBImpl::Del(Slice key) {
   }
 }
 
+void DBImpl::DropAll() {
+  WaitForFlushAndCompaction();
+  std::unique_lock db_lck(db_mutex_);
+  auto sv = GetSV();
+  auto new_sv = std::make_shared<SuperVersion>(std::make_shared<MemTable>(),
+      std::make_shared<std::vector<std::shared_ptr<MemTable>>>(),
+      std::make_shared<Version>());
+  auto version = sv->GetVersion();
+  for (auto& level : version->GetLevels()) {
+    for (auto& sr : level.GetRuns()) {
+      sr->SetRemoveTag(true);
+    }
+  }
+  InstallSV(new_sv);
+}
+
 bool DBImpl::Get(Slice key, std::string* value) {
   auto sv = GetSV();
   auto seq = seq_;

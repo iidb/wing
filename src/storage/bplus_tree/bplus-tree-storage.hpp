@@ -372,8 +372,7 @@ class BPlusTreeStorage : public Storage {
     return ApplyFuncOnTable<size_t>(GetPKType(table_name), GetTable(table_name),
         [](auto a) { return a->TupleNum(); });
   }
-  std::optional<std::string_view> GetMaxKey(
-      std::string_view table_name) override {
+  std::optional<std::string_view> GetMaxKey(std::string_view table_name) {
     return ApplyFuncOnTable<std::optional<std::string_view>>(
         GetPKType(table_name), GetTable(table_name),
         [](auto a) { return a->GetMaxKey(); });

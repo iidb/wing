@@ -227,6 +227,15 @@ void tag_invoke(serde::tag_t<serde::serialize>, const TableSchema& x, S s) {
   serde::serialize(x.GetFK(), s);
 }
 
+template <typename S>
+void tag_invoke(serde::tag_t<serde::serialize>, const DBSchema& x, S s) {
+  serde::serialize(uint32_t(x.GetTables().size()), s);
+  serde::serialize(x.GetName(), s);
+  for (uint32_t i = 0; i < x.GetTables().size(); i++) {
+    serde::serialize(x.GetTables()[i], s);
+  }
+}
+
 template <typename D>
 auto tag_invoke(serde::tag_t<serde::deserialize> tag,
     serde::type_tag_t<wing::ColumnSchema>, D d)
@@ -277,6 +286,21 @@ auto tag_invoke(serde::tag_t<serde::deserialize> tag,
   return wing::TableSchema(std::move(name), std::move(column),
       std::move(storage_columns), primary_key_index, auto_gen_key, pk_hide,
       std::move(fk));
+}
+
+template <typename D>
+auto tag_invoke(serde::tag_t<serde::deserialize> tag,
+    serde::type_tag_t<wing::DBSchema>, D d)
+    -> Result<wing::DBSchema, typename D::Error> {
+  uint32_t sz = EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<uint32_t>, d));
+  std::string name =
+      EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<std::string>, d));
+  std::vector<TableSchema> tables;
+  for (uint32_t i = 0; i < sz; i++) {
+    tables.push_back(
+        EXTRACT_RESULT(tag_invoke(tag, serde::type_tag<TableSchema>, d)));
+  }
+  return DBSchema(std::move(name), std::move(tables));
 }
 
 }  // namespace wing
