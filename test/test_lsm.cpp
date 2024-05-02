@@ -1364,6 +1364,7 @@ std::pair<double, double> Part3Benchmark(
 
   double estimate_scan_cost = 0;
   double estimate_scan_cost2 = 0;
+  double write_cost = 0;
 
   for (uint32_t T = 0; T < 10; T++) {
     uint32_t L = N / 10 * T, R = std::min(N / 10 * (T + 1), N);
@@ -1392,6 +1393,9 @@ std::pair<double, double> Part3Benchmark(
       }
       scan_cost += num_access / options.sst_file_size * options.block_size * 50;
     }
+    write_cost +=
+        (GetStatsContext()->total_write_bytes.load() / options.sst_file_size) /
+        10;
     {
       auto sv = lsm->GetSV();
       auto version = sv->GetVersion();
@@ -1419,20 +1423,17 @@ std::pair<double, double> Part3Benchmark(
   CorrectnessCheck(kv, lsm.get());
   SanityCheck(lsm.get());
   DB_INFO("estimate {}, {}", estimate_scan_cost, estimate_scan_cost2);
-  double write_cost =
-      GetStatsContext()->total_write_bytes.load() / options.sst_file_size;
   return {scan_cost, write_cost};
 }
 
 TEST(LSMTest, Part3Benchmark2) {
   std::vector<std::pair<double, double>> costs;
-  std::vector<double> alpha = {1, 0.5, 0.2, 0.05};
-  std::vector<double> baseline = {40000, 28000, 20000, 9000};
+  std::vector<double> alpha = {0.5, 0.25, 0.1, 0.025};
+  std::vector<double> baseline = {20000, 14000, 10000, 4500};
   for (uint32_t i = 0; i < alpha.size(); i++) {
     auto [read_cost, write_cost] = Part3Benchmark(alpha[i], 5e6, 100);
     DB_INFO("Read cost: {}, write cost: {}, Total: {}", read_cost, write_cost,
         read_cost * alpha[i] + write_cost);
-    costs.emplace_back(read_cost, write_cost);
   }
 
   for (uint32_t i = 0; i < costs.size(); i++) {
@@ -1449,8 +1450,8 @@ TEST(LSMTest, Part3Benchmark2) {
 
 TEST(LSMTest, Part3Benchmark1) {
   std::vector<std::pair<double, double>> costs;
-  std::vector<double> alpha = {1, 0.5, 0.2, 0.05};
-  std::vector<double> baseline = {45000, 35000, 25000, 12000};
+  std::vector<double> alpha = {0.5, 0.25, 0.1, 0.025};
+  std::vector<double> baseline = {22000, 17000, 12000, 6000};
   for (uint32_t i = 0; i < alpha.size(); i++) {
     auto [read_cost, write_cost] = Part3Benchmark(alpha[i], 5e6, 1e9);
     DB_INFO("Read cost: {}, write cost: {}, Total: {}", read_cost, write_cost,
