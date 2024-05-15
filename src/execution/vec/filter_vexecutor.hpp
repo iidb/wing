@@ -7,12 +7,14 @@ namespace wing {
 
 class FilterVecExecutor : public VecExecutor {
  public:
-  FilterVecExecutor(const std::unique_ptr<Expr>& expr,
-      const OutputSchema& input_schema, std::unique_ptr<VecExecutor> ch)
-    : pred_(ExprVecExecutor::Create(expr.get(), input_schema)),
+  FilterVecExecutor(const ExecOptions& options,
+      const std::unique_ptr<Expr>& expr, const OutputSchema& input_schema,
+      std::unique_ptr<VecExecutor> ch)
+    : VecExecutor(options),
+      pred_(ExprVecExecutor::Create(expr.get(), input_schema)),
       ch_(std::move(ch)) {}
   void Init() override { ch_->Init(); }
-  TupleBatch Next() override {
+  TupleBatch InternalNext() override {
     auto ch_ret = ch_->Next();
     if (ch_ret.size() == 0) {
       return {};

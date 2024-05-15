@@ -85,6 +85,8 @@ class DB {
         std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
   }
 
+  const WingOptions& GetOptions() const;
+
  private:
   class Impl;
   std::unique_ptr<Impl> ptr_;

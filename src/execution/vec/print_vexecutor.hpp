@@ -6,9 +6,13 @@ namespace wing {
 
 class PrintVecExecutor : public VecExecutor {
  public:
-  PrintVecExecutor(std::shared_ptr<StaticFieldArray> vec,
-      const OutputSchema& input_schema, size_t num_fields)
-    : vec_(vec), num_fields_(num_fields), schema_(input_schema) {
+  PrintVecExecutor(const ExecOptions& options,
+      std::shared_ptr<StaticFieldArray> vec, const OutputSchema& input_schema,
+      size_t num_fields)
+    : VecExecutor(options),
+      vec_(vec),
+      num_fields_(num_fields),
+      schema_(input_schema) {
     DB_ASSERT(
         num_fields_ != 0 && vec_->GetFieldVector().size() % num_fields_ == 0);
     size_ = vec_->GetFieldVector().size();
@@ -16,9 +20,9 @@ class PrintVecExecutor : public VecExecutor {
   }
   void Init() override {
     offset_ = 0;
-    tuples_.Init(schema_.GetTypes(), 1024);
+    tuples_.Init(schema_.GetTypes(), max_batch_size_);
   }
-  TupleBatch Next() override {
+  TupleBatch InternalNext() override {
     if (offset_ >= size_) {
       return {};
     } else {

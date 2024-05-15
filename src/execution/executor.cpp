@@ -24,8 +24,8 @@ std::unique_ptr<VecExecutor> InternalGenerateVec(
 
   if (plan->type_ == PlanType::Project) {
     auto project_plan = static_cast<const ProjectPlanNode*>(plan);
-    return std::make_unique<ProjectVecExecutor>(project_plan->output_exprs_,
-        project_plan->ch_->output_schema_,
+    return std::make_unique<ProjectVecExecutor>(db.GetOptions().exec_options,
+        project_plan->output_exprs_, project_plan->ch_->output_schema_,
         InternalGenerateVec(project_plan->ch_.get(), db, txn_id));
   }
 
@@ -36,15 +36,16 @@ std::unique_ptr<VecExecutor> InternalGenerateVec(
       throw DBException("Cannot find table \'{}\'", seqscan_plan->table_name_);
     }
     auto& tab = db.GetDBSchema()[table_schema_index.value()];
-    return std::make_unique<SeqScanVecExecutor>(
+    return std::make_unique<SeqScanVecExecutor>(db.GetOptions().exec_options,
         db.GetIterator(txn_id, tab.GetName()),
         seqscan_plan->predicate_.GenExpr(), seqscan_plan->output_schema_, tab);
   }
 
   else if (plan->type_ == PlanType::Print) {
     auto print_plan = static_cast<const PrintPlanNode*>(plan);
-    return std::make_unique<PrintVecExecutor>(print_plan->values_,
-        print_plan->output_schema_, print_plan->num_fields_per_tuple_);
+    return std::make_unique<PrintVecExecutor>(db.GetOptions().exec_options,
+        print_plan->values_, print_plan->output_schema_,
+        print_plan->num_fields_per_tuple_);
   }
 
   throw DBException("Unsupported plan node.");
@@ -155,6 +156,20 @@ std::unique_ptr<Executor> ExecutorGenerator::Generate(
   }
 
   throw DBException("Unsupported plan node.");
+}
+
+VecExecutor::VecExecutor(const ExecOptions& options)
+  : max_batch_size_(options.max_batch_size) {}
+
+TupleBatch VecExecutor::Next() {
+  TupleBatch ret = InternalNext();
+  stat_output_size_ += ret.size();
+  if (ret.size() > max_batch_size_) {
+    throw DBException(
+        "The output size of executor ({}) exceeds maximum batch size ({})",
+        ret.size(), max_batch_size_);
+  }
+  return ret;
 }
 
 }  // namespace wing

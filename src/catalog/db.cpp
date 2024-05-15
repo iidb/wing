@@ -106,6 +106,8 @@ class DB::Impl {
     return it->second.get();
   }
 
+  const WingOptions& GetOptions() const { return options_; }
+
  private:
   Impl(std::unique_ptr<Storage> table_storage)
     : table_storage_(std::move(table_storage)), txn_manager_(*table_storage_) {
@@ -177,5 +179,7 @@ const TableStatistics* DB::GetTableStat(std::string_view table_name) const {
 }
 
 TxnManager& DB::GetTxnManager() { return ptr_->GetTxnManager(); }
+
+const WingOptions& DB::GetOptions() const { return ptr_->GetOptions(); }
 
 }  // namespace wing

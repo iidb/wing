@@ -62,7 +62,7 @@ class TupleBatch {
     return cols_[col_idx].Get(tuple_idx);
   }
 
-  /* The amount of tuples. */
+  /* The amount of tuples. (maybe invalid) */
   inline size_t size() const { return num_tuple_; }
 
   /* The amount of valid tuples. */

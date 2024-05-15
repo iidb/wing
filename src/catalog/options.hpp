@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "execution/execoptions.hpp"
 #include "storage/lsm/options.hpp"
 
 namespace wing {
@@ -33,6 +34,9 @@ class WingOptions {
 
   /* Options for LSM tree */
   lsm::Options lsm_options;
+
+  /* Options for executors */
+  ExecOptions exec_options;
 };
 
 }  // namespace wing

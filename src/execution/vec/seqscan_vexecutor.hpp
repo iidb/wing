@@ -6,19 +6,21 @@ namespace wing {
 
 class SeqScanVecExecutor : public VecExecutor {
  public:
-  SeqScanVecExecutor(std::unique_ptr<Iterator<const uint8_t*>> iter,
+  SeqScanVecExecutor(const ExecOptions& options,
+      std::unique_ptr<Iterator<const uint8_t*>> iter,
       const std::unique_ptr<Expr>& predicate, const OutputSchema& input_schema,
       const TableSchema& table_schema)
-    : iter_(std::move(iter)),
+    : VecExecutor(options),
+      iter_(std::move(iter)),
       predicate_(predicate.get(), input_schema),
       schema_(input_schema),
       table_schema_(table_schema) {}
   void Init() override {
     iter_->Init();
     result_.resize(schema_.GetCols().size());
-    tuples_.Init(schema_.GetTypes(), 1024);
+    tuples_.Init(schema_.GetTypes(), max_batch_size_);
   }
-  TupleBatch Next() override {
+  TupleBatch InternalNext() override {
     auto ret = iter_->Next();
     tuples_.Clear();
     while (ret) {

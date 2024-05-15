@@ -7,9 +7,10 @@ namespace wing {
 
 class ProjectVecExecutor : public VecExecutor {
  public:
-  ProjectVecExecutor(const std::vector<std::unique_ptr<Expr>>& exprs,
+  ProjectVecExecutor(const ExecOptions& options,
+      const std::vector<std::unique_ptr<Expr>>& exprs,
       const OutputSchema& input_schema, std::unique_ptr<VecExecutor> ch)
-    : ch_(std::move(ch)) {
+    : VecExecutor(options), ch_(std::move(ch)) {
     exprs_.reserve(exprs.size());
     for (auto& expr : exprs) {
       exprs_.emplace_back(ExprVecExecutor::Create(expr.get(), input_schema));
@@ -19,7 +20,7 @@ class ProjectVecExecutor : public VecExecutor {
     expr_results_.resize(exprs_.size());
     ch_->Init();
   }
-  TupleBatch Next() override {
+  TupleBatch InternalNext() override {
     if (auto ch_ret = ch_->Next(); ch_ret.size() > 0) {
       for (uint32_t id = 0; id < exprs_.size(); id++) {
         exprs_[id].Evaluate(ch_ret.GetCols(), ch_ret.size(), expr_results_[id]);

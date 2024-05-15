@@ -290,8 +290,8 @@ TEST(ExecutorJoinTest, JoinTestNum3e3Table2) {
   using namespace wing::wing_testing;
   std::filesystem::remove_all("__tmp0101");
   auto db = std::make_unique<wing::Instance>("__tmp0101", wing_test_options);
-  auto NUM = 3e3;
-  // Two countries have 3e3 ports. Ports have three attributes: name, position,
+  auto NUM = 5e3;
+  // Two countries have 1e4 ports. Ports have three attributes: name, position,
   // cost, time. Alice wants to find the shortest path from Country A to Country
   // B within the given cost. But we don't have aggregate operators, so she only
   // lists those paths. Cost: c_0 * ||position_0 - position_1|| ^ 2 + cost_0 +
@@ -315,14 +315,19 @@ TEST(ExecutorJoinTest, JoinTestNum3e3Table2) {
   ASSERT_TRUE(db->Execute("insert into countryB " + stmt_b + ";").Valid());
   double c0 = 20, t0 = 5, lim_cost = 700;
   StopWatch sw;
-  auto result = db->Execute(
-      fmt::format("select A.name, B.name, "
-                  "((A.px-B.px)*(A.px-B.px)+(A.py-B.py)*(A.py-B.py)+(A.pz-B.pz)"
-                  "*(A.pz-B.pz)) / {} + A.t + B.t from countryA "
-                  "as A, countryB as B where  "
-                  "((A.px-B.px)*(A.px-B.px)+(A.py-B.py)*(A.py-B.py)+(A.pz-B.pz)"
-                  "*(A.pz-B.pz)) * {} + A.cost + B.cost < {};",
-          t0, c0, lim_cost));
+  ResultSet result;
+  TestTimeout(
+      [&]() {
+        result = db->Execute(fmt::format(
+            "select A.name, B.name, "
+            "((A.px-B.px)*(A.px-B.px)+(A.py-B.py)*(A.py-B.py)+(A.pz-B.pz)"
+            "*(A.pz-B.pz)) / {} + A.t + B.t from countryA "
+            "as A, countryB as B where  "
+            "((A.px-B.px)*(A.px-B.px)+(A.py-B.py)*(A.py-B.py)+(A.pz-B.pz)"
+            "*(A.pz-B.pz)) * {} + A.cost + B.cost < {};",
+            t0, c0, lim_cost));
+      },
+      2000, "Your join is too slow!");
   DB_INFO("Use: {} s", sw.GetTimeInSeconds());
   ASSERT_TRUE(result.Valid());
   SortedVec<std::string, PVec> answer;
@@ -420,7 +425,7 @@ TEST(ExecutorJoinTest, JoinTestTable3) {
           result = db->Execute(
               "select * from dupA as A join dupB as B on A.a = B.a + 10;");
         },
-        5000);
+        3000);
     DB_INFO("Use: {} s", sw.GetTimeInSeconds());
   }
 
@@ -461,7 +466,7 @@ TEST(ExecutorJoinTest, JoinTestTable3) {
               "A.value - B.value < {} and A.value - B.value > {};",
               v0, -v0));
         },
-        5000);
+        3000);
     DB_INFO("Use: {} s", sw.GetTimeInSeconds());
     SortedVec<uint32_t, PVec> A;
     SortedVec<uint32_t, PVec> B;
@@ -541,11 +546,11 @@ TEST(ExecutorJoinTest, JoinTestTableN) {
     ASSERT_TRUE(db->Execute("create table CompanyC(id int32 auto_increment primary key, c_id int32 foreign key references C(id), company_id int32 foreign key references Company(id));").Valid());
     ASSERT_TRUE(db->Execute("create table Employees(id int32 auto_increment primary key, company_id int32 foreign key references Company(id), d_id int32 foreign key references D(id));").Valid());
     // clang-format on
-    int NUM = 100;    // A, B, C size
-    int DNUM = 1e3;   // D, E size
-    int FNUM = 6000;  // FollowsAB, FollowsBC size
-    int CNUM = 80;    // Company number.
-    int CONUM = 200;  // Company owner number.
+    int NUM = 1300;    // A, B, C size
+    int DNUM = 2e3;    // D, E size
+    int FNUM = 6000;   // FollowsAB, FollowsBC size
+    int CNUM = 80;     // Company number.
+    int CONUM = 2000;  // Company owner number.
     RandomTupleGen tuple_gen(118900);
     tuple_gen.AddString(5, 5).AddInt(0, 0).AddString(15, 20);
     auto [stmt_a, data_a] = tuple_gen.GenerateValuesClause(NUM);

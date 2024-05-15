@@ -3,6 +3,7 @@
 #include <numeric>
 
 #include "catalog/db.hpp"
+#include "execution/execoptions.hpp"
 #include "execution/volcano/expr_executor.hpp"
 #include "parser/expr.hpp"
 #include "plan/plan.hpp"
@@ -33,9 +34,16 @@ class Executor {
 
 class VecExecutor {
  public:
+  VecExecutor(const ExecOptions& options);
   virtual ~VecExecutor() = default;
   virtual void Init() = 0;
-  virtual TupleBatch Next() = 0;
+  TupleBatch Next();
+  size_t GetStatOutputSize() const { return stat_output_size_; }
+
+ protected:
+  virtual TupleBatch InternalNext() = 0;
+  size_t max_batch_size_;
+  size_t stat_output_size_{0};
 };
 
 #ifdef BUILD_JIT
