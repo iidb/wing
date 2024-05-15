@@ -1434,6 +1434,7 @@ TEST(LSMTest, Part3Benchmark2) {
     auto [read_cost, write_cost] = Part3Benchmark(alpha[i], 5e6, 100);
     DB_INFO("Read cost: {}, write cost: {}, Total: {}", read_cost, write_cost,
         read_cost * alpha[i] + write_cost);
+    costs.emplace_back(read_cost, write_cost);
   }
 
   for (uint32_t i = 0; i < costs.size(); i++) {
