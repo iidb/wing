@@ -27,6 +27,10 @@ class Instance {
   // (It can also used to avoid parsing... But it's not useful in this course.)
   std::unique_ptr<PlanNode> GetPlan(std::string_view statement);
 
+  // print plan for every statement except for metadata statements such as
+  // create/drop table.
+  void SetDebugPrintPlan(bool value);
+
  private:
   class Impl;
   std::unique_ptr<Impl> ptr_;

@@ -14,7 +14,7 @@ namespace wing {
 
 class DB {
  public:
-  DB(std::string_view file_name, const WingOptions& options);
+  DB(std::string_view file_name, WingOptions& options);
 
   ~DB();
 

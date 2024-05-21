@@ -18,7 +18,7 @@ namespace wing {
 class DB::Impl {
  private:
  public:
-  static auto Open(std::filesystem::path path, const WingOptions& options)
+  static auto Open(std::filesystem::path path, WingOptions& options)
       -> std::unique_ptr<DB::Impl> {
     std::unique_ptr<Storage> table_storage;
     if (options.storage_backend_name == "memory") {
@@ -35,7 +35,8 @@ class DB::Impl {
           options.storage_backend_name);
     }
 
-    return std::unique_ptr<DB::Impl>(new DB::Impl(std::move(table_storage)));
+    return std::unique_ptr<DB::Impl>(
+        new DB::Impl(std::move(table_storage), options));
   }
 
   void CreateTable(txn_id_t txn_id, const TableSchema& schema) {
@@ -109,15 +110,17 @@ class DB::Impl {
   const WingOptions& GetOptions() const { return options_; }
 
  private:
-  Impl(std::unique_ptr<Storage> table_storage)
-    : table_storage_(std::move(table_storage)), txn_manager_(*table_storage_) {
+  Impl(std::unique_ptr<Storage> table_storage, WingOptions& options)
+    : table_storage_(std::move(table_storage)),
+      txn_manager_(*table_storage_),
+      options_(options) {
     for (auto& a : table_storage_->GetDBSchema().GetTables()) {
       std::string name(a.GetName());
       size_t tick = table_storage_->GetTicks(a.GetName());
       tick_table_[name].store(tick, std::memory_order_relaxed);
     }
   }
-  WingOptions options_;
+  WingOptions& options_;
   std::unique_ptr<Storage> table_storage_;
   std::map<std::string, std::unique_ptr<TableStatistics>, std::less<>>
       table_stats_;
@@ -128,7 +131,7 @@ class DB::Impl {
   TxnManager txn_manager_;
 };
 
-DB::DB(std::string_view file_name, const WingOptions& options) {
+DB::DB(std::string_view file_name, WingOptions& options) {
   std::filesystem::path path(file_name);
   ptr_ = DB::Impl::Open(path, options);
 }

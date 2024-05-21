@@ -20,7 +20,7 @@ namespace wing {
 class Instance::Impl {
  public:
   Impl(std::string_view db_file, WingOptions options)
-    : options_(options), db_(db_file, options) {}
+    : options_(options), db_(db_file, options_) {}
   void ExecuteShell() {
     auto& out = std::cout;
     auto& err = std::cerr;
@@ -210,6 +210,10 @@ class Instance::Impl {
           ExecuteMetadataOperation(ret, txn_id);
           return ResultSet("", "");
         } else {
+          if (options_.debug_print_plan) {
+            DB_INFO("statement: \n {}\nplan: \n {}", statement,
+                ret.GetPlan()->ToString());
+          }
           // Query
           auto exe = GenerateExecutor(ret.GetPlan()->clone(), txn_id);
           auto output_schema = ret.GetPlan()->output_schema_;
@@ -240,6 +244,8 @@ class Instance::Impl {
       return plan;
     }
   }
+
+  void SetDebugPrintPlan(bool value) { options_.debug_print_plan = value; }
 
   // Refresh statistics.
   void Analyze(std::string_view table_name, txn_id_t txn_id) {
@@ -550,6 +556,8 @@ void Instance::Analyze(std::string_view table_name) {
 std::unique_ptr<PlanNode> Instance::GetPlan(std::string_view statement) {
   return ptr_->GetPlan(statement);
 }
+
+void Instance::SetDebugPrintPlan(bool value) { ptr_->SetDebugPrintPlan(value); }
 
 TxnManager& Instance::GetTxnManager() { return ptr_->GetTxnManager(); }
 

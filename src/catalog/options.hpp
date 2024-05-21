@@ -24,6 +24,9 @@ class WingOptions {
   /* Whether we strictly check if the chunk size <= size_batch. */
   bool check_chunk_size{false};
 
+  /* For DEBUG: print plan and statement */
+  bool debug_print_plan{false};
+
   /* Storage backend: options are 'memory', 'b+tree' and 'lsm' */
   std::string storage_backend_name{"lsm"};
 
