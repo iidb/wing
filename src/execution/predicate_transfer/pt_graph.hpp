@@ -7,6 +7,8 @@
 
 namespace wing {
 
+class PlanNode;
+
 class PtGraph {
  public:
   struct Edge {
@@ -27,12 +29,18 @@ class PtGraph {
     return graph_;
   }
 
+  const std::map<std::string, std::unique_ptr<PlanNode>>& GetTableScanPlans()
+      const {
+    return table_scan_plans_;
+  }
+
   PtGraph(const PlanNode* plan);
 
  private:
   void Dfs(const PlanNode* plan);
 
   std::map<std::string, std::vector<Edge>> graph_;
+  std::map<std::string, std::unique_ptr<PlanNode>> table_scan_plans_;
 };
 
 }  // namespace wing

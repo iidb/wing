@@ -39,6 +39,10 @@ class OutputVecExecutor : public Executor {
     return {};
   }
 
+  size_t GetTotalOutputSize() const override {
+    return ch_->GetTotalOutputSize();
+  }
+
  private:
   std::unique_ptr<VecExecutor> ch_;
   OutputSchema schema_;

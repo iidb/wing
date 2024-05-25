@@ -158,9 +158,9 @@ class BitVector {
   void Resize(size_t new_size) {
     uint32_t new_alloc_size = _get_alloc_size64(new_size);
     auto new_mem = std::unique_ptr<uint64_t[]>(new uint64_t[new_alloc_size]);
-    std::memset(new_mem.get(), 0, new_alloc_size);
-    std::memcpy(
-        new_mem.get(), mem_.get(), std::min(new_alloc_size, alloc_size_));
+    std::memset(new_mem.get(), 0, new_alloc_size * sizeof(uint64_t));
+    std::memcpy(new_mem.get(), mem_.get(),
+        std::min(new_alloc_size, alloc_size_) * sizeof(uint64_t));
     mem_ = std::move(new_mem);
     size_ = new_size;
     alloc_size_ = new_alloc_size;
@@ -168,7 +168,7 @@ class BitVector {
 
   size_t Count() const {
     size_t ret = 0;
-    for (uint32_t i = 0; i < alloc_size_ * 8 / kBitSize; i++) {
+    for (uint32_t i = 0; i < alloc_size_; i++) {
       ret += __builtin_popcountll(mem_[i]);
     }
     return ret;

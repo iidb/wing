@@ -25,6 +25,7 @@ file(GLOB DB_SOURCE
   src/execution/*
   src/execution/vec/*
   src/execution/volcano/*
+  src/execution/predicate_transfer/*
   src/execution/*
   src/instance/*
   src/parser/*

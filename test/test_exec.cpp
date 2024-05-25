@@ -656,6 +656,7 @@ TEST(ExecutorJoinTest, JoinTestTableN) {
     while (result.Next())
       ssz++;
     ASSERT_EQ(sz, ssz);
+    DB_INFO("total output size: {}", result.GetTotalOutputSize());
   }
   db = nullptr;
   std::filesystem::remove_all("__tmp0106");

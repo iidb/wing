@@ -12,9 +12,11 @@ int main(int argc, char** argv) {
   for (int i = 2; i < argc; i++) {
     // Use JIT.
     if (strcmp(argv[i], "--jit") == 0) {
-      options.enable_jit_exec = true;
+      options.exec_options.style = "jit";
     } else if (strcmp(argv[i], "--vec") == 0) {
-      options.enable_vec_exec = true;
+      options.exec_options.style = "vec";
+    } else if (strcmp(argv[i], "--volcano") == 0) {
+      options.exec_options.style = "volcano";
     }
     // Create a new empty DB.
     else if (strcmp(argv[i], "--new") == 0) {

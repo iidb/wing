@@ -33,6 +33,10 @@ class ProjectVecExecutor : public VecExecutor {
     }
   }
 
+  virtual size_t GetTotalOutputSize() const override {
+    return ch_->GetTotalOutputSize() + stat_output_size_;
+  }
+
  private:
   std::vector<ExprVecExecutor> exprs_;
   std::vector<Vector> expr_results_;

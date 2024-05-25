@@ -1,5 +1,6 @@
 #include <queue>
 
+#include "execution/predicate_transfer/pt_graph.hpp"
 #include "plan/optimizer.hpp"
 #include "rules/convert_to_hash_join.hpp"
 
@@ -104,6 +105,17 @@ std::unique_ptr<PlanNode> CostBasedOptimizer::Optimize(
     std::vector<std::unique_ptr<OptRule>> R;
     R.push_back(std::make_unique<ConvertToHashJoinRule>());
     plan = Apply(std::move(plan), R, db);
+  }
+  if (db.GetOptions().exec_options.enable_predicate_transfer) {
+    if (plan->type_ != PlanType::Insert && plan->type_ != PlanType::Delete &&
+        plan->type_ != PlanType::Update) {
+      auto pt_plan = std::make_unique<PredicateTransferPlanNode>();
+      pt_plan->graph_ = std::make_shared<PtGraph>(plan.get());
+      pt_plan->output_schema_ = plan->output_schema_;
+      pt_plan->table_bitset_ = plan->table_bitset_;
+      pt_plan->ch_ = std::move(plan);
+      plan = std::move(pt_plan);
+    }
   }
   return plan;
 }

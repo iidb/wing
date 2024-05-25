@@ -12,12 +12,6 @@ class WingOptions {
   /* The size of batch in vectorized execution engine. */
   size_t size_batch{1024};
 
-  /* Enable vectorized execution engine or not. */
-  bool enable_vec_exec{false};
-
-  /* Enable JIT execution engine or not. */
-  bool enable_jit_exec{false};
-
   /* Whether we print the message of DBException in wing::Instance. */
   bool print_exception_msg{true};
 
@@ -34,9 +28,6 @@ class WingOptions {
 
   /* Create a database if the file path is empty*/
   bool create_if_missing{true};
-
-  /* Number of bits per key in bloom filters in predicate transfer*/
-  size_t pt_bits_per_key_n{20};
 
   /* Options for LSM tree */
   lsm::Options lsm_options;

@@ -30,6 +30,7 @@ enum class PlanType {
   HashJoin,
   MergeSortJoin,
   RangeScan,
+  PredTrans,
 };
 
 /**
@@ -98,6 +99,9 @@ class SeqScanPlanNode : public PlanNode {
   std::string ToString() const override;
   std::unique_ptr<PlanNode> clone() const override;
   std::string table_name_;
+  std::string table_name_in_sql_;
+  // Used by predicate transfer
+  std::shared_ptr<BitVector> valid_bits_;
   PredicateVec predicate_;
 };
 
@@ -224,11 +228,24 @@ class RangeScanPlanNode : public PlanNode {
   std::string ToString() const override;
   std::unique_ptr<PlanNode> clone() const override;
   std::string table_name_;
+  std::string table_name_in_sql_;
   /* Field is the key */
   /* The boolean represents whether the endpoint of the interval is closed.*/
   std::pair<Field, bool> range_l_;
   std::pair<Field, bool> range_r_;
+  // Used by predicate transfer
+  std::shared_ptr<BitVector> valid_bits_;
   PredicateVec predicate_;
+};
+
+class PtGraph;
+
+class PredicateTransferPlanNode : public PlanNode {
+ public:
+  PredicateTransferPlanNode() : PlanNode(PlanType::PredTrans) {}
+  std::string ToString() const override;
+  std::unique_ptr<PlanNode> clone() const override;
+  std::shared_ptr<PtGraph> graph_;
 };
 
 // This is used to generate a base plan after generating AST.

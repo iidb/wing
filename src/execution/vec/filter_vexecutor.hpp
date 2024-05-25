@@ -29,6 +29,10 @@ class FilterVecExecutor : public VecExecutor {
     return ch_ret;
   }
 
+  virtual size_t GetTotalOutputSize() const override {
+    return ch_->GetTotalOutputSize() + stat_output_size_;
+  }
+
  private:
   ExprVecExecutor pred_;
   Vector pred_result_;

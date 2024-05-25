@@ -687,6 +687,15 @@ class BasicPlanGenerator::Impl {
     ret->table_bitset_[total_table_num_ - 1] = 1;
     // Maybe we can do this more gracefully...
     ret->output_schema_.GetCols().resize(table_data.GetStorageColumns().size());
+    // by default setting an empty bitvector to valid bits vector means we do
+    // not use it. This vector may be modified by predicate transfer reducer in
+    // the execution stage.
+    ret->valid_bits_ = std::make_shared<BitVector>(0);
+    if (table->as_) {
+      ret->table_name_in_sql_ = table->as_->table_name_;
+    } else {
+      ret->table_name_in_sql_ = table->table_name_;
+    }
     for (uint32_t index = 0; const auto& a : table_data.GetStorageColumns()) {
       table_id_table_.push_back(total_table_num_ - 1);
       ret->output_schema_[index] = OutputColumnData{column_id_++,
@@ -1030,6 +1039,10 @@ std::string RangeScanPlanNode::ToString() const {
       predicate_.ToString());
 }
 
+std::string PredicateTransferPlanNode::ToString() const {
+  return fmt::format("Predicate Transfer \n  -> {}", ch_->ToString());
+}
+
 std::unique_ptr<PlanNode> ProjectPlanNode::clone() const {
   auto ret = std::make_unique<ProjectPlanNode>();
   ret->output_schema_ = output_schema_;
@@ -1055,8 +1068,10 @@ std::unique_ptr<PlanNode> SeqScanPlanNode::clone() const {
   auto ret = std::make_unique<SeqScanPlanNode>();
   ret->output_schema_ = output_schema_;
   ret->table_name_ = table_name_;
+  ret->table_name_in_sql_ = table_name_in_sql_;
   ret->table_bitset_ = table_bitset_;
   ret->predicate_ = predicate_.clone();
+  ret->valid_bits_ = valid_bits_;
   return ret;
 }
 
@@ -1174,10 +1189,20 @@ std::unique_ptr<PlanNode> RangeScanPlanNode::clone() const {
   auto ret = std::make_unique<RangeScanPlanNode>();
   ret->output_schema_ = output_schema_;
   ret->table_name_ = table_name_;
+  ret->table_name_in_sql_ = table_name_in_sql_;
   ret->table_bitset_ = table_bitset_;
   ret->predicate_ = predicate_.clone();
   ret->range_l_ = range_l_;
   ret->range_r_ = range_r_;
+  ret->valid_bits_ = valid_bits_;
+  return ret;
+}
+
+std::unique_ptr<PlanNode> PredicateTransferPlanNode::clone() const {
+  auto ret = std::make_unique<PredicateTransferPlanNode>();
+  ret->graph_ = graph_;
+  ret->ch2_ = ch2_ ? ch2_->clone() : nullptr;
+  ret->ch_ = ch_ ? ch_->clone() : nullptr;
   return ret;
 }
 

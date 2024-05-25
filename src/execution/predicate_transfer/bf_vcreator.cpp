@@ -1,11 +1,12 @@
-#include "execution/predicate_transfer/pt_vcreator.hpp"
+#include "execution/predicate_transfer/bf_vcreator.hpp"
 
 #include "common/bloomfilter.hpp"
 
 namespace wing {
 
-void PtVecCreator::Execute() {
+void BfVecCreator::Execute() {
   std::vector<uint64_t> key_hash;
+  input_->Init();
   while (true) {
     auto batch = input_->Next();
     if (batch.size() == 0) {

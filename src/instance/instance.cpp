@@ -220,7 +220,7 @@ class Instance::Impl {
           // Release unused memory
           ret.Clear();
           auto result = GetResultFromExecutor(exe, output_schema);
-          return ResultSet(std::move(result));
+          return ResultSet(std::move(result), exe->GetTotalOutputSize());
         }
       } catch (const DBException& e) {
         DB_INFO("{}", e.what());
@@ -408,7 +408,7 @@ class Instance::Impl {
   // immediately!! Because TupleStore in JitExecutor has been moved.
   TupleStore GetResultFromExecutor(
       std::unique_ptr<Executor>& exe, const OutputSchema& output_schema) {
-    if (options_.enable_jit_exec) {
+    if (options_.exec_options.style == "jit") {
       exe->Init();
       auto result = const_cast<TupleStore*>(
           reinterpret_cast<const TupleStore*>(exe->Next().Data()));
@@ -427,10 +427,8 @@ class Instance::Impl {
     std::unique_ptr<Executor> exe;
     plan = LogicalOptimizer::Optimize(std::move(plan), db_);
     plan = CostBasedOptimizer::Optimize(std::move(plan), db_);
-    if (options_.enable_jit_exec) {
+    if (options_.exec_options.style == "jit") {
       exe = JitExecutorGenerator::Generate(plan.get(), db_, txn_id);
-    } else if (options_.enable_vec_exec) {
-      exe = ExecutorGenerator::GenerateVec(plan.get(), db_, txn_id);
     } else {
       exe = ExecutorGenerator::Generate(plan.get(), db_, txn_id);
     }

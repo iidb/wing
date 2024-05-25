@@ -24,12 +24,15 @@ namespace wing {
  *
  * You should ensure that the SingleTuple is valid until Next() is invoked
  * again.
+ *
+ * GetTotalOutputSize: return the total size of output of executors.
  */
 class Executor {
  public:
   virtual ~Executor() = default;
   virtual void Init() = 0;
   virtual SingleTuple Next() = 0;
+  virtual size_t GetTotalOutputSize() const { return 0; }
 };
 
 class VecExecutor {
@@ -38,7 +41,7 @@ class VecExecutor {
   virtual ~VecExecutor() = default;
   virtual void Init() = 0;
   TupleBatch Next();
-  size_t GetStatOutputSize() const { return stat_output_size_; }
+  virtual size_t GetTotalOutputSize() const { return stat_output_size_; }
 
  protected:
   virtual TupleBatch InternalNext() = 0;
@@ -69,7 +72,7 @@ class ExecutorGenerator {
  public:
   static std::unique_ptr<Executor> Generate(
       const PlanNode* plan, DB& db, txn_id_t txn_id);
-  static std::unique_ptr<Executor> GenerateVec(
+  static std::unique_ptr<VecExecutor> GenerateVec(
       const PlanNode* plan, DB& db, txn_id_t txn_id);
 
  private:
