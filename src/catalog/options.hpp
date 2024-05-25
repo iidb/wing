@@ -35,6 +35,9 @@ class WingOptions {
   /* Create a database if the file path is empty*/
   bool create_if_missing{true};
 
+  /* Number of bits per key in bloom filters in predicate transfer*/
+  size_t pt_bits_per_key_n{20};
+
   /* Options for LSM tree */
   lsm::Options lsm_options;
 

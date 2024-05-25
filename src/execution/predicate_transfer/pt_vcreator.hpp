@@ -1,0 +1,22 @@
+#pragma once
+
+#include "execution/executor.hpp"
+
+namespace wing {
+
+class PtVecCreator {
+ public:
+  PtVecCreator(size_t bloom_bit_per_key_n, std::unique_ptr<VecExecutor> input)
+    : bloom_bit_per_key_n_(bloom_bit_per_key_n), input_(std::move(input)) {}
+
+  void Execute();
+
+  const std::string& GetResult() const { return result_; }
+
+ private:
+  std::unique_ptr<VecExecutor> input_;
+  std::string result_;
+  size_t bloom_bit_per_key_n_;
+};
+
+}  // namespace wing
