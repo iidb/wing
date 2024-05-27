@@ -1,4 +1,5 @@
 #include "storage/lsm/file.hpp"
+#include "common/exception.hpp"
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -21,7 +22,7 @@ ReadFile::ReadFile(const std::string& filename, bool use_direct_io)
 #endif
   fd_ = ::open(filename.c_str(), flag);
   if (fd_ < 0) {
-    DB_ERR("::open file {} error! Error: {}", filename, errno);
+    throw DBException("::open file {} error! Error: {}", filename, errno);
   }
 }
 
@@ -36,7 +37,7 @@ ssize_t ReadFile::Read(char* data, size_t n, offset_t offset) {
 #endif
   GetStatsContext()->total_read_bytes.fetch_add(n, std::memory_order_relaxed);
   if (ret < 0) {
-    DB_ERR("::pread Error! Error: {}", errno);
+    throw DBException("::pread Error! Error: {}", errno);
   }
   return ret;
 }
@@ -53,7 +54,7 @@ SeqWriteFile::SeqWriteFile(const std::string& filename, bool use_direct_io)
 #endif
   fd_ = ::open(filename.c_str(), flag, 0644);
   if (fd_ < 0) {
-    DB_ERR("::open file {} error! Error: {}", filename, errno);
+    throw DBException("::open file {} error! Error: {}", filename, errno);
   }
 }
 
@@ -63,7 +64,7 @@ ssize_t SeqWriteFile::Write(const char* data, size_t n) {
   ssize_t ret = ::write(fd_, data, n);
   GetStatsContext()->total_write_bytes.fetch_add(n, std::memory_order_relaxed);
   if (ret < 0) {
-    DB_ERR("::write Error! Error: {}", errno);
+    throw DBException("::write Error! Error: {}", errno);
   }
   return ret;
 }

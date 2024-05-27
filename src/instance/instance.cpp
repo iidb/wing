@@ -247,6 +247,8 @@ class Instance::Impl {
 
   void SetDebugPrintPlan(bool value) { options_.debug_print_plan = value; }
 
+  void SetEnablePredTrans(bool value) { options_.exec_options.enable_predicate_transfer = value; }
+
   // Refresh statistics.
   void Analyze(std::string_view table_name, txn_id_t txn_id) {
     // TODO...
@@ -556,6 +558,8 @@ std::unique_ptr<PlanNode> Instance::GetPlan(std::string_view statement) {
 }
 
 void Instance::SetDebugPrintPlan(bool value) { ptr_->SetDebugPrintPlan(value); }
+
+void Instance::SetEnablePredTrans(bool value) { ptr_->SetEnablePredTrans(value); }
 
 TxnManager& Instance::GetTxnManager() { return ptr_->GetTxnManager(); }
 

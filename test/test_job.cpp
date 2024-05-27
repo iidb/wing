@@ -54,6 +54,7 @@ static std::pair<size_t, double> GetExecutionTime(
   StopWatch sw;
   auto sqls = ReadSQLFromFile(file_name);
   size_t tuple_counts = 0;
+  db.SetEnablePredTrans(true);
   ABORT_ON_TIMEOUT(
       [&]() {
         for (auto sql : sqls) {
@@ -66,9 +67,11 @@ static std::pair<size_t, double> GetExecutionTime(
           // if (tuple) {
           //   DB_INFO("{}", tuple.ReadInt(0));
           // }
+          DB_INFO("{}", result.GetTotalOutputSize());
         }
       },
-      10000);
+      100000);
+  db.SetEnablePredTrans(false);
   return {tuple_counts, sw.GetTimeInSeconds()};
 }
 
@@ -251,19 +254,19 @@ static void AnalyzeAllTable(wing::Instance& db) {
 }
 
 static void GenerateDefaultData(wing::Instance& db) {
-  int movieN = 1e6;
-  int movieRoleN = 7e6;
-  int movieCompanyN = 1e4;
-  int castN = 7e6;
-  int personN = 3e5;
-  int akaN = 6e5;
-
-  // int movieN = 1e4;
-  // int movieRoleN = 3e5;
+  // int movieN = 1e6;
+  // int movieRoleN = 7e6;
   // int movieCompanyN = 1e4;
-  // int castN = 3e5;
-  // int personN = 1e4;
-  // int akaN = 1e4;
+  // int castN = 7e6;
+  // int personN = 3e5;
+  // int akaN = 6e5;
+
+  int movieN = 1e4;
+  int movieRoleN = 3e5;
+  int movieCompanyN = 1e4;
+  int castN = 3e5;
+  int personN = 1e4;
+  int akaN = 1e4;
 
   GenerateData(db, movieN, movieRoleN, movieCompanyN, castN, personN, akaN);
 }
@@ -279,17 +282,26 @@ static bool CheckDefaultData(wing::Instance& db) {
 }
 
 static void EnsureDB(std::unique_ptr<wing::Instance>& db) {
-  db = std::make_unique<wing::Instance>("__imdb", wing_test_options);
-  if (!CheckDefaultData(*db)) {
+  bool need_regen = false;
+  try {
+    auto tmp_db = std::make_unique<wing::Instance>("__imdb", wing_test_options);
+    if (!CheckDefaultData(*tmp_db)) {
+      need_regen = true;
+    }
+  } catch (...) {
+    need_regen = true;
+  }
+  if (need_regen) {
     std::filesystem::remove_all("__imdb");
-    db = std::make_unique<wing::Instance>("__imdb", wing_test_options);
-    CreateTables(*db);
+    auto tmp_db = std::make_unique<wing::Instance>("__imdb", wing_test_options);
+    CreateTables(*tmp_db);
     DB_INFO("Generating data...");
-    GenerateDefaultData(*db);
+    GenerateDefaultData(*tmp_db);
     DB_INFO("Complete.");
   } else {
     DB_INFO("Use generated data.");
   }
+  db = std::make_unique<wing::Instance>("__imdb", wing_test_options);
 }
 
 TEST(Benchmark, JoinOrder10Q1) {

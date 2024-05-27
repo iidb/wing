@@ -15,7 +15,6 @@
 static wing::WingOptions WingTestOptions() {
   wing::WingOptions ret;
   ret.exec_options.style = "vec";
-  ret.exec_options.enable_predicate_transfer = true;
   return ret;
 }
 

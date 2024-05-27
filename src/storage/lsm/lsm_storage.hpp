@@ -23,7 +23,7 @@ class LSMStorage : public Storage {
     if (db_schema_result.index() == 1) {
       throw DBException("DB Schema in LSM storage is invalid.");
     }
-    auto db = new LSMStorage(path, options);
+    auto db = std::unique_ptr<LSMStorage>(new LSMStorage(path, options));
     db->schema_ = std::get<0>(db_schema_result);
     for (uint32_t i = 0; i < db->schema_.GetTables().size(); i++) {
       auto name = db->schema_.GetTables()[i].GetName();
@@ -43,7 +43,9 @@ class LSMStorage : public Storage {
       table->tick_ = std::get<0>(tick_result);
       db->tables_.emplace(std::string(name), std::move(table));
     }
-    return std::unique_ptr<Storage>(db);
+    auto db_ptr = db.get();
+    db.release();
+    return std::unique_ptr<Storage>(db_ptr);
   }
 
   void Save() {

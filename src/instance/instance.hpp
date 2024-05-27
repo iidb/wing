@@ -31,6 +31,9 @@ class Instance {
   // create/drop table.
   void SetDebugPrintPlan(bool value);
 
+  // Enable predicate transfer or not.
+  void SetEnablePredTrans(bool value);
+
  private:
   class Impl;
   std::unique_ptr<Impl> ptr_;
