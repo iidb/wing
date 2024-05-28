@@ -20,7 +20,7 @@ class Instance {
   ResultSet Execute(std::string_view statement, txn_id_t txn_id);
   void ExecuteShell();
   void Analyze(std::string_view table_name);
-  TxnManager &GetTxnManager();
+  TxnManager& GetTxnManager();
 
   // Give a SQL statement, return the optimized plan.
   // Used for testing optimizer.
@@ -33,6 +33,10 @@ class Instance {
 
   // Enable predicate transfer or not.
   void SetEnablePredTrans(bool value);
+
+  // Set true cardinality hints
+  void SetTrueCardinalityHints(
+      const std::vector<std::pair<std::vector<std::string>, double>>& cards);
 
  private:
   class Impl;

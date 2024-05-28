@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "execution/execoptions.hpp"
+#include "plan/optimizeroptions.hpp"
 #include "storage/lsm/options.hpp"
 
 namespace wing {
@@ -34,6 +35,9 @@ class WingOptions {
 
   /* Options for executors */
   ExecOptions exec_options;
+
+  /* Options of optimizers. */
+  OptimizerOptions optimizer_options;
 };
 
 }  // namespace wing

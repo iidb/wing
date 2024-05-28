@@ -55,6 +55,7 @@ static std::pair<size_t, double> GetExecutionTime(
   auto sqls = ReadSQLFromFile(file_name);
   size_t tuple_counts = 0;
   db.SetEnablePredTrans(true);
+  size_t total_output = 0;
   ABORT_ON_TIMEOUT(
       [&]() {
         for (auto sql : sqls) {
@@ -64,6 +65,7 @@ static std::pair<size_t, double> GetExecutionTime(
           auto tuple = result.Next();
           ASSERT_TRUE(tuple);
           tuple_counts = tuple.ReadInt(0);
+          total_output += result.GetTotalOutputSize();
           // if (tuple) {
           //   DB_INFO("{}", tuple.ReadInt(0));
           // }
@@ -72,6 +74,7 @@ static std::pair<size_t, double> GetExecutionTime(
       },
       100000);
   db.SetEnablePredTrans(false);
+  DB_INFO("{}", total_output);
   return {tuple_counts, sw.GetTimeInSeconds()};
 }
 

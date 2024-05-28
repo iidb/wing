@@ -109,9 +109,7 @@ class DB::Impl {
 
   const WingOptions& GetOptions() const { return options_; }
 
-  ~Impl() {
-    while(true);
-  }
+  ~Impl() {}
 
  private:
   Impl(std::unique_ptr<Storage> table_storage, WingOptions& options)

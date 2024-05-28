@@ -2,7 +2,8 @@
 
 #include "common/bloomfilter.hpp"
 #include "execution/executor.hpp"
-#include "execution/predicate_transfer/vb_vupdater.hpp"
+#include "execution/predicate_transfer/pt_vcreator.hpp"
+#include "execution/predicate_transfer/pt_vupdater.hpp"
 
 namespace wing {
 
@@ -95,14 +96,14 @@ void PtReducer::PredicateTransfer(std::string from, std::string to,
    * Step3. Execute exe_from to get bloom filter,
    *
    */
-  BfVecCreator bf_creator(n_bits_per_key_, std::move(exe_from));
+  PtVecCreator bf_creator(n_bits_per_key_, std::move(exe_from));
   bf_creator.Execute();
   auto& bloom_filter = bf_creator.GetResult();
   /**
    * Step4. Execute exe_to and update valid bits of table `to`.
    *
    */
-  VbVecUpdater updater(std::move(exe_to));
+  PtVecUpdater updater(std::move(exe_to));
   if (!result_bv_[to]) {
     DB_ERR("pointer to result bitvector cannot be nullptr.");
   }

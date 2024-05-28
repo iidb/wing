@@ -705,3 +705,136 @@ TEST(OptimizerTest, FloatRangeScanTest) {
   db = nullptr;
   std::filesystem::remove_all("__tmp0207");
 }
+
+class PredElement {
+ public:
+  std::string pred_str;
+  std::vector<std::string> tables;
+
+  PredElement(std::string _pred_str, std::vector<std::string> _tables)
+    : pred_str(_pred_str), tables(_tables) {}
+};
+
+void SetTrueCard(std::vector<std::string> tables,
+    std::vector<PredElement> preds, std::unique_ptr<wing::Instance>& db) {
+  DB_ASSERT(tables.size() < 20);
+  std::vector<std::pair<std::vector<std::string>, double>> true_card(
+      (1 << tables.size()));
+  true_card[0] = {std::vector<std::string>(), 0};
+  for (uint32_t i = 1; i < true_card.size(); i++) {
+    std::vector<std::string> table_subset;
+    std::string table_str;
+    std::string pred_str;
+    for (uint32_t j = 0; j < tables.size(); ++j)
+      if ((i >> j) & 1) {
+        table_subset.push_back(tables[j]);
+        if (table_str.empty()) {
+          table_str = tables[j];
+        } else {
+          table_str += ", ";
+          table_str += tables[j];
+        }
+      }
+    true_card[i].first = table_subset;
+    for (uint32_t j = 0; j < preds.size(); ++j) {
+      bool flag2 = true;
+      for (uint32_t k = 0; k < preds[j].tables.size(); k++) {
+        bool flag = false;
+        for (uint32_t l = 0; l < tables.size(); l++)
+          if ((i >> l) & 1) {
+            if (tables[l] == preds[j].tables[k]) {
+              flag = true;
+              break;
+            }
+          }
+        if (!flag) {
+          flag2 = false;
+          break;
+        }
+      }
+      if (flag2) {
+        if (pred_str.empty()) {
+          pred_str = "(";
+          pred_str += preds[j].pred_str;
+          pred_str += ")";
+        } else {
+          pred_str += " and (";
+          pred_str += preds[j].pred_str;
+          pred_str += ")";
+        }
+      }
+    }
+
+    std::string sql = fmt::format("select 1 from {} {} {};", table_str,
+        pred_str.empty() ? "" : "where", pred_str);
+    if (pred_str.empty()) {
+      // No predicate
+      // Avoid cross product.
+      // For single table query, we execute the sql statement to get the size of
+      // the table. For multiple table query, we just multiply the size of all
+      // the tables.
+      if (__builtin_popcountll(i) > 1) {
+        // Multiple table.
+        true_card[i].second = 1;
+        for (uint32_t j = 0; j < tables.size(); ++j)
+          if ((i >> j) & 1) {
+            true_card[i].second *= true_card[1 << j].second;
+          }
+        DB_INFO("{}: {}", sql, true_card[i].second);
+        continue;
+      }
+    }
+    DB_INFO("{}", sql);
+    {
+      auto ret = db->Execute(sql);
+      ASSERT_TRUE(ret.Valid());
+      true_card[i].second = 0;
+      while (ret.Next()) {
+        true_card[i].second += 1;
+      }
+    }
+    DB_INFO("{}: {}", sql, true_card[i].second);
+  }
+  db->SetTrueCardinalityHints(true_card);
+}
+
+TEST(EasyOptimizerTest, Join3Tables) {
+  using namespace wing;
+  using namespace wing::wing_testing;
+  std::filesystem::remove_all("__tmp0208");
+  auto db = std::make_unique<wing::Instance>("__tmp0208", wing_test_options);
+  EXPECT_TRUE(db->Execute("create table t1(id int64, idt3 int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t2(id int64, idt1 int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t3(id int64, idt2 int64);").Valid());
+  int N = 1000;
+  RandomTupleGen tuple_gen(0x202405281635);
+  tuple_gen.AddInt(1, 100).AddInt(1, 100);
+  auto [stmt_t1, data_t1] = tuple_gen.GenerateValuesClause(N);
+  ASSERT_TRUE(db->Execute("insert into t1 " + stmt_t1 + ";").Valid());
+  auto [stmt_t2, data_t2] = tuple_gen.GenerateValuesClause(N);
+  ASSERT_TRUE(db->Execute("insert into t2 " + stmt_t2 + ";").Valid());
+  auto [stmt_t3, data_t3] = tuple_gen.GenerateValuesClause(N);
+  ASSERT_TRUE(db->Execute("insert into t3 " + stmt_t3 + ";").Valid());
+  SetTrueCard({"t1", "t2", "t3"},
+      {PredElement("t1.id = t2.idt1", {"t1", "t2"}),
+          PredElement("t2.id = t3.idt2", {"t2", "t3"}),
+          PredElement("t3.id = t1.idt3", {"t1", "t3"})},
+      db);
+  db->SetDebugPrintPlan(true);
+  auto ret = db->Execute(
+      "select 1 from t1, t2, t3 where t1.id = t2.idt1 and t2.id = t3.idt2 and "
+      "t3.id = t1.idt3;");
+  ASSERT_TRUE(ret.Valid());
+  DB_INFO("{}", ret.GetTotalOutputSize());
+  {
+    size_t sz = 0;
+    while (ret.Next()) {
+      sz += 1;
+    }
+    DB_INFO("{}", sz);
+  }
+  db = nullptr;
+  std::filesystem::remove_all("__tmp0208");
+}
+
+TEST(OptimizerTest, PredTransSmallTest) {}

@@ -81,6 +81,7 @@ class PlanNode {
   PlanType type_;
   OutputSchema output_schema_;
   BitVector table_bitset_;
+  double cost_{0};
   std::unique_ptr<PlanNode> ch_{nullptr};
   std::unique_ptr<PlanNode> ch2_{nullptr};
 };

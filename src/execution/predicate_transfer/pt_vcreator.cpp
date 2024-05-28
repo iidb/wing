@@ -1,10 +1,10 @@
-#include "execution/predicate_transfer/bf_vcreator.hpp"
+#include "execution/predicate_transfer/pt_vcreator.hpp"
 
 #include "common/bloomfilter.hpp"
 
 namespace wing {
 
-void BfVecCreator::Execute() {
+void PtVecCreator::Execute() {
   std::vector<uint64_t> key_hash;
   input_->Init();
   while (true) {

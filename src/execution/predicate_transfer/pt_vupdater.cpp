@@ -1,10 +1,10 @@
-#include "execution/predicate_transfer/vb_vupdater.hpp"
+#include "execution/predicate_transfer/pt_vupdater.hpp"
 
 #include "common/bloomfilter.hpp"
 
 namespace wing {
 
-void VbVecUpdater::Execute(
+void PtVecUpdater::Execute(
     const std::string& bloom_filter, BitVector& valid_bits) {
   input_->Init();
   size_t index = 0;

@@ -30,6 +30,8 @@ file(GLOB DB_SOURCE
   src/instance/*
   src/parser/*
   src/plan/*
+  src/plan/rules/*
+  src/plan/predicate_transfer/*
   src/storage/*
   src/storage/bplus_tree/*
   src/storage/lsm/*

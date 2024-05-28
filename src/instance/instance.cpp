@@ -210,10 +210,6 @@ class Instance::Impl {
           ExecuteMetadataOperation(ret, txn_id);
           return ResultSet("", "");
         } else {
-          if (options_.debug_print_plan) {
-            DB_INFO("statement: \n {}\nplan: \n {}", statement,
-                ret.GetPlan()->ToString());
-          }
           // Query
           auto exe = GenerateExecutor(ret.GetPlan()->clone(), txn_id);
           auto output_schema = ret.GetPlan()->output_schema_;
@@ -247,7 +243,14 @@ class Instance::Impl {
 
   void SetDebugPrintPlan(bool value) { options_.debug_print_plan = value; }
 
-  void SetEnablePredTrans(bool value) { options_.exec_options.enable_predicate_transfer = value; }
+  void SetEnablePredTrans(bool value) {
+    options_.exec_options.enable_predicate_transfer = value;
+  }
+
+  void SetTrueCardinalityHints(
+      const std::vector<std::pair<std::vector<std::string>, double>>& cards) {
+    options_.optimizer_options.true_cardinality_hints = cards;
+  }
 
   // Refresh statistics.
   void Analyze(std::string_view table_name, txn_id_t txn_id) {
@@ -429,6 +432,10 @@ class Instance::Impl {
     std::unique_ptr<Executor> exe;
     plan = LogicalOptimizer::Optimize(std::move(plan), db_);
     plan = CostBasedOptimizer::Optimize(std::move(plan), db_);
+    if (options_.debug_print_plan) {
+      DB_INFO("plan: \n {}", plan->ToString());
+    }
+    DB_INFO("{}", plan->cost_);
     if (options_.exec_options.style == "jit") {
       exe = JitExecutorGenerator::Generate(plan.get(), db_, txn_id);
     } else {
@@ -559,7 +566,14 @@ std::unique_ptr<PlanNode> Instance::GetPlan(std::string_view statement) {
 
 void Instance::SetDebugPrintPlan(bool value) { ptr_->SetDebugPrintPlan(value); }
 
-void Instance::SetEnablePredTrans(bool value) { ptr_->SetEnablePredTrans(value); }
+void Instance::SetEnablePredTrans(bool value) {
+  ptr_->SetEnablePredTrans(value);
+}
+
+void Instance::SetTrueCardinalityHints(
+    const std::vector<std::pair<std::vector<std::string>, double>>& cards) {
+  ptr_->SetTrueCardinalityHints(cards);
+}
 
 TxnManager& Instance::GetTxnManager() { return ptr_->GetTxnManager(); }
 

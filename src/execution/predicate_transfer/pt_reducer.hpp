@@ -1,9 +1,10 @@
 #pragma once
 
-#include "execution/predicate_transfer/bf_vcreator.hpp"
-#include "execution/predicate_transfer/pt_graph.hpp"
+#include "plan/predicate_transfer/pt_graph.hpp"
 
 namespace wing {
+
+class DB;
 
 class PtReducer {
  public:

@@ -4,9 +4,9 @@
 
 namespace wing {
 
-class BfVecCreator {
+class PtVecCreator {
  public:
-  BfVecCreator(size_t bloom_bit_per_key_n, std::unique_ptr<VecExecutor> input)
+  PtVecCreator(size_t bloom_bit_per_key_n, std::unique_ptr<VecExecutor> input)
     : bloom_bit_per_key_n_(bloom_bit_per_key_n), input_(std::move(input)) {}
 
   void Execute();

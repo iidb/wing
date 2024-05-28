@@ -3,9 +3,9 @@
 
 namespace wing {
 
-class VbVecUpdater {
+class PtVecUpdater {
  public:
-  VbVecUpdater(std::unique_ptr<VecExecutor> input) : input_(std::move(input)) {}
+  PtVecUpdater(std::unique_ptr<VecExecutor> input) : input_(std::move(input)) {}
 
   void Execute(const std::string& bloom_filter, BitVector& valid_bits);
 
