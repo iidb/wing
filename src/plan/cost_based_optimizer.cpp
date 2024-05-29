@@ -82,7 +82,7 @@ bool CheckHasStat(const PlanNode* plan, const DB& db) {
  * (1) The root plan node is Project, and there is only one Project.
  * (2) The other plan nodes can only be Join or SeqScan or RangeScan.
  * (3) The number of tables is <= 10.
- * (4) All tables have statistics.
+ * (4) All tables have statistics or true cardinality is provided.
  */
 bool CheckCondition(const PlanNode* plan, const DB& db) {
   if (GetTableNum(plan) > 10)
@@ -91,15 +91,15 @@ bool CheckCondition(const PlanNode* plan, const DB& db) {
     return false;
   if (!CheckIsAllJoin(plan->ch_.get()))
     return false;
-  return CheckHasStat(plan->ch_.get(), db);
+  return db.GetOptions().optimizer_options.true_cardinality_hints || CheckHasStat(plan->ch_.get(), db);
 }
 
 std::unique_ptr<PlanNode> CostBasedOptimizer::Optimize(
     std::unique_ptr<PlanNode> plan, DB& db) {
-  if (CheckCondition(plan.get(), db)) {
-    std::vector<std::unique_ptr<OptRule>> R;
-    R.push_back(std::make_unique<ConvertToHashJoinRule>());
-    plan = Apply(std::move(plan), R, db);
+  if (CheckCondition(plan.get(), db) && db.GetOptions().optimizer_options.enable_cost_based) {
+    // std::vector<std::unique_ptr<OptRule>> R;
+    // R.push_back(std::make_unique<ConvertToHashJoinRule>());
+    // plan = Apply(std::move(plan), R, db);
     // TODO...
 
   } else {

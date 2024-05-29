@@ -5,6 +5,7 @@
 
 #include "type/array.hpp"
 #include "type/field.hpp"
+#include "plan/plan.hpp"
 
 namespace wing {
 
@@ -30,8 +31,9 @@ class ResultSet {
     const uint8_t* data_{nullptr};
   };
   ResultSet() { parse_error_msg_ = "null resultset"; }
-  ResultSet(TupleStore&& store, size_t stat_total_output_size)
+  ResultSet(TupleStore&& store, size_t stat_total_output_size, std::unique_ptr<PlanNode> plan)
     : tuple_store_(std::move(store)),
+      plan_(std::move(plan)),
       stat_total_output_size_(stat_total_output_size) {}
   ResultSet(std::string_view parser_error, std::string_view execute_error)
     : parse_error_msg_(parser_error), execute_error_msg_(execute_error) {}
@@ -54,10 +56,15 @@ class ResultSet {
 
   size_t GetTotalOutputSize() const { return stat_total_output_size_; }
 
+  const std::unique_ptr<PlanNode>& GetPlan() const {
+    return plan_;
+  }
+
  private:
   std::string parse_error_msg_;
   std::string execute_error_msg_;
   TupleStore tuple_store_;
+  std::unique_ptr<PlanNode> plan_;
   size_t offset_{0};
 
   size_t stat_total_output_size_{0};

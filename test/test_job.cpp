@@ -55,6 +55,7 @@ static std::pair<size_t, double> GetExecutionTime(
   auto sqls = ReadSQLFromFile(file_name);
   size_t tuple_counts = 0;
   db.SetEnablePredTrans(true);
+  db.SetEnableCostBased(true);
   size_t total_output = 0;
   ABORT_ON_TIMEOUT(
       [&]() {

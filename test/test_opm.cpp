@@ -715,12 +715,13 @@ class PredElement {
     : pred_str(_pred_str), tables(_tables) {}
 };
 
-void SetTrueCard(std::vector<std::string> tables,
+std::vector<std::pair<std::vector<std::string>, double>> SetTrueCard(std::vector<std::string> tables,
     std::vector<PredElement> preds, std::unique_ptr<wing::Instance>& db) {
   DB_ASSERT(tables.size() < 20);
   std::vector<std::pair<std::vector<std::string>, double>> true_card(
       (1 << tables.size()));
   true_card[0] = {std::vector<std::string>(), 0};
+  db->SetEnableCostBased(true);
   for (uint32_t i = 1; i < true_card.size(); i++) {
     std::vector<std::string> table_subset;
     std::string table_str;
@@ -736,23 +737,62 @@ void SetTrueCard(std::vector<std::string> tables,
         }
       }
     true_card[i].first = table_subset;
+    std::vector<std::pair<int, uint32_t>> union_set(tables.size());
+    // top of the union set,
+    // use it to get the result.
+    uint32_t union_set_tp = 0;
+    for (uint32_t l = 0; l < tables.size(); l++) if ((i >> l) & 1) {
+      union_set_tp = l;
+      union_set[l] = {l, 1 << l};
+    }
+    auto find = [&](int t) {
+      while (t != union_set[t].first) {
+        int ft = union_set[t].first;
+        union_set[ft].second |= union_set[t].second;
+        union_set[t].first = union_set[union_set[ft].first].first;
+        t = ft;
+      }
+      return t;
+    };
     for (uint32_t j = 0; j < preds.size(); ++j) {
       bool flag2 = true;
+      // enumerate all tables in the predicate
+      size_t table_set = 0;
       for (uint32_t k = 0; k < preds[j].tables.size(); k++) {
         bool flag = false;
-        for (uint32_t l = 0; l < tables.size(); l++)
+        // get the index of the table.
+        for (uint32_t l = 0; l < tables.size(); l++) {
           if ((i >> l) & 1) {
             if (tables[l] == preds[j].tables[k]) {
               flag = true;
+              table_set |= 1 << l;
               break;
             }
           }
+        }
         if (!flag) {
           flag2 = false;
           break;
         }
       }
       if (flag2) {
+        if (__builtin_popcountll(table_set) > 1) {
+          int x = -1;
+          for (uint32_t l = 0; l < tables.size(); l++) {
+            if ((table_set >> l) & 1) {
+              if (x != -1) {
+                DB_INFO("{}, {}", x, l);
+                int fx = find(x);
+                int fl = find(l);
+                union_set[fl].first = union_set[fx].first;
+                union_set[fx].second |= union_set[fl].second;
+              } else {
+                x = l;
+              }
+            }
+          }
+        }
+        
         if (pred_str.empty()) {
           pred_str = "(";
           pred_str += preds[j].pred_str;
@@ -783,11 +823,19 @@ void SetTrueCard(std::vector<std::string> tables,
         DB_INFO("{}: {}", sql, true_card[i].second);
         continue;
       }
+    } else if (uint32_t subset = union_set[find(union_set_tp)].second; subset != i) {
+      true_card[i].second = true_card[i ^ subset].second * true_card[subset].second;
+      std::string subset_table_str;
+      for (uint32_t l = 0; l < tables.size(); l++) if ((subset >> l) & 1) {
+        subset_table_str += tables[l] + ", ";
+      }
+      DB_INFO("subset {{ {} }}, {}: {}", subset_table_str, sql, true_card[i].second);
+      continue;
     }
     DB_INFO("{}", sql);
     {
       auto ret = db->Execute(sql);
-      ASSERT_TRUE(ret.Valid());
+      DB_ASSERT(ret.Valid());
       true_card[i].second = 0;
       while (ret.Next()) {
         true_card[i].second += 1;
@@ -796,6 +844,15 @@ void SetTrueCard(std::vector<std::string> tables,
     DB_INFO("{}: {}", sql, true_card[i].second);
   }
   db->SetTrueCardinalityHints(true_card);
+  return true_card;
+}
+
+size_t GetResultSetSize(wing::ResultSet& res) {
+  size_t sz = 0;
+  while (res.Next()) {
+    sz += 1;
+  }
+  return sz;
 }
 
 TEST(EasyOptimizerTest, Join3Tables) {
@@ -815,26 +872,127 @@ TEST(EasyOptimizerTest, Join3Tables) {
   ASSERT_TRUE(db->Execute("insert into t2 " + stmt_t2 + ";").Valid());
   auto [stmt_t3, data_t3] = tuple_gen.GenerateValuesClause(N);
   ASSERT_TRUE(db->Execute("insert into t3 " + stmt_t3 + ";").Valid());
-  SetTrueCard({"t1", "t2", "t3"},
+  auto true_card = SetTrueCard({"t1", "t2", "t3"},
       {PredElement("t1.id = t2.idt1", {"t1", "t2"}),
           PredElement("t2.id = t3.idt2", {"t2", "t3"}),
           PredElement("t3.id = t1.idt3", {"t1", "t3"})},
       db);
   db->SetDebugPrintPlan(true);
+  db->SetEnableCostBased(true);
   auto ret = db->Execute(
       "select 1 from t1, t2, t3 where t1.id = t2.idt1 and t2.id = t3.idt2 and "
       "t3.id = t1.idt3;");
   ASSERT_TRUE(ret.Valid());
-  DB_INFO("{}", ret.GetTotalOutputSize());
-  {
-    size_t sz = 0;
-    while (ret.Next()) {
-      sz += 1;
-    }
-    DB_INFO("{}", sz);
-  }
+  DB_INFO("{}, {}", ret.GetTotalOutputSize(), ret.GetPlan()->cost_);
+  // standard answer: join(join (t1, t3), t2)
+  ASSERT_EQ(ret.GetTotalOutputSize(), 14784); // 1000+1000+1000+9898+943+943
+  ASSERT_EQ(ret.GetPlan()->cost_, 142.821); // 3000*0.001+9898*0.001+(1000+1000)*0.01+(1000+9898)*0.01+943*0.001
+  ASSERT_EQ(true_card.back().second, GetResultSetSize(ret));
   db = nullptr;
   std::filesystem::remove_all("__tmp0208");
+}
+
+TEST(EasyOptimizerTest, Join5TablesCrossProduct) {
+  using namespace wing;
+  using namespace wing::wing_testing;
+  std::filesystem::remove_all("__tmp0209");
+  auto db = std::make_unique<wing::Instance>("__tmp0209", wing_test_options);
+  EXPECT_TRUE(db->Execute("create table t1(id int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t2(id int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t3(id int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t4(id int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t5(id int64);").Valid());
+  RandomTupleGen tuple_gen(0x202405281635);
+  tuple_gen.AddInt(1, 100);
+  auto [stmt_t1, data_t1] = tuple_gen.GenerateValuesClause(50);
+  ASSERT_TRUE(db->Execute("insert into t1 " + stmt_t1 + ";").Valid());
+  auto [stmt_t2, data_t2] = tuple_gen.GenerateValuesClause(10);
+  ASSERT_TRUE(db->Execute("insert into t2 " + stmt_t2 + ";").Valid());
+  auto [stmt_t3, data_t3] = tuple_gen.GenerateValuesClause(40);
+  ASSERT_TRUE(db->Execute("insert into t3 " + stmt_t3 + ";").Valid());
+  auto [stmt_t4, data_t4] = tuple_gen.GenerateValuesClause(20);
+  ASSERT_TRUE(db->Execute("insert into t4 " + stmt_t4 + ";").Valid());
+  auto [stmt_t5, data_t5] = tuple_gen.GenerateValuesClause(30);
+  ASSERT_TRUE(db->Execute("insert into t5 " + stmt_t5 + ";").Valid());
+  auto true_card = SetTrueCard({"t1", "t2", "t3", "t4", "t5"}, {}, db);
+  db->SetDebugPrintPlan(true);
+  db->SetEnableCostBased(true);
+  ResultSet ret;
+  StopWatch sw;
+  TestTimeout([&](){ ret = db->Execute("select 1 from t1, t2, t3, t4, t5;"); }, 10000, "your join is too slow!"); 
+  DB_INFO("Used time: {}s", sw.GetTimeInSeconds());
+  ASSERT_TRUE(ret.Valid());
+  DB_INFO("{}, {}", ret.GetTotalOutputSize(), ret.GetPlan()->cost_);
+  // standard answer: join(join(join(t2, t4), t5), join(t1, t3))
+  ASSERT_EQ(ret.GetTotalOutputSize(), 24008350); // 12000000 * 2 + 2000 + 6000 + 200 + 10 + 20 + 30 + 40 + 50
+  ASSERT_EQ(ret.GetPlan()->cost_, 12008.35); // 12008350 * 0.001 (no hash join)
+  ASSERT_EQ(true_card.back().second, GetResultSetSize(ret));
+  db = nullptr;
+  std::filesystem::remove_all("__tmp0209");
+}
+
+TEST(EasyOptimizerTest, Join11Tables) {
+  using namespace wing;
+  using namespace wing::wing_testing;
+  std::filesystem::remove_all("__tmp0210");
+  auto db = std::make_unique<wing::Instance>("__tmp0210", wing_test_options);
+  EXPECT_TRUE(db->Execute("create table t1(id12 int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t2(id12 int64, id23 int64, id27 int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t3(id23 int64, id3X int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t4(id48 int64, id45 int64, id4X1 int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t5(id59 int64, id56 int64, id45 int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t6(id56 int64, id68 int64, id67 int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t7(id67 int64, id27 int64, id79 int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t8(id48 int64, id68 int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t9(id59 int64, id79 int64, id9X int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t10(id9X int64, id3X int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t11(id4X1 int64);").Valid());
+  
+  std::vector<size_t> sizes = {50, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100};
+  std::vector<size_t> col_num = {1, 3, 2, 3, 3, 3, 3, 2, 3, 2, 1};
+  std::vector<std::string> tablename = {"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11"};
+  for (uint32_t i = 0; i < tablename.size(); i++) {
+    RandomTupleGen tuple_gen(0x20240529145900 + i);
+    for (uint32_t j = 0; j < col_num[i]; j++) {
+      tuple_gen.AddInt(1, 20);
+    }
+    auto [stmt, data] = tuple_gen.GenerateValuesClause(sizes[i]);
+    ASSERT_TRUE(db->Execute("insert into " + tablename[i] + " " + stmt + ";").Valid());
+  }
+  auto preds = std::vector<PredElement>{
+    PredElement("t5.id59 = t9.id59", {"t5", "t9"}),
+    PredElement("t7.id79 = t9.id79", {"t7", "t9"}),
+    PredElement("t10.id9X = t9.id9X", {"t10", "t9"}),
+    PredElement("t5.id45 = t4.id45", {"t4", "t5"}),
+    PredElement("t5.id56 = t6.id56", {"t5", "t6"}),
+    PredElement("t6.id68 = t8.id68", {"t6", "t8"}),
+    PredElement("t6.id67 = t7.id67", {"t6", "t7"}),
+    PredElement("t4.id48 = t8.id48", {"t4", "t8"}),
+    PredElement("t2.id27 = t7.id27", {"t2", "t7"}),
+    PredElement("t2.id12 = t1.id12", {"t1", "t2"}),
+    PredElement("t2.id23 = t3.id23", {"t2", "t3"}),
+    PredElement("t3.id3X = t10.id3X", {"t3", "t10"}),
+    PredElement("t4.id4X1 = t11.id4X1", {"t4", "t11"}),
+  };
+  std::string pred_str;
+  for (auto& pred : preds) {
+    if (!pred_str.empty()) {
+      pred_str += " and ";
+    }
+    pred_str += pred.pred_str;
+  }
+  auto true_card = SetTrueCard({"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11"}, preds, db);
+  db->SetDebugPrintPlan(true);
+  db->SetEnableCostBased(true);
+  auto ret = db->Execute(fmt::format("select 1 from t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11 where {};", pred_str));
+  ASSERT_TRUE(ret.Valid());
+  DB_INFO("{}, {}", ret.GetTotalOutputSize(), ret.GetPlan()->cost_);
+  ASSERT_EQ(ret.GetTotalOutputSize(), 24008350);
+  ASSERT_EQ(ret.GetPlan()->cost_, 12008.35);
+  ASSERT_EQ(true_card.back().second, GetResultSetSize(ret));
+  db = nullptr;
+  std::filesystem::remove_all("__tmp0210");
+
 }
 
 TEST(OptimizerTest, PredTransSmallTest) {}
