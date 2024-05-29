@@ -1,6 +1,6 @@
 #include <queue>
 
-#include "execution/predicate_transfer/pt_graph.hpp"
+#include "plan/predicate_transfer/pt_graph.hpp"
 #include "plan/optimizer.hpp"
 #include "plan/predicate_transfer/pt_graph.hpp"
 #include "rules/convert_to_hash_join.hpp"
