@@ -140,7 +140,7 @@ class BitVector {
     return ret;
   }
 
-  bool Check(const BitVector& v) const {
+  bool HasIntersection(const BitVector& v) const {
     for (uint32_t i = 0; i < _get_alloc_size64(std::min(size_, v.size_)); i++) {
       auto x = mem_.get()[i] & v.mem_.get()[i];
       if (x)

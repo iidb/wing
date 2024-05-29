@@ -843,7 +843,6 @@ std::vector<std::pair<std::vector<std::string>, double>> SetTrueCard(std::vector
     }
     DB_INFO("{}: {}", sql, true_card[i].second);
   }
-  db->SetTrueCardinalityHints(true_card);
   return true_card;
 }
 
@@ -879,6 +878,7 @@ TEST(EasyOptimizerTest, Join3Tables) {
       db);
   db->SetDebugPrintPlan(true);
   db->SetEnableCostBased(true);
+  db->SetTrueCardinalityHints(true_card);
   auto ret = db->Execute(
       "select 1 from t1, t2, t3 where t1.id = t2.idt1 and t2.id = t3.idt2 and "
       "t3.id = t1.idt3;");
@@ -917,6 +917,7 @@ TEST(EasyOptimizerTest, Join5TablesCrossProduct) {
   auto true_card = SetTrueCard({"t1", "t2", "t3", "t4", "t5"}, {}, db);
   db->SetDebugPrintPlan(true);
   db->SetEnableCostBased(true);
+  db->SetTrueCardinalityHints(true_card);
   ResultSet ret;
   StopWatch sw;
   TestTimeout([&](){ ret = db->Execute("select 1 from t1, t2, t3, t4, t5;"); }, 10000, "your join is too slow!"); 
@@ -982,8 +983,14 @@ TEST(EasyOptimizerTest, Join11Tables) {
     pred_str += pred.pred_str;
   }
   auto true_card = SetTrueCard({"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11"}, preds, db);
+  std::vector<double> true_card_num;
+  for (auto& [table, num] : true_card) {
+    true_card_num.push_back(num);
+  }
+  DB_INFO("[{}]", fmt::join(true_card_num, ", "));
   db->SetDebugPrintPlan(true);
   db->SetEnableCostBased(true);
+  db->SetTrueCardinalityHints(true_card);
   auto ret = db->Execute(fmt::format("select 1 from t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11 where {};", pred_str));
   ASSERT_TRUE(ret.Valid());
   DB_INFO("{}, {}", ret.GetTotalOutputSize(), ret.GetPlan()->cost_);

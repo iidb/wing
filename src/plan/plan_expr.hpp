@@ -21,10 +21,10 @@ class PredicateElement {
   BitVector right_bits_;
 
   /* Check if left_bits_ and v have some intersection. */
-  bool CheckLeft(const BitVector& v) const { return left_bits_.Check(v); }
+  bool CheckLeft(const BitVector& v) const { return left_bits_.HasIntersection(v); }
 
   /* Check if right_bits_ and v have some intersection. */
-  bool CheckRight(const BitVector& v) const { return right_bits_.Check(v); }
+  bool CheckRight(const BitVector& v) const { return right_bits_.HasIntersection(v); }
 
   /* Check if the operator is Eq. */
   bool IsEq() const { return expr_->op_ == OpType::EQ; }
