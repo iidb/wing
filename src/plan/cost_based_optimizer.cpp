@@ -81,11 +81,11 @@ bool CheckHasStat(const PlanNode* plan, const DB& db) {
  * For simplicity, we only use cost based optimizer when:
  * (1) The root plan node is Project, and there is only one Project.
  * (2) The other plan nodes can only be Join or SeqScan or RangeScan.
- * (3) The number of tables is <= 10.
+ * (3) The number of tables is <= 20.
  * (4) All tables have statistics or true cardinality is provided.
  */
 bool CheckCondition(const PlanNode* plan, const DB& db) {
-  if (GetTableNum(plan) > 10)
+  if (GetTableNum(plan) > 20)
     return false;
   if (plan->type_ != PlanType::Project && plan->type_ != PlanType::Aggregate)
     return false;
