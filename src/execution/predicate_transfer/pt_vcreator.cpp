@@ -4,8 +4,6 @@
 
 namespace wing {
 
-void PtVecCreator::Execute() {
-  DB_ERR("Not implemented!");
-}
+void PtVecCreator::Execute() { DB_ERR("Not implemented!"); }
 
 }  // namespace wing

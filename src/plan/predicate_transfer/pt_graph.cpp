@@ -4,8 +4,6 @@ namespace wing {
 
 PtGraph::PtGraph(const PlanNode* plan) { Dfs(plan); }
 
-void PtGraph::Dfs(const PlanNode* plan) {
-  DB_ERR("Not implemented!");
-}
+void PtGraph::Dfs(const PlanNode* plan) { DB_ERR("Not implemented!"); }
 
 }  // namespace wing
