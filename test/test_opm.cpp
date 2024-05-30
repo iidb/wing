@@ -170,6 +170,7 @@ TEST(OptimizerTest, JoinCommuteTest) {
   using namespace wing::wing_testing;
   std::filesystem::remove_all("__tmp0203");
   auto db = std::make_unique<wing::Instance>("__tmp0203", wing_test_options);
+  db->SetEnableCostBased(true);
   {
     EXPECT_TRUE(db->Execute("create table B(a int64 auto_increment primary "
                             "key, data varchar(2));")
@@ -323,6 +324,7 @@ TEST(OptimizerTest, JoinAssociate4Test) {
   using namespace wing::wing_testing;
   std::filesystem::remove_all("__tmp0204");
   auto db = std::make_unique<wing::Instance>("__tmp0204", wing_test_options);
+  db->SetEnableCostBased(true);
   // There is a cafe called Cats'eye which has some cat employees.
   // The cat dba only stores the id of the referenced information in table Cats.
   // Now she wants to print these information for each cat.
@@ -378,6 +380,7 @@ TEST(OptimizerTest, JoinAssociate5Test) {
   using namespace wing::wing_testing;
   std::filesystem::remove_all("__tmp0205");
   auto db = std::make_unique<wing::Instance>("__tmp0205", wing_test_options);
+  db->SetEnableCostBased(true);
   // There is a cafe called Cats'eye which has some cat employees.
   // The cat dba only stores the id of the referenced information in table Cats.
   // Now she wants to print these information for each cat.
@@ -715,14 +718,14 @@ class PredElement {
     : pred_str(_pred_str), tables(_tables) {}
 };
 
-std::vector<std::pair<std::vector<std::string>, double>> SetTrueCard(
+std::vector<std::pair<std::vector<std::string>, double>> CalcTrueCard(
     std::vector<std::string> tables, std::vector<PredElement> preds,
-    std::unique_ptr<wing::Instance>& db) {
+    wing::Instance& db) {
   DB_ASSERT(tables.size() < 20);
   std::vector<std::pair<std::vector<std::string>, double>> true_card(
       (1 << tables.size()));
   true_card[0] = {std::vector<std::string>(), 0};
-  db->SetEnableCostBased(true);
+  db.SetEnableCostBased(true);
   for (uint32_t i = 1; i < true_card.size(); i++) {
     std::vector<std::string> table_subset;
     std::string table_str;
@@ -738,6 +741,9 @@ std::vector<std::pair<std::vector<std::string>, double>> SetTrueCard(
         }
       }
     true_card[i].first = table_subset;
+    // Check if the query graph is connected.
+    // If not, then we can find a connected component that is a subset of the
+    // current table set `i`.
     std::vector<std::pair<int, uint32_t>> union_set(tables.size());
     // top of the union set,
     // use it to get the result.
@@ -840,7 +846,7 @@ std::vector<std::pair<std::vector<std::string>, double>> SetTrueCard(
     }
     DB_INFO("{}", sql);
     {
-      auto ret = db->Execute(sql);
+      auto ret = db.Execute(sql);
       DB_ASSERT(ret.Valid());
       true_card[i].second = 0;
       while (ret.Next()) {
@@ -850,6 +856,54 @@ std::vector<std::pair<std::vector<std::string>, double>> SetTrueCard(
     DB_INFO("{}: {}", sql, true_card[i].second);
   }
   return true_card;
+}
+
+void PrintTrueCard(
+    const std::vector<std::pair<std::vector<std::string>, double>>& true_cards,
+    const std::string& file_name) {
+  std::ofstream out(file_name, std::ios::binary);
+  out << true_cards.size() << std::endl;
+  for (auto& [tables, size] : true_cards) {
+    out << tables.size() << " ";
+    for (auto& a : tables) {
+      out << a << " ";
+    }
+    out << ": " << size << "\n";
+  }
+  out << std::endl;
+}
+
+std::optional<std::vector<std::pair<std::vector<std::string>, double>>>
+ReadTrueCard(const std::string& file_name) {
+  std::ifstream in(file_name, std::ios::binary);
+  if (!in || in.eof()) {
+    return {};
+  }
+  size_t num = 0;
+  if (!(in >> num) || !num) {
+    return {};
+  }
+  std::vector<std::pair<std::vector<std::string>, double>> data;
+  for (size_t i = 0; i < num; i++) {
+    std::vector<std::string> tables;
+    double size;
+    size_t table_num = 0;
+    if (!(in >> table_num) || !table_num) {
+      return {};
+    }
+    for (size_t j = 0; j < table_num; j++) {
+      std::string name;
+      if (!(in >> name)) {
+        return {};
+      }
+      tables.push_back(name);
+    }
+    if (!(in >> size)) {
+      return {};
+    }
+    data.emplace_back(tables, size);
+  }
+  return data;
 }
 
 size_t GetResultSetSize(wing::ResultSet& res) {
@@ -877,11 +931,11 @@ TEST(EasyOptimizerTest, Join3Tables) {
   ASSERT_TRUE(db->Execute("insert into t2 " + stmt_t2 + ";").Valid());
   auto [stmt_t3, data_t3] = tuple_gen.GenerateValuesClause(N);
   ASSERT_TRUE(db->Execute("insert into t3 " + stmt_t3 + ";").Valid());
-  auto true_card = SetTrueCard({"t1", "t2", "t3"},
+  auto true_card = CalcTrueCard({"t1", "t2", "t3"},
       {PredElement("t1.id = t2.idt1", {"t1", "t2"}),
           PredElement("t2.id = t3.idt2", {"t2", "t3"}),
           PredElement("t3.id = t1.idt3", {"t1", "t3"})},
-      db);
+      *db);
   db->SetDebugPrintPlan(true);
   db->SetEnableCostBased(true);
   db->SetTrueCardinalityHints(true_card);
@@ -921,7 +975,7 @@ TEST(EasyOptimizerTest, Join5TablesCrossProduct) {
   ASSERT_TRUE(db->Execute("insert into t4 " + stmt_t4 + ";").Valid());
   auto [stmt_t5, data_t5] = tuple_gen.GenerateValuesClause(30);
   ASSERT_TRUE(db->Execute("insert into t5 " + stmt_t5 + ";").Valid());
-  auto true_card = SetTrueCard({"t1", "t2", "t3", "t4", "t5"}, {}, db);
+  auto true_card = CalcTrueCard({"t1", "t2", "t3", "t4", "t5"}, {}, *db);
   db->SetDebugPrintPlan(true);
   db->SetEnableCostBased(true);
   db->SetTrueCardinalityHints(true_card);
@@ -939,6 +993,42 @@ TEST(EasyOptimizerTest, Join5TablesCrossProduct) {
   ASSERT_EQ(true_card.back().second, GetResultSetSize(ret));
   db = nullptr;
   std::filesystem::remove_all("__tmp0209");
+}
+
+wing::ResultSet ExecuteSimpleSQLWithTrueCard(
+    const std::vector<PredElement>& preds,
+    const std::vector<std::string> tables, const std::string& cache_name,
+    wing::Instance& db) {
+  std::string pred_str;
+  for (auto& pred : preds) {
+    if (!pred_str.empty()) {
+      pred_str += " and ";
+    }
+    pred_str += pred.pred_str;
+  }
+  std::string table_str;
+  for (auto& table : tables) {
+    if (!table_str.empty()) {
+      table_str += ", ";
+    }
+    table_str += table;
+  }
+  auto cached_true_card = ReadTrueCard(cache_name);
+  auto true_card = cached_true_card ? cached_true_card.value()
+                                    : CalcTrueCard(tables, preds, db);
+  PrintTrueCard(true_card, cache_name);
+  db.SetTrueCardinalityHints(true_card);
+  db.SetDebugPrintPlan(true);
+  db.SetEnableCostBased(true);
+  wing::ResultSet result;
+  wing::wing_testing::TestTimeout(
+      [&]() {
+        result = db.Execute(
+            fmt::format("select 1 from {} where {};", table_str, pred_str));
+      },
+      10000, "your join is too slow!! ");
+  DB_ASSERT(true_card.back().second == GetResultSetSize(result));
+  return result;
 }
 
 TEST(EasyOptimizerTest, Join11Tables) {
@@ -999,32 +1089,13 @@ TEST(EasyOptimizerTest, Join11Tables) {
       PredElement("t3.id3X = t10.id3X", {"t3", "t10"}),
       PredElement("t4.id4X1 = t11.id4X1", {"t4", "t11"}),
   };
-  std::string pred_str;
-  for (auto& pred : preds) {
-    if (!pred_str.empty()) {
-      pred_str += " and ";
-    }
-    pred_str += pred.pred_str;
-  }
-  auto true_card = SetTrueCard(
+  auto ret = ExecuteSimpleSQLWithTrueCard(preds,
       {"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11"},
-      preds, db);
-  std::vector<double> true_card_num;
-  for (auto& [table, num] : true_card) {
-    true_card_num.push_back(num);
-  }
-  DB_INFO("[{}]", fmt::join(true_card_num, ", "));
-  db->SetDebugPrintPlan(true);
-  db->SetEnableCostBased(true);
-  db->SetTrueCardinalityHints(true_card);
-  auto ret = db->Execute(fmt::format(
-      "select 1 from t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11 where {};",
-      pred_str));
+      "__tmp0210_cache", *db);
   ASSERT_TRUE(ret.Valid());
   DB_INFO("{}, {}", ret.GetTotalOutputSize(), ret.GetPlan()->cost_);
-  ASSERT_EQ(ret.GetTotalOutputSize(), 24008350);
-  ASSERT_EQ(ret.GetPlan()->cost_, 12008.35);
-  ASSERT_EQ(true_card.back().second, GetResultSetSize(ret));
+  ASSERT_EQ(ret.GetTotalOutputSize(), 136368);
+  ASSERT_EQ(ret.GetPlan()->cost_, 231.69);
   db = nullptr;
   std::filesystem::remove_all("__tmp0210");
 }
