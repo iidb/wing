@@ -2,6 +2,7 @@
 
 #include <filesystem>
 
+#include "common/threadpool.hpp"
 #include "catalog/stat.hpp"
 #include "common/stopwatch.hpp"
 #include "instance/instance.hpp"
@@ -724,14 +725,16 @@ std::vector<std::pair<std::vector<std::string>, double>> CalcTrueCard(
   DB_ASSERT(tables.size() < 20);
   std::vector<std::pair<std::vector<std::string>, double>> true_card(
       (1 << tables.size()));
+  std::vector<std::tuple<size_t, size_t, std::string>> not_calc;
+  wing::ThreadPool threads;
   true_card[0] = {std::vector<std::string>(), 0};
   db.SetEnableCostBased(true);
-  for (uint32_t i = 1; i < true_card.size(); i++) {
+  for (uint32_t S = 1; S < true_card.size(); S++) {
     std::vector<std::string> table_subset;
     std::string table_str;
     std::string pred_str;
-    for (uint32_t j = 0; j < tables.size(); ++j)
-      if ((i >> j) & 1) {
+    for (uint32_t j = 0; j < tables.size(); ++j) {
+      if ((S >> j) & 1) {
         table_subset.push_back(tables[j]);
         if (table_str.empty()) {
           table_str = tables[j];
@@ -740,7 +743,8 @@ std::vector<std::pair<std::vector<std::string>, double>> CalcTrueCard(
           table_str += tables[j];
         }
       }
-    true_card[i].first = table_subset;
+    }
+    true_card[S].first = table_subset;
     // Check if the query graph is connected.
     // If not, then we can find a connected component that is a subset of the
     // current table set `i`.
@@ -749,7 +753,7 @@ std::vector<std::pair<std::vector<std::string>, double>> CalcTrueCard(
     // use it to get the result.
     uint32_t union_set_tp = 0;
     for (uint32_t l = 0; l < tables.size(); l++)
-      if ((i >> l) & 1) {
+      if ((S >> l) & 1) {
         union_set_tp = l;
         union_set[l] = {l, 1 << l};
       }
@@ -770,7 +774,7 @@ std::vector<std::pair<std::vector<std::string>, double>> CalcTrueCard(
         bool flag = false;
         // get the index of the table.
         for (uint32_t l = 0; l < tables.size(); l++) {
-          if ((i >> l) & 1) {
+          if ((S >> l) & 1) {
             if (tables[l] == preds[j].tables[k]) {
               flag = true;
               table_set |= 1 << l;
@@ -789,7 +793,6 @@ std::vector<std::pair<std::vector<std::string>, double>> CalcTrueCard(
           for (uint32_t l = 0; l < tables.size(); l++) {
             if ((table_set >> l) & 1) {
               if (x != -1) {
-                DB_INFO("{}, {}", x, l);
                 int fx = find(x);
                 int fl = find(l);
                 union_set[fl].first = union_set[fx].first;
@@ -815,45 +818,33 @@ std::vector<std::pair<std::vector<std::string>, double>> CalcTrueCard(
 
     std::string sql = fmt::format("select 1 from {} {} {};", table_str,
         pred_str.empty() ? "" : "where", pred_str);
-    if (pred_str.empty()) {
-      // No predicate
-      // Avoid cross product.
-      // For single table query, we execute the sql statement to get the size of
-      // the table. For multiple table query, we just multiply the size of all
-      // the tables.
-      if (__builtin_popcountll(i) > 1) {
-        // Multiple table.
-        true_card[i].second = 1;
-        for (uint32_t j = 0; j < tables.size(); ++j)
-          if ((i >> j) & 1) {
-            true_card[i].second *= true_card[1 << j].second;
-          }
-        DB_INFO("{}: {}", sql, true_card[i].second);
-        continue;
-      }
-    } else if (uint32_t subset = union_set[find(union_set_tp)].second;
-               subset != i) {
-      true_card[i].second =
-          true_card[i ^ subset].second * true_card[subset].second;
-      std::string subset_table_str;
-      for (uint32_t l = 0; l < tables.size(); l++)
-        if ((subset >> l) & 1) {
-          subset_table_str += tables[l] + ", ";
-        }
-      DB_INFO("subset {{ {} }}, {}: {}", subset_table_str, sql,
-          true_card[i].second);
+    if (uint32_t subset = union_set[find(union_set_tp)].second;
+               subset != S) {
+      not_calc.emplace_back(S, subset, sql);
       continue;
     }
     DB_INFO("{}", sql);
-    {
+    threads.Push([&db, &true_card, S, sql](){
       auto ret = db.Execute(sql);
       DB_ASSERT(ret.Valid());
-      true_card[i].second = 0;
+      true_card[S].second = 0;
       while (ret.Next()) {
-        true_card[i].second += 1;
+        true_card[S].second += 1;
       }
-    }
-    DB_INFO("{}: {}", sql, true_card[i].second);
+      DB_INFO("{}: {}", sql, true_card[S].second);
+    });
+  }
+  threads.WaitForAllTasks();
+  for (auto& [S, subset, sql] : not_calc) {
+    true_card[S].second =
+        true_card[S ^ subset].second * true_card[subset].second;
+    std::string subset_table_str;
+    for (uint32_t l = 0; l < tables.size(); l++)
+      if ((subset >> l) & 1) {
+        subset_table_str += tables[l] + ", ";
+      }
+    DB_INFO("subset {{ {} }}, {}: {}", subset_table_str, sql,
+        true_card[S].second);
   }
   return true_card;
 }
@@ -861,6 +852,7 @@ std::vector<std::pair<std::vector<std::string>, double>> CalcTrueCard(
 void PrintTrueCard(
     const std::vector<std::pair<std::vector<std::string>, double>>& true_cards,
     const std::string& file_name) {
+  if (file_name == "") return;
   std::ofstream out(file_name, std::ios::binary);
   out << true_cards.size() << std::endl;
   for (auto& [tables, size] : true_cards) {
@@ -868,13 +860,14 @@ void PrintTrueCard(
     for (auto& a : tables) {
       out << a << " ";
     }
-    out << ": " << size << "\n";
+    out << ": " << std::setprecision(20) << size << "\n";
   }
   out << std::endl;
 }
 
 std::optional<std::vector<std::pair<std::vector<std::string>, double>>>
 ReadTrueCard(const std::string& file_name) {
+  if (file_name == "") return {};
   std::ifstream in(file_name, std::ios::binary);
   if (!in || in.eof()) {
     return {};
@@ -888,7 +881,7 @@ ReadTrueCard(const std::string& file_name) {
     std::vector<std::string> tables;
     double size;
     size_t table_num = 0;
-    if (!(in >> table_num) || !table_num) {
+    if (!(in >> table_num)) {
       return {};
     }
     for (size_t j = 0; j < table_num; j++) {
@@ -898,7 +891,9 @@ ReadTrueCard(const std::string& file_name) {
       }
       tables.push_back(name);
     }
-    if (!(in >> size)) {
+    std::string colon, sql;
+    in >> colon;
+    if (colon != ":" || !(in >> size)) {
       return {};
     }
     data.emplace_back(tables, size);
@@ -997,7 +992,7 @@ TEST(EasyOptimizerTest, Join5TablesCrossProduct) {
 
 wing::ResultSet ExecuteSimpleSQLWithTrueCard(
     const std::vector<PredElement>& preds,
-    const std::vector<std::string> tables, const std::string& cache_name,
+    const std::vector<std::string>& tables, const std::string& cache_name,
     wing::Instance& db) {
   std::string pred_str;
   for (auto& pred : preds) {
@@ -1016,18 +1011,33 @@ wing::ResultSet ExecuteSimpleSQLWithTrueCard(
   auto cached_true_card = ReadTrueCard(cache_name);
   auto true_card = cached_true_card ? cached_true_card.value()
                                     : CalcTrueCard(tables, preds, db);
-  PrintTrueCard(true_card, cache_name);
+  if (!cached_true_card) PrintTrueCard(true_card, cache_name);
   db.SetTrueCardinalityHints(true_card);
   db.SetDebugPrintPlan(true);
   db.SetEnableCostBased(true);
   wing::ResultSet result;
+  wing::StopWatch sw;
   wing::wing_testing::TestTimeout(
       [&]() {
         result = db.Execute(
             fmt::format("select 1 from {} where {};", table_str, pred_str));
       },
-      10000, "your join is too slow!! ");
-  DB_ASSERT(true_card.back().second == GetResultSetSize(result));
+      7000, "your join and optimizer is too slow!! ");
+  DB_INFO("Used time: {}s", sw.GetTimeInSeconds());
+  {
+    auto tables1 = tables;
+    auto true_size = -1e200;
+    std::sort(tables1.begin(), tables1.end());
+    for (auto& [tables2, size] : true_card) {
+      std::sort(tables2.begin(), tables2.end());
+      if (tables2 == tables1) {
+        true_size = size;
+        break;
+      }
+    }
+    auto result_size = GetResultSetSize(result);
+    DB_ASSERT(true_size == result_size);
+  }
   return result;
 }
 
@@ -1074,30 +1084,129 @@ TEST(EasyOptimizerTest, Join11Tables) {
     ASSERT_TRUE(
         db->Execute("insert into " + tablename[i] + " " + stmt + ";").Valid());
   }
-  auto preds = std::vector<PredElement>{
-      PredElement("t5.id59 = t9.id59", {"t5", "t9"}),
-      PredElement("t7.id79 = t9.id79", {"t7", "t9"}),
-      PredElement("t10.id9X = t9.id9X", {"t10", "t9"}),
-      PredElement("t5.id45 = t4.id45", {"t4", "t5"}),
-      PredElement("t5.id56 = t6.id56", {"t5", "t6"}),
-      PredElement("t6.id68 = t8.id68", {"t6", "t8"}),
-      PredElement("t6.id67 = t7.id67", {"t6", "t7"}),
-      PredElement("t4.id48 = t8.id48", {"t4", "t8"}),
-      PredElement("t2.id27 = t7.id27", {"t2", "t7"}),
-      PredElement("t2.id12 = t1.id12", {"t1", "t2"}),
-      PredElement("t2.id23 = t3.id23", {"t2", "t3"}),
-      PredElement("t3.id3X = t10.id3X", {"t3", "t10"}),
-      PredElement("t4.id4X1 = t11.id4X1", {"t4", "t11"}),
-  };
-  auto ret = ExecuteSimpleSQLWithTrueCard(preds,
-      {"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11"},
-      "__tmp0210_cache", *db);
-  ASSERT_TRUE(ret.Valid());
-  DB_INFO("{}, {}", ret.GetTotalOutputSize(), ret.GetPlan()->cost_);
-  ASSERT_EQ(ret.GetTotalOutputSize(), 136368);
-  ASSERT_EQ(ret.GetPlan()->cost_, 231.69);
+  
+  // test 1 all join
+  {
+    auto preds = std::vector<PredElement>{
+        PredElement("t5.id59 = t9.id59", {"t5", "t9"}),
+        PredElement("t7.id79 = t9.id79", {"t7", "t9"}),
+        PredElement("t10.id9X = t9.id9X", {"t10", "t9"}),
+        PredElement("t5.id45 = t4.id45", {"t4", "t5"}),
+        PredElement("t5.id56 = t6.id56", {"t5", "t6"}),
+        PredElement("t6.id68 = t8.id68", {"t6", "t8"}),
+        PredElement("t6.id67 = t7.id67", {"t6", "t7"}),
+        PredElement("t4.id48 = t8.id48", {"t4", "t8"}),
+        PredElement("t2.id27 = t7.id27", {"t2", "t7"}),
+        PredElement("t2.id12 = t1.id12", {"t1", "t2"}),
+        PredElement("t2.id23 = t3.id23", {"t2", "t3"}),
+        PredElement("t3.id3X = t10.id3X", {"t3", "t10"}),
+        PredElement("t4.id4X1 = t11.id4X1", {"t4", "t11"}),
+    };
+    auto ret = ExecuteSimpleSQLWithTrueCard(preds,
+        {"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11"},
+        "test/true_card_hints/join11tables_cache.txt", *db);
+    ASSERT_TRUE(ret.Valid());
+    DB_INFO("{}, {}", ret.GetTotalOutputSize(), ret.GetPlan()->cost_);
+    ASSERT_EQ(ret.GetTotalOutputSize(), 136368);
+    ASSERT_EQ(ret.GetPlan()->cost_, 231.69);
+  }
+  // test 2 join a chain {t11, t4, t8, t6, t7, t2, t3, t10}
+  {
+    auto preds = std::vector<PredElement>{
+        PredElement("t3.id3X = t10.id3X", {"t3", "t10"}),
+        PredElement("t4.id4X1 = t11.id4X1", {"t4", "t11"}),
+        PredElement("t4.id48 = t8.id48", {"t4", "t8"}),
+        PredElement("t2.id27 = t7.id27", {"t2", "t7"}),
+        PredElement("t6.id68 = t8.id68", {"t6", "t8"}),
+        PredElement("t6.id67 = t7.id67", {"t6", "t7"}),
+        PredElement("t2.id23 = t3.id23", {"t2", "t3"}),
+    };
+    auto ret = ExecuteSimpleSQLWithTrueCard(preds,
+        {"t2", "t3", "t4", "t6", "t7", "t8", "t10", "t11"},
+        "test/true_card_hints/join11tables_cache.txt", *db);
+    ASSERT_TRUE(ret.Valid());
+    DB_INFO("{}, {}", ret.GetTotalOutputSize(), ret.GetPlan()->cost_);
+    ASSERT_EQ(ret.GetTotalOutputSize(), 17084967);
+    ASSERT_EQ(ret.GetPlan()->cost_, 99886.982);
+  }
+  // test 3 join a cycle {}
+  {
+    auto preds = std::vector<PredElement>{
+        PredElement("t3.id3X = t10.id3X", {"t3", "t10"}),
+        PredElement("t2.id23 = t3.id23", {"t2", "t3"}),
+        PredElement("t2.id27 = t7.id27", {"t2", "t7"}),
+        PredElement("t6.id67 = t7.id67", {"t6", "t7"}),
+        PredElement("t5.id56 = t6.id56", {"t5", "t6"}),
+        PredElement("t5.id59 = t9.id59", {"t5", "t9"}),
+        PredElement("t7.id79 = t9.id79", {"t7", "t9"}),
+        PredElement("t10.id9X = t9.id9X", {"t10", "t9"}),
+    };
+    auto ret = ExecuteSimpleSQLWithTrueCard(preds,
+        {"t5", "t6", "t7", "t2", "t3", "t10", "t9"},
+        "test/true_card_hints/join11tables_cache.txt", *db);
+    ASSERT_TRUE(ret.Valid());
+    DB_INFO("{}, {}", ret.GetTotalOutputSize(), ret.GetPlan()->cost_);
+    ASSERT_EQ(ret.GetTotalOutputSize(), 43436);
+    ASSERT_EQ(ret.GetPlan()->cost_, 553289.855);
+  }
   db = nullptr;
   std::filesystem::remove_all("__tmp0210");
+}
+
+TEST(EasyOptimizerTest, Join15TableCluster) {
+  using namespace wing;
+  using namespace wing::wing_testing;
+  std::filesystem::remove_all("__tmp0212");
+  auto db = std::make_unique<wing::Instance>("__tmp0212", wing_test_options);
+  EXPECT_TRUE(db->Execute("create table t1(id int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t2(id int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t3(id int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t4(id int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t5(id int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t6(id int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t7(id int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t8(id int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t9(id int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t10(id int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t11(id int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t12(id int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t13(id int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t14(id int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t15(id int64);").Valid());
+  std::vector<size_t> sizes = {
+      100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100};
+  std::vector<size_t> col_num = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  std::vector<std::string> tablename = {
+      "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11", "t12", "t13", "t14", "t15"};
+  for (uint32_t i = 0; i < tablename.size(); i++) {
+    RandomTupleGen tuple_gen(0x202405302159 + i);
+    for (uint32_t j = 0; j < col_num[i]; j++) {
+      tuple_gen.AddInt(1, 50);
+    }
+    auto [stmt, data] = tuple_gen.GenerateValuesClause(sizes[i]);
+    ASSERT_TRUE(
+        db->Execute("insert into " + tablename[i] + " " + stmt + ";").Valid());
+    db->Analyze(tablename[i]);
+  }
+  // test 1 cluster
+  {
+
+    auto preds = std::vector<PredElement>();
+    for (auto L : tablename)
+      for (auto R : tablename)
+        if (L < R) {
+          preds.emplace_back(fmt::format("{}.id = {}.id", L, R), std::vector<std::string>{L, R});
+        }
+    auto ret = ExecuteSimpleSQLWithTrueCard(preds,
+        {"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11", "t12", "t13", "t14", "t15"},
+        "test/true_card_hints/join15tablecluster_cache.txt", *db);
+    ASSERT_TRUE(ret.Valid());
+    DB_INFO("{}, {}", ret.GetTotalOutputSize(), ret.GetPlan()->cost_);
+    ASSERT_EQ(ret.GetTotalOutputSize(), 1594912);
+    ASSERT_EQ(ret.GetPlan()->cost_, 902.96);
+  }
+  db = nullptr;
+  std::filesystem::remove_all("__tmp0212");
 }
 
 TEST(OptimizerTest, PredTransSmallTest) {}
