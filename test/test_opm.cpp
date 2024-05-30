@@ -2,9 +2,9 @@
 
 #include <filesystem>
 
-#include "common/threadpool.hpp"
 #include "catalog/stat.hpp"
 #include "common/stopwatch.hpp"
+#include "common/threadpool.hpp"
 #include "instance/instance.hpp"
 #include "test.hpp"
 #include "zipf.hpp"
@@ -818,13 +818,12 @@ std::vector<std::pair<std::vector<std::string>, double>> CalcTrueCard(
 
     std::string sql = fmt::format("select 1 from {} {} {};", table_str,
         pred_str.empty() ? "" : "where", pred_str);
-    if (uint32_t subset = union_set[find(union_set_tp)].second;
-               subset != S) {
+    if (uint32_t subset = union_set[find(union_set_tp)].second; subset != S) {
       not_calc.emplace_back(S, subset, sql);
       continue;
     }
     DB_INFO("{}", sql);
-    threads.Push([&db, &true_card, S, sql](){
+    threads.Push([&db, &true_card, S, sql]() {
       auto ret = db.Execute(sql);
       DB_ASSERT(ret.Valid());
       true_card[S].second = 0;
@@ -843,8 +842,8 @@ std::vector<std::pair<std::vector<std::string>, double>> CalcTrueCard(
       if ((subset >> l) & 1) {
         subset_table_str += tables[l] + ", ";
       }
-    DB_INFO("subset {{ {} }}, {}: {}", subset_table_str, sql,
-        true_card[S].second);
+    DB_INFO(
+        "subset {{ {} }}, {}: {}", subset_table_str, sql, true_card[S].second);
   }
   return true_card;
 }
@@ -852,7 +851,8 @@ std::vector<std::pair<std::vector<std::string>, double>> CalcTrueCard(
 void PrintTrueCard(
     const std::vector<std::pair<std::vector<std::string>, double>>& true_cards,
     const std::string& file_name) {
-  if (file_name == "") return;
+  if (file_name == "")
+    return;
   std::ofstream out(file_name, std::ios::binary);
   out << true_cards.size() << std::endl;
   for (auto& [tables, size] : true_cards) {
@@ -867,7 +867,8 @@ void PrintTrueCard(
 
 std::optional<std::vector<std::pair<std::vector<std::string>, double>>>
 ReadTrueCard(const std::string& file_name) {
-  if (file_name == "") return {};
+  if (file_name == "")
+    return {};
   std::ifstream in(file_name, std::ios::binary);
   if (!in || in.eof()) {
     return {};
@@ -990,6 +991,41 @@ TEST(EasyOptimizerTest, Join5TablesCrossProduct) {
   std::filesystem::remove_all("__tmp0209");
 }
 
+TEST(EasyOptimizerTest, Join2Tables) {
+  using namespace wing;
+  using namespace wing::wing_testing;
+  std::filesystem::remove_all("__tmp0213");
+  auto db = std::make_unique<wing::Instance>("__tmp0213", wing_test_options);
+  EXPECT_TRUE(db->Execute("create table t1(id int64, idt3 int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t2(id int64, idt1 int64);").Valid());
+  int N = 1000;
+  RandomTupleGen tuple_gen(0x202405302330);
+  tuple_gen.AddInt(1, 1).AddInt(1, 100);
+  RandomTupleGen tuple_gen2(0x202405302338);
+  tuple_gen2.AddInt(1, 100).AddInt(1, 1);
+  auto [stmt_t1, data_t1] = tuple_gen.GenerateValuesClause(N);
+  ASSERT_TRUE(db->Execute("insert into t1 " + stmt_t1 + ";").Valid());
+  auto [stmt_t2, data_t2] = tuple_gen2.GenerateValuesClause(N);
+  ASSERT_TRUE(db->Execute("insert into t2 " + stmt_t2 + ";").Valid());
+  auto true_card = CalcTrueCard(
+      {"t1", "t2"}, {PredElement("t1.id = t2.idt1", {"t1", "t2"})}, *db);
+  db->SetDebugPrintPlan(true);
+  db->SetEnableCostBased(true);
+  db->SetTrueCardinalityHints(true_card);
+  auto ret = db->Execute("select 1 from t1, t2 where t1.id = t2.idt1;");
+  ASSERT_TRUE(ret.Valid());
+  DB_INFO("{}, {}", ret.GetTotalOutputSize(), ret.GetPlan()->cost_);
+  // standard answer: nested loop join(t1, t2)
+  // hash join cost: (1000 + 1000) * 0.01 + 1e6 * 0.001 = 1020
+  // nested loop join cost: 1e6 * 0.001 = 1000
+  // plus sequential scan cost (1000 + 1000) * 0.001 = 2.
+  ASSERT_EQ(ret.GetTotalOutputSize(), 2002000);
+  ASSERT_EQ(ret.GetPlan()->cost_, 1002);
+  ASSERT_EQ(true_card.back().second, GetResultSetSize(ret));
+  db = nullptr;
+  std::filesystem::remove_all("__tmp0213");
+}
+
 wing::ResultSet ExecuteSimpleSQLWithTrueCard(
     const std::vector<PredElement>& preds,
     const std::vector<std::string>& tables, const std::string& cache_name,
@@ -1011,7 +1047,8 @@ wing::ResultSet ExecuteSimpleSQLWithTrueCard(
   auto cached_true_card = ReadTrueCard(cache_name);
   auto true_card = cached_true_card ? cached_true_card.value()
                                     : CalcTrueCard(tables, preds, db);
-  if (!cached_true_card) PrintTrueCard(true_card, cache_name);
+  if (!cached_true_card)
+    PrintTrueCard(true_card, cache_name);
   db.SetTrueCardinalityHints(true_card);
   db.SetDebugPrintPlan(true);
   db.SetEnableCostBased(true);
@@ -1084,7 +1121,7 @@ TEST(EasyOptimizerTest, Join11Tables) {
     ASSERT_TRUE(
         db->Execute("insert into " + tablename[i] + " " + stmt + ";").Valid());
   }
-  
+
   // test 1 all join
   {
     auto preds = std::vector<PredElement>{
@@ -1173,11 +1210,11 @@ TEST(EasyOptimizerTest, Join15TableCluster) {
   EXPECT_TRUE(db->Execute("create table t13(id int64);").Valid());
   EXPECT_TRUE(db->Execute("create table t14(id int64);").Valid());
   EXPECT_TRUE(db->Execute("create table t15(id int64);").Valid());
-  std::vector<size_t> sizes = {
-      100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100};
+  std::vector<size_t> sizes = {100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+      100, 100, 100, 100, 100};
   std::vector<size_t> col_num = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-  std::vector<std::string> tablename = {
-      "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11", "t12", "t13", "t14", "t15"};
+  std::vector<std::string> tablename = {"t1", "t2", "t3", "t4", "t5", "t6",
+      "t7", "t8", "t9", "t10", "t11", "t12", "t13", "t14", "t15"};
   for (uint32_t i = 0; i < tablename.size(); i++) {
     RandomTupleGen tuple_gen(0x202405302159 + i);
     for (uint32_t j = 0; j < col_num[i]; j++) {
@@ -1189,15 +1226,16 @@ TEST(EasyOptimizerTest, Join15TableCluster) {
   }
   // test 1 cluster
   {
-
     auto preds = std::vector<PredElement>();
     for (auto L : tablename)
       for (auto R : tablename)
         if (L < R) {
-          preds.emplace_back(fmt::format("{}.id = {}.id", L, R), std::vector<std::string>{L, R});
+          preds.emplace_back(fmt::format("{}.id = {}.id", L, R),
+              std::vector<std::string>{L, R});
         }
     auto ret = ExecuteSimpleSQLWithTrueCard(preds,
-        {"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11", "t12", "t13", "t14", "t15"},
+        {"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11",
+            "t12", "t13", "t14", "t15"},
         "test/true_card_hints/join15tablecluster_cache.txt", *db);
     ASSERT_TRUE(ret.Valid());
     DB_INFO("{}, {}", ret.GetTotalOutputSize(), ret.GetPlan()->cost_);
