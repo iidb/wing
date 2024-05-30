@@ -1186,7 +1186,6 @@ TEST(EasyOptimizerTest, Join15TableCluster) {
     auto [stmt, data] = tuple_gen.GenerateValuesClause(sizes[i]);
     ASSERT_TRUE(
         db->Execute("insert into " + tablename[i] + " " + stmt + ";").Valid());
-    db->Analyze(tablename[i]);
   }
   // test 1 cluster
   {
