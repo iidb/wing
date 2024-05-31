@@ -7,9 +7,7 @@
 
 namespace wing {
 
-void PtReducer::Execute() {
-  DB_ERR("Not implemented!");
-}
+void PtReducer::Execute() { DB_ERR("Not implemented!"); }
 
 void PtReducer::PredicateTransfer(std::string from, std::string to,
     const Expr* from_expr, const Expr* to_expr) {

@@ -104,3 +104,7 @@ configure_file(imdb_job/q1.sql imdb_job/q1.sql COPYONLY)
 configure_file(imdb_job/q2.sql imdb_job/q2.sql COPYONLY)
 configure_file(imdb_job/q3.sql imdb_job/q3.sql COPYONLY)
 configure_file(imdb_job/q4.sql imdb_job/q4.sql COPYONLY)
+
+## Files for true cardinality hints in test_opm
+configure_file(true_card_hints/join11tables_cache.txt true_card_hints/join11tables_cache.txt COPYONLY)
+configure_file(true_card_hints/join15tablecluster_cache.txt true_card_hints/join15tablecluster_cache.txt COPYONLY)

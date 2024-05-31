@@ -1,6 +1,5 @@
 #include <queue>
 
-#include "plan/predicate_transfer/pt_graph.hpp"
 #include "plan/optimizer.hpp"
 #include "plan/predicate_transfer/pt_graph.hpp"
 #include "rules/convert_to_hash_join.hpp"
@@ -91,12 +90,14 @@ bool CheckCondition(const PlanNode* plan, const DB& db) {
     return false;
   if (!CheckIsAllJoin(plan->ch_.get()))
     return false;
-  return db.GetOptions().optimizer_options.true_cardinality_hints || CheckHasStat(plan->ch_.get(), db);
+  return db.GetOptions().optimizer_options.true_cardinality_hints ||
+         CheckHasStat(plan->ch_.get(), db);
 }
 
 std::unique_ptr<PlanNode> CostBasedOptimizer::Optimize(
     std::unique_ptr<PlanNode> plan, DB& db) {
-  if (CheckCondition(plan.get(), db) && db.GetOptions().optimizer_options.enable_cost_based) {
+  if (CheckCondition(plan.get(), db) &&
+      db.GetOptions().optimizer_options.enable_cost_based) {
     // std::vector<std::unique_ptr<OptRule>> R;
     // R.push_back(std::make_unique<ConvertToHashJoinRule>());
     // plan = Apply(std::move(plan), R, db);

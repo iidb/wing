@@ -1,9 +1,9 @@
 #include "storage/lsm/file.hpp"
-#include "common/exception.hpp"
 
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "common/exception.hpp"
 #include "storage/lsm/stats.hpp"
 
 namespace wing {

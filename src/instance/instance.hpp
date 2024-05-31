@@ -37,9 +37,10 @@ class Instance {
   // Set true cardinality hints
   void SetTrueCardinalityHints(
       const std::vector<std::pair<std::vector<std::string>, double>>& cards);
-  
+
   // Enable cost based optimizer or not.
-  // If cost based optimizer is not enabled, there will only be rule based optimizer.s
+  // If cost based optimizer is not enabled, there will only be rule based
+  // optimizer.s
   void SetEnableCostBased(bool value);
 
  private:

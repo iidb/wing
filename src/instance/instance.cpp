@@ -169,7 +169,8 @@ class Instance::Impl {
             }
           } else {
             // Query
-            auto exe = GenerateExecutor(OptimizePlan(ret.GetPlan()->clone()), txn->txn_id_);
+            auto exe = GenerateExecutor(
+                OptimizePlan(ret.GetPlan()->clone()), txn->txn_id_);
             err << fmt::format(
                 "Generate executor in {} seconds.\n", watch.GetTimeInSeconds());
             auto output_schema = ret.GetPlan()->output_schema_;
@@ -218,7 +219,8 @@ class Instance::Impl {
           auto exe = GenerateExecutor(plan, txn_id);
           auto output_schema = plan->output_schema_;
           auto result = GetResultFromExecutor(exe, output_schema);
-          return ResultSet(std::move(result), exe->GetTotalOutputSize(), std::move(plan));
+          return ResultSet(
+              std::move(result), exe->GetTotalOutputSize(), std::move(plan));
         }
       } catch (const DBException& e) {
         DB_INFO("{}", e.what());
