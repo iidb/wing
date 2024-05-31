@@ -12,10 +12,12 @@
 void handler(int sig) {
   ::signal(sig, SIG_DFL); // exit normally
   std::cout << wing::get_stack_trace() << std::endl;
+  ::raise(sig);
 }
 
 int main(int argc, char** argv) {
   signal(SIGSEGV, &handler);
+  signal(SIGABRT, &handler);
   wing::WingOptions options;
   for (int i = 2; i < argc; i++) {
     // Use JIT.

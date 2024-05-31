@@ -24,7 +24,6 @@
 #define DB_ERR(...)                                                  \
   do {                                                               \
     __LOG(__LOG_ERR, __FILE__, __FUNCTION__, __LINE__, __VA_ARGS__); \
-    __LOG(__LOG_ERR, __FILE__, __FUNCTION__, __LINE__, wing::get_stack_trace());\
     std::abort();                                                    \
   } while (0)
 #define DEFAULT_LOG_FILE NULL
@@ -34,7 +33,7 @@
 #define DB_ASSERT(assertion)                                   \
   ({                                                           \
     if (!(assertion)) {                                        \
-      DB_ERR("Internal Error: Assertion failed: " #assertion); \
+      DB_ERR("Assertion failed: " #assertion); \
       std::abort();                                            \
     }                                                          \
   })
