@@ -17,6 +17,7 @@ endif()
 # Submodules
 add_subdirectory(third_party/fmt)
 add_subdirectory(third_party/replxx)
+add_subdirectory(third_party/cpptrace)
 
 # Source files
 file(GLOB DB_SOURCE
@@ -99,7 +100,7 @@ endif()
 target_include_directories(${PROJECT_NAME} PRIVATE src third_party/fmt)
 target_include_directories(wing_lib PRIVATE src third_party/replxx/include third_party/fmt)
 target_link_libraries(wing_lib PRIVATE ${llvm_libs} fmt replxx)
-target_link_libraries(wing_lib PUBLIC pthread)
+target_link_libraries(wing_lib PUBLIC pthread cpptrace::cpptrace)
 target_link_libraries(${PROJECT_NAME} PRIVATE wing_lib fmt)
 
 # Test

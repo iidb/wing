@@ -2,12 +2,20 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <signal.h>
 
 #include "catalog/options.hpp"
 #include "common/logging.hpp"
 #include "instance/instance.hpp"
+#include "common/printstack.hpp"
+
+void handler(int sig) {
+  ::signal(sig, SIG_DFL); // exit normally
+  std::cout << wing::get_stack_trace() << std::endl;
+}
 
 int main(int argc, char** argv) {
+  signal(SIGSEGV, &handler);
   wing::WingOptions options;
   for (int i = 2; i < argc; i++) {
     // Use JIT.

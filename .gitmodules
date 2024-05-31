@@ -4,3 +4,6 @@
 [submodule "third_party/replxx"]
 	path = third_party/replxx
 	url = git@github.com:AmokHuginnsson/replxx.git
+[submodule "third_party/cpptrace"]
+	path = third_party/cpptrace
+	url = git@github.com:jeremy-rifkin/cpptrace.git
