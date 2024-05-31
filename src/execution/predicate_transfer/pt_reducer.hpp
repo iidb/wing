@@ -23,8 +23,12 @@ class PtReducer {
   }
 
  private:
-  void PredicateTransfer(std::string from, std::string to,
-      const Expr* from_expr, const Expr* to_expr);
+  std::vector<std::string> GenerateFilter(
+      const std::string& table, const std::vector<const Expr*>& exprs);
+
+  void PredicateTransfer(const std::string& table,
+      const std::vector<const Expr*>& exprs,
+      const std::vector<std::string>& filters);
 
   /* Mappings from table name to bit vector. */
   std::map<std::string, std::shared_ptr<BitVector>> result_bv_;

@@ -5,7 +5,7 @@
 namespace wing {
 
 void PtVecUpdater::Execute(
-    const std::string& bloom_filter, BitVector& valid_bits) {
+    const std::vector<std::string>& bloom_filter, BitVector& valid_bits) {
   DB_ERR("Not implemented!");
 }
 

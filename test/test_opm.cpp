@@ -1246,4 +1246,199 @@ TEST(EasyOptimizerTest, Join15TableCluster) {
   std::filesystem::remove_all("__tmp0212");
 }
 
-TEST(OptimizerTest, PredTransSmallTest) {}
+TEST(OptimizerTest, PredTransTable2Small) {
+  using namespace wing;
+  using namespace wing::wing_testing;
+  std::filesystem::remove_all("__tmp0216");
+  auto db = std::make_unique<wing::Instance>("__tmp0216", wing_test_options);
+  db->SetEnablePredTrans(true);
+  EXPECT_TRUE(db->Execute("create table t1(id int64, idt2 int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t2(id int64, idt1 int64);").Valid());
+  {
+    ASSERT_TRUE(db->Execute("insert into t1 values(3, 10), (4, 11);").Valid());
+    ASSERT_TRUE(db->Execute("insert into t2 values(1, 2), (2, 3);").Valid());
+    // join result is (3, 10) (t1) - (2, 3) (t2)
+    auto result = db->Execute("select 1 from t1, t2 where t1.id = t2.idt1;");
+    DB_INFO("{}", result.GetTotalOutputSize());
+    ASSERT_EQ(result.GetTotalOutputSize(), 1 + 1 + 1 * 2);
+    ASSERT_TRUE(db->Execute("delete from t1;").Valid());
+    ASSERT_TRUE(db->Execute("delete from t2;").Valid());
+    ASSERT_EQ(db->Execute("select 1 from t1, t2;").GetTotalOutputSize(), 0);
+  }
+
+  {
+    ASSERT_TRUE(
+        db->Execute("insert into t1 values(3, 10), (4, 11), (5, 13);").Valid());
+    ASSERT_TRUE(
+        db->Execute("insert into t2 values(13, 2), (12, 3), (11, 4);").Valid());
+    // join result is (4, 11) (t1) - (11, 4) (t2)
+    auto result = db->Execute(
+        "select 1 from t1, t2 where t1.id = t2.idt1 and t2.id = t1.idt2;");
+    DB_INFO("{}", result.GetTotalOutputSize());
+    ASSERT_EQ(result.GetTotalOutputSize(), 1 + 1 + 1 * 2);
+    ASSERT_TRUE(db->Execute("delete from t1;").Valid());
+    ASSERT_TRUE(db->Execute("delete from t2;").Valid());
+    ASSERT_EQ(db->Execute("select 1 from t1, t2;").GetTotalOutputSize(), 0);
+  }
+  db = nullptr;
+  std::filesystem::remove_all("__tmp0216");
+}
+
+TEST(OptimizerTest, PredTransTable2Big) {
+  using namespace wing;
+  using namespace wing::wing_testing;
+  std::filesystem::remove_all("__tmp0214");
+  auto db = std::make_unique<wing::Instance>("__tmp0214", wing_test_options);
+  db->SetEnablePredTrans(true);
+  EXPECT_TRUE(db->Execute("create table t1(id int64, idt2 int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t2(id int64, idt1 int64);").Valid());
+  int N = 3000;
+  {
+    // used tuples in joining two tables.
+    RandomTupleGen tuple_gen(0x20240531215500);
+    tuple_gen.AddInt(1, 1).AddInt(1, 100);
+    auto [stmt_t1, data_t1] = tuple_gen.GenerateValuesClause(N / 2);
+    ASSERT_TRUE(db->Execute("insert into t1 " + stmt_t1 + ";").Valid());
+  }
+
+  {
+    // dangling tuples in joining two tables.
+    RandomTupleGen tuple_gen(0x20240531215501);
+    tuple_gen.AddInt(11, 100).AddInt(1, 100);
+    auto [stmt_t1, data_t1] = tuple_gen.GenerateValuesClause(N / 2);
+    ASSERT_TRUE(db->Execute("insert into t1 " + stmt_t1 + ";").Valid());
+  }
+
+  {
+    // used tuples in joining two tables.
+    RandomTupleGen tuple_gen2(0x20240531215502);
+    tuple_gen2.AddInt(1, 100).AddInt(1, 1);
+    auto [stmt_t2, data_t2] = tuple_gen2.GenerateValuesClause(N / 2);
+    ASSERT_TRUE(db->Execute("insert into t2 " + stmt_t2 + ";").Valid());
+  }
+
+  {
+    // dangling tuples in joining two tables.
+    RandomTupleGen tuple_gen2(0x20240531215503);
+    tuple_gen2.AddInt(1, 100).AddInt(2, 10);
+    auto [stmt_t2, data_t2] = tuple_gen2.GenerateValuesClause(N / 2);
+    ASSERT_TRUE(db->Execute("insert into t2 " + stmt_t2 + ";").Valid());
+  }
+
+  auto result = db->Execute("select 1 from t1, t2 where t1.id = t2.idt1;");
+  ASSERT_TRUE(result.Valid());
+  DB_INFO("{}", result.GetTotalOutputSize());
+  ASSERT_EQ(result.GetTotalOutputSize(), (N / 2) * (N / 2) * 2 + (N / 2) * 2);
+
+  db = nullptr;
+  std::filesystem::remove_all("__tmp0214");
+}
+
+TEST(OptimizerTest, PredTransTable3Small) {
+  using namespace wing;
+  using namespace wing::wing_testing;
+  std::filesystem::remove_all("__tmp0215");
+  auto db = std::make_unique<wing::Instance>("__tmp0215", wing_test_options);
+  db->SetEnablePredTrans(true);
+  EXPECT_TRUE(
+      db->Execute("create table t1(a int64, b int64, c int64);").Valid());
+  EXPECT_TRUE(
+      db->Execute("create table t2(b int64, c int64, d int64);").Valid());
+  EXPECT_TRUE(
+      db->Execute("create table t3(c int64, d int64, e int64);").Valid());
+  // output is (x, x, 5, x, x) where x = 1, 2, 3, 4.
+  ASSERT_TRUE(
+      db->Execute("insert into t1 values(1, 1, 5), (2, 2, 5), (3, 3, 5), (4, "
+                  "4, 5), (114514, 5, 5), (114515, 6, 5), (114516, 8, 5);")
+          .Valid());
+  ASSERT_TRUE(db->Execute("insert into t2 values(1, 5, 1), (2, 5, 2), (3, 5, "
+                          "3), (4, 5, 4), (6, 5, 6), (7, 5, 7);")
+                  .Valid());
+  ASSERT_TRUE(db->Execute("insert into t3 values(5, 1, 1), (5, 2, 2), (5, 3, "
+                          "3), (5, 4, 4), (5, 5, 114514), (8, 5, 114515);")
+                  .Valid());
+  auto result = db->Execute(
+      "select 1 from t1, t2, t3 where t1.b = t2.b and t1.c = t2.c and t2.c = "
+      "t3.c and t2.d = t3.d;");
+  ASSERT_TRUE(result.Valid());
+  DB_INFO("{}", result.GetTotalOutputSize());
+  ASSERT_EQ(result.GetTotalOutputSize(), 24);
+
+  db = nullptr;
+  std::filesystem::remove_all("__tmp0215");
+}
+
+TEST(OptimizerTest, PredTransTable3Big) {
+  using namespace wing;
+  using namespace wing::wing_testing;
+  std::filesystem::remove_all("__tmp0217");
+  auto db = std::make_unique<wing::Instance>("__tmp0217", wing_test_options);
+  db->SetEnablePredTrans(true);
+  EXPECT_TRUE(db->Execute("create table t1(a int64, b int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t2(a int64, c int64);").Valid());
+  EXPECT_TRUE(db->Execute("create table t3(b int64, d int64);").Valid());
+  int N = 3000;
+
+  // t1
+  RandomTupleGen tuple_gen1(0x20240601004200);
+  tuple_gen1.AddInt(1, 10000).AddInt(1, 10000);
+  auto [stmt_t1, data_t1] = tuple_gen1.GenerateValuesClause(N);
+  ASSERT_TRUE(db->Execute("insert into t1 " + stmt_t1 + ";").Valid());
+
+  // t2
+  RandomTupleGen tuple_gen2(0x20240601004201);
+  tuple_gen2.AddInt(1, 10000).AddInt(1, 10000);
+  auto [stmt_t2, data_t2] = tuple_gen2.GenerateValuesClause(N);
+  ASSERT_TRUE(db->Execute("insert into t2 " + stmt_t2 + ";").Valid());
+
+  // t3
+  RandomTupleGen tuple_gen3(0x20240601004202);
+  tuple_gen3.AddInt(1, 10000).AddInt(1, 10000);
+  auto [stmt_t3, data_t3] = tuple_gen3.GenerateValuesClause(N);
+  ASSERT_TRUE(db->Execute("insert into t3 " + stmt_t3 + ";").Valid());
+
+  std::set<size_t> Aset, Bset;
+
+  size_t size_t123 = 0;
+  size_t size_t1 = 0, size_t12 = 0;
+  for (uint32_t i = 0; i < N; i++) {
+    bool flag_t1 = false;
+    for (uint32_t j = 0; j < N; j++)
+      if (data_t1.Get(i, 0).ReadInt() == data_t2.Get(j, 0).ReadInt()) {
+        bool flag = false;
+        for (uint32_t k = 0; k < N; k++)
+          if (data_t1.Get(i, 1).ReadInt() == data_t3.Get(k, 0).ReadInt()) {
+            size_t123 += 1;
+            if (!flag) {
+              size_t12 += 1;
+              Aset.insert(data_t1.Get(i, 0).ReadInt());
+              Bset.insert(data_t1.Get(i, 1).ReadInt());
+            }
+            flag = true;
+            flag_t1 = true;
+          }
+      }
+    if (flag_t1) {
+      size_t1 += 1;
+    }
+  }
+
+  size_t size_t2 = 0, size_t3 = 0;
+  for (uint32_t i = 0; i < N; i++) {
+    size_t2 += Aset.count(data_t2.Get(i, 0).ReadInt());
+    size_t3 += Bset.count(data_t3.Get(i, 0).ReadInt());
+  }
+  // DB_INFO("{}, {}, {}, {}", size_t123, size_t1, size_t2, size_t3);
+  DB_INFO("standard answer of total output: {}",
+      size_t123 * 2 + size_t12 + size_t1 + size_t2 + size_t3);
+
+  auto result = db->Execute(
+      "select 1 from (t1 join t2 on t1.a = t2.a) join t3 on t1.b = t3.b;");
+  ASSERT_TRUE(result.Valid());
+  DB_INFO("{}, {}", result.GetTotalOutputSize(), GetResultSetSize(result));
+  ASSERT_TRUE(result.GetTotalOutputSize() <=
+              size_t123 * 2 + size_t12 + size_t1 + size_t2 + size_t3 + 30);
+
+  db = nullptr;
+  std::filesystem::remove_all("__tmp0217");
+}

@@ -40,7 +40,7 @@ class Instance {
 
   // Enable cost based optimizer or not.
   // If cost based optimizer is not enabled, there will only be rule based
-  // optimizer.s
+  // optimizer.
   void SetEnableCostBased(bool value);
 
  private:

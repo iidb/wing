@@ -91,7 +91,7 @@ ExprVecExecutor ExprVecExecutor::CreateInternal(const Expr* expr,
     ret.func_ =
         [x = static_cast<const LiteralStringExpr*>(expr)->literal_value_](
             std::span<Vector> input, size_t count, Vector& result) -> int {
-      result = Vector(VectorType::Constant, LogicalType::INT, count);
+      result = Vector(VectorType::Constant, LogicalType::STRING, count);
       auto buf = StringVectorBuffer::Create();
       auto val = buf->AddString(x);
       result.SetAux(buf);
