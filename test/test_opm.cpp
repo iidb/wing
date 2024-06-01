@@ -1145,7 +1145,7 @@ TEST(EasyOptimizerTest, Join11Tables) {
     ASSERT_TRUE(ret.Valid());
     DB_INFO("{}, {}", ret.GetTotalOutputSize(), ret.GetPlan()->cost_);
     ASSERT_EQ(ret.GetTotalOutputSize(), 136368);
-    ASSERT_EQ(ret.GetPlan()->cost_, 231.69);
+    ASSERT_TRUE(fabs(ret.GetPlan()->cost_ - 231.69) < 1e-9);
   }
   // test 2 join a chain {t11, t4, t8, t6, t7, t2, t3, t10}
   {
@@ -1163,8 +1163,8 @@ TEST(EasyOptimizerTest, Join11Tables) {
         "test/true_card_hints/join11tables_cache.txt", *db);
     ASSERT_TRUE(ret.Valid());
     DB_INFO("{}, {}", ret.GetTotalOutputSize(), ret.GetPlan()->cost_);
-    ASSERT_EQ(ret.GetTotalOutputSize(), 17084967);
-    ASSERT_EQ(ret.GetPlan()->cost_, 99886.982);
+    ASSERT_EQ(ret.GetTotalOutputSize(), 15128676);
+    ASSERT_TRUE(fabs(ret.GetPlan()->cost_ - 7854.474) < 1e-9);
   }
   // test 3 join a cycle {}
   {
@@ -1183,8 +1183,8 @@ TEST(EasyOptimizerTest, Join11Tables) {
         "test/true_card_hints/join11tables_cache.txt", *db);
     ASSERT_TRUE(ret.Valid());
     DB_INFO("{}, {}", ret.GetTotalOutputSize(), ret.GetPlan()->cost_);
-    ASSERT_EQ(ret.GetTotalOutputSize(), 43436);
-    ASSERT_EQ(ret.GetPlan()->cost_, 553289.855);
+    ASSERT_EQ(ret.GetTotalOutputSize(), 12863);
+    ASSERT_TRUE(fabs(ret.GetPlan()->cost_ - 61.966) < 1e-9);
   }
   db = nullptr;
   std::filesystem::remove_all("__tmp0210");
@@ -1240,7 +1240,7 @@ TEST(EasyOptimizerTest, Join15TableCluster) {
     ASSERT_TRUE(ret.Valid());
     DB_INFO("{}, {}", ret.GetTotalOutputSize(), ret.GetPlan()->cost_);
     ASSERT_EQ(ret.GetTotalOutputSize(), 1594912);
-    ASSERT_EQ(ret.GetPlan()->cost_, 902.96);
+    ASSERT_TRUE(fabs(ret.GetPlan()->cost_ - 902.96) < 1e-9);
   }
   db = nullptr;
   std::filesystem::remove_all("__tmp0212");

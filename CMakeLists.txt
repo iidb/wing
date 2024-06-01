@@ -9,15 +9,14 @@ IF (NOT CMAKE_BUILD_TYPE)
 ENDIF()
 
 option(SAKURA_ONLINE_JUDGE "The online judge will set this to ON" OFF)
-
-if (SAKURA_ONLINE_JUDGE)
-  add_compile_definitions(SAKURA_ONLINE_JUDGE)
-endif()
+option(NOT_USE_CPPTRACE "Whether not to enable cpptrace (off by default)" OFF)
 
 # Submodules
 add_subdirectory(third_party/fmt)
 add_subdirectory(third_party/replxx)
-add_subdirectory(third_party/cpptrace)
+if (NOT NOT_USE_CPPTRACE)
+  add_subdirectory(third_party/cpptrace)
+endif()
 
 # Source files
 file(GLOB DB_SOURCE
@@ -100,7 +99,14 @@ endif()
 target_include_directories(${PROJECT_NAME} PRIVATE src third_party/fmt)
 target_include_directories(wing_lib PRIVATE src third_party/replxx/include third_party/fmt)
 target_link_libraries(wing_lib PRIVATE ${llvm_libs} fmt replxx)
-target_link_libraries(wing_lib PUBLIC pthread cpptrace::cpptrace)
+target_link_libraries(wing_lib PUBLIC pthread)
+if (SAKURA_ONLINE_JUDGE)
+  target_compile_definitions(wing_lib PUBLIC SAKURA_ONLINE_JUDGE)
+endif()
+if (NOT NOT_USE_CPPTRACE)
+  target_compile_definitions(wing_lib PUBLIC USE_CPPTRACE=1)
+  target_link_libraries(wing_lib PUBLIC cpptrace::cpptrace)
+endif()
 target_link_libraries(${PROJECT_NAME} PRIVATE wing_lib fmt)
 
 # Test
