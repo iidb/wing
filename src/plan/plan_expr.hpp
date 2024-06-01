@@ -20,13 +20,21 @@ class PredicateElement {
   BitVector left_bits_;
   BitVector right_bits_;
 
-  /* Check if left_bits_ and v have some intersection. */
-  bool CheckLeft(const BitVector& v) const {
+  /* Check if v contains left_bits_. */
+  bool CheckLeft(const BitVector& v) const { return left_bits_.ContainedIn(v); }
+
+  /* Check if v contains right_bits_. */
+  bool CheckRight(const BitVector& v) const {
+    return right_bits_.ContainedIn(v);
+  }
+
+  /* Check if v has intersection with left_bits_. */
+  bool CheckLeftIntersection(const BitVector& v) const {
     return left_bits_.HasIntersection(v);
   }
 
-  /* Check if right_bits_ and v have some intersection. */
-  bool CheckRight(const BitVector& v) const {
+  /* Check if v has intersection with right_bits_. */
+  bool CheckRightIntersection(const BitVector& v) const {
     return right_bits_.HasIntersection(v);
   }
 

@@ -29,15 +29,11 @@ class ConvertToHashJoinRule : public OptRule {
       auto t_node = static_cast<const JoinPlanNode*>(node);
       for (auto& a : t_node->predicate_.GetVec()) {
         if (a.expr_->op_ == OpType::EQ) {
-          if (!a.CheckRight(t_node->ch_->table_bitset_) &&
-              !a.CheckLeft(t_node->ch2_->table_bitset_) &&
-              a.CheckRight(t_node->ch2_->table_bitset_) &&
+          if (a.CheckRight(t_node->ch2_->table_bitset_) &&
               a.CheckLeft(t_node->ch_->table_bitset_)) {
             return true;
           }
-          if (!a.CheckLeft(t_node->ch_->table_bitset_) &&
-              !a.CheckRight(t_node->ch2_->table_bitset_) &&
-              a.CheckRight(t_node->ch_->table_bitset_) &&
+          if (a.CheckRight(t_node->ch_->table_bitset_) &&
               a.CheckLeft(t_node->ch2_->table_bitset_)) {
             return true;
           }
@@ -52,15 +48,11 @@ class ConvertToHashJoinRule : public OptRule {
     auto ret = std::make_unique<HashJoinPlanNode>();
     for (auto&& a : t_node->predicate_.GetVec()) {
       if (a.expr_->op_ == OpType::EQ) {
-        if (!a.CheckRight(t_node->ch_->table_bitset_) &&
-            !a.CheckLeft(t_node->ch2_->table_bitset_) &&
-            a.CheckRight(t_node->ch2_->table_bitset_) &&
+        if (a.CheckRight(t_node->ch2_->table_bitset_) &&
             a.CheckLeft(t_node->ch_->table_bitset_)) {
           ret->left_hash_exprs_.push_back(a.expr_->ch0_->clone());
           ret->right_hash_exprs_.push_back(a.expr_->ch1_->clone());
-        } else if (!a.CheckLeft(t_node->ch_->table_bitset_) &&
-                   !a.CheckRight(t_node->ch2_->table_bitset_) &&
-                   a.CheckRight(t_node->ch_->table_bitset_) &&
+        } else if (a.CheckRight(t_node->ch_->table_bitset_) &&
                    a.CheckLeft(t_node->ch2_->table_bitset_)) {
           ret->right_hash_exprs_.push_back(a.expr_->ch0_->clone());
           ret->left_hash_exprs_.push_back(a.expr_->ch1_->clone());

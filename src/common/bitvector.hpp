@@ -44,11 +44,12 @@ class BitVector {
     alloc_size_ = _get_alloc_size64(size_) * kBitSize / 8;
     std::memcpy(mem_.get(), v.mem_.get(), alloc_size_);
   }
-  BitVector(BitVector&& v) : size_(v.size_), mem_(std::move(v.mem_)) {}
+  BitVector(BitVector&& v)
+    : size_(v.size_), alloc_size_(v.alloc_size_), mem_(std::move(v.mem_)) {}
   BitVector& operator=(const BitVector& v) {
     size_ = v.size_;
-    mem_ = std::unique_ptr<uint64_t[]>(new uint64_t[_get_alloc_size64(size_)]);
-    alloc_size_ = _get_alloc_size64(size_) * kBitSize / 8;
+    mem_ = std::unique_ptr<uint64_t[]>(new uint64_t[v.alloc_size_]);
+    alloc_size_ = v.alloc_size_;
     std::memcpy(mem_.get(), v.mem_.get(), alloc_size_);
     return *this;
   }
@@ -140,11 +141,24 @@ class BitVector {
     return ret;
   }
 
+  bool ContainedIn(const BitVector& v) const {
+    for (uint32_t i = 0; i < alloc_size_ * 8 / kBitSize; i++) {
+      auto vx = i < v.alloc_size_ * 8 / kBitSize ? v.mem_.get()[i] : 0;
+      auto x = mem_.get()[i] & vx;
+      if (x != mem_.get()[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   bool HasIntersection(const BitVector& v) const {
-    for (uint32_t i = 0; i < _get_alloc_size64(std::min(size_, v.size_)); i++) {
-      auto x = mem_.get()[i] & v.mem_.get()[i];
-      if (x)
+    for (uint32_t i = 0;
+         i < alloc_size_ * 8 / kBitSize && i < v.alloc_size_ * 8 / kBitSize;
+         i++) {
+      if (mem_.get()[i] & v.mem_.get()[i]) {
         return true;
+      }
     }
     return false;
   }
