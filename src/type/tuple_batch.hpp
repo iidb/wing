@@ -91,6 +91,8 @@ class TupleBatch {
 
   std::vector<LogicalType> GetColElemTypes() const;
 
+  LogicalType GetElemType(size_t i) const { return cols_[i].GetElemType(); }
+
   void Clear();
 
   /* C++-style iterator */
@@ -99,7 +101,7 @@ class TupleBatch {
     SingleTuple(std::span<const Vector> data, size_t tuple_idx)
       : data_(data), tuple_idx_(tuple_idx) {}
 
-    StaticFieldRef operator[](const size_t col_idx) {
+    StaticFieldRef operator[](const size_t col_idx) const {
       return data_[col_idx].Get(tuple_idx_);
     }
 

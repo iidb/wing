@@ -158,6 +158,8 @@ class TupleStore {
   /* Get all tuples. */
   const std::vector<uint8_t*>& GetPointerVec() const { return pointer_vec_; }
 
+  size_t size() const { return pointer_vec_.size(); }
+
  private:
   /* The TupleArray. */
   TupleArray tuple_vec_;

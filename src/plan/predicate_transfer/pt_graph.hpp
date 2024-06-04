@@ -39,7 +39,9 @@ class PtGraph {
  private:
   void Dfs(const PlanNode* plan);
 
+  /* The graph */
   std::map<std::string, std::vector<Edge>> graph_;
+  /* The seq scan plan nodes */
   std::map<std::string, std::unique_ptr<PlanNode>> table_scan_plans_;
 };
 

@@ -57,6 +57,8 @@ class ResultSet {
 
   size_t GetTotalOutputSize() const { return stat_total_output_size_; }
 
+  size_t GetSize() const { return tuple_store_.size(); }
+
   const std::unique_ptr<PlanNode>& GetPlan() const { return plan_; }
 
  private:
