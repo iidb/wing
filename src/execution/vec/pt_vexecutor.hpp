@@ -13,12 +13,13 @@ class PtVecExecutor : public VecExecutor {
       ch_(std::move(ch)),
       reducer_(std::move(reducer)) {}
 
-  void Init() override { ch_->Init(); }
+  void Init() override {}
 
   TupleBatch InternalNext() override {
     if (!init_flag_) {
       init_flag_ = true;
       reducer_->Execute();
+      ch_->Init();
     }
     return ch_->Next();
   }
