@@ -50,6 +50,13 @@ std::unique_ptr<VecExecutor> ExecutorGenerator::GenerateVec(
         print_plan->num_fields_per_tuple_);
   }
 
+  else if (plan->type_ == PlanType::Filter) {
+    auto filter_plan = static_cast<const FilterPlanNode*>(plan);
+    return std::make_unique<FilterVecExecutor>(db.GetOptions().exec_options,
+        filter_plan->predicate_.GenExpr(), filter_plan->ch_->output_schema_,
+        GenerateVec(filter_plan->ch_.get(), db, txn_id));
+  }
+
   throw DBException("Unsupported plan node.");
 }
 
